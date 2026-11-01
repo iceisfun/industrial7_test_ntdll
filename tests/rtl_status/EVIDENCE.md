@@ -90,3 +90,44 @@ Wine is a smoke check, not the Windows oracle. No invalid pointers, resource
 exhaustion, private TEB layout writes, or process-global error configuration.
 The function-level `/asm` query for NoTeb returned HTTP 404; cold-helper asm,
 raw bytes and decompilation were available and used instead.
+
+## Adversarial review (2026-10-31)
+
+Independently re-fetched the module metadata, all tested state routines'
+decompilations (the setter/restore aliases share 0x507c0), the two mapping
+tables above, the cold fallback assembly and its return bytes. Re-decoding
+all 309 run records reproduced every original MAP expectation. The PDB
+`/api/types/ntdll/_TEB` reports LastErrorValue at 104 (0x68), size 4, and
+LastStatusValue at 4688 (0x1250), size 4; tests do not access those offsets.
+Raw review responses are in `/tmp/opencode/ntdll_review_corpus/`.
+
+Added four cases supported by the same Windows image:
+
+- 0x80000003 -> 0x80000003 uses the width-2 run at 0x80000001,
+  count 7, index 191, catching accidental 16-bit return truncation.
+- 0xf0000022 -> unchanged, because customer bit 29 precedes NT-bit handling.
+- 0xd0011234 -> 0x1234, because normalization precedes legacy fallback.
+- 0xd0070005 -> 317, **not 5**. At 0x50898..0x508a2 the top-nibble
+  comparison branches to 0xba3a2, which clears bit 28 and jumps directly to
+  0x508a8 (table search), not back to the facility-7 check at 0x50886.
+  The facility branch at 0x5098b rejects top byte 0xd0 and rejoins at
+  0x50896. No run contains normalized 0xc0070005. NoTeb's decompilation
+  and raw hot bytes at 0x759e0 independently show the same ordering.
+
+Fixed the child fixture to save/restore its own two error fields on success
+and thread-creation failure, and close the handle/restore before exiting
+on wait failure. Immediate process exit on the latter path prevents the
+worker from outliving its stack result buffer. No post-mutation REQUIRE or
+nonfatal skip can bypass cleanup. The parent's child-missing-export skip
+already restores first and explicitly returns. Failure branches were
+reviewed statically, not fault-injected; all waits remain bounded.
+
+Build succeeded without diagnostics in `/tmp/opencode/ntdll_review_build.log`.
+Smoke used only
+`TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_status.exe`.
+`/tmp/opencode/ntdll_review_status.log:115` records:
+`SUMMARY tests=55 failed=1 skipped=0 checks_pass=406 checks_fail=3`.
+The runner exited 1. Lines 23-25 are the three conversion/setter assertions
+for 0xd0070005: Wine returns 5, Windows-image expectation is 317. This is
+retained as a Windows-backed conformance difference, not skipped or changed
+to Wine behavior. No Windows runtime validation was available.

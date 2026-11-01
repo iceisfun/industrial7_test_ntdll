@@ -93,3 +93,45 @@ A_SHA*, MD4 and MD5 were not added: their exact context layouts were not
 verified in this pass. RtlRandom/RtlRandomEx were excluded to avoid shared
 global state. No invalid input pointers, exhaustion, or product cryptography
 changes. All buffers are bounded local arrays or read-only literal vectors.
+
+## Adversarial review (2026-10-31)
+
+Re-queried Windows module metadata, CRC wrapper assembly, ComputeCrc32 and
+shared-helper decompilation, both descriptors and both complete 256-entry
+QWORD byte tables (`len=2048` at 0x12ce40 / 0x13ca90). Independently
+regenerating all entries with reflected 0x82f63b78 / 0x9a6c9329ac4bc9b5
+matched all 512 image entries. Re-fetched IEEE table[128] at 0x127450.
+Descriptor+0x18 also contains the respective polynomial and +0x20 the
+initial/final XOR mask. All fixed string and binary vectors were recomputed
+independently and matched. Argument order, 32/64-bit seed width, return width,
+and extension by feeding the previous finalized CRC agree with the inspected
+Windows implementation. Review responses are retained under
+`/tmp/opencode/ntdll_review_corpus/`.
+
+Added one 65-byte unaligned all-bits-set seed case per CRC, including a full
+64-bit seed for Crc64. Every two-chunk split now checks Win32 error
+preservation too, including the empty-prefix and empty-suffix calls. These
+are bounded local fixtures; no null/invalid buffer probes were added.
+REQUIRE returns from the helper on a missing export; there is no fallthrough
+after the harness's nonfatal t_skip. No SHA or unverified context was invoked.
+
+RtlUniform's complete assembly at 0x74b20..0x74b60 only reads/writes the
+caller-provided seed; there are no calls or global-memory accesses in that
+inspected implementation. Its reciprocal reduction was compared with the
+modulus expression for the eight fixture seeds plus 10,000 reproducible
+32-bit samples (not exhaustive). The SDK Seed in/out description was also
+re-fetched. This supports this build's seeded sequence, not a claim about
+process-global randomness or other Windows versions; RtlRandom/Ex remain
+out of scope.
+
+Build succeeded without diagnostics in `/tmp/opencode/ntdll_review_build.log`.
+Smoke used only
+`TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_hash.exe`.
+`/tmp/opencode/ntdll_review_hash.log:154` records:
+`SUMMARY tests=59 failed=0 skipped=34 checks_pass=2808 checks_fail=0`.
+The runner exited 0. All 34 skips explicitly report missing exports:
+17 RtlCrc32 and 17 RtlCrc64. These are unavailable in this Wine smoke,
+not optional in the reference image and not evidence of Windows execution.
+`/api/modules/ntdll/exports?q=RtlCrc&limit=10` confirms both reference
+exports, ordinals 831 / 832 at RVAs 0x7ea00 / 0xf63f0, without forwarders.
+Their tests still need an actual Windows run; expectations were not weakened.

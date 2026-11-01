@@ -88,6 +88,10 @@ MAP(unmapped,0xc0ffffff,317)
 MAP(unmapped_nt_bit,0xd0ffffff,317)
 MAP(info_facility_not_extracted,0x4007ffff,317)
 MAP(other_facility_not_extracted,0xc0080057,317)
+MAP(breakpoint_full_width,0x80000003,0x80000003)
+MAP(customer_precedes_nt_bit,0xf0000022,0xf0000022)
+MAP(nt_bit_facility_not_retested,0xd0070005,317)
+MAP(nt_bit_c001_fallback,0xd0011234,0x1234)
 
 static void setter_case(ULONG value, int restore)
 {
@@ -136,19 +140,30 @@ CHILD(rtl_status_thread)
 {
     struct thread_result r = {0};
     HANDLE thread;
-    ULONG error, status;
+    ULONG error, status, saved_error;
+    NTSTATUS saved_status;
+    int result;
     if (!U(RtlNtStatusToDosError) || !UN(RtlGetLastNtStatus) ||
         !UN(RtlGetLastWin32Error) || !UN(RtlRestoreLastWin32Error) ||
         !UN(RtlSetLastWin32ErrorAndNtStatusFromNtStatus)) return 77;
+    saved_status = UN(RtlGetLastNtStatus)();
+    saved_error = UN(RtlGetLastWin32Error)();
     UN(RtlSetLastWin32ErrorAndNtStatusFromNtStatus)((NTSTATUS)0xc0000022);
     thread = CreateThread(NULL,0,status_worker,&r,0,NULL);
-    if (!thread) return 1;
-    if (WaitForSingleObject(thread,10000) != WAIT_OBJECT_0) return 2;
+    if (!thread) { restore_state(saved_status,saved_error); return 1; }
+    if (WaitForSingleObject(thread,10000) != WAIT_OBJECT_0) {
+        CloseHandle(thread);
+        restore_state(saved_status,saved_error);
+        /* The child exits immediately; the worker must not outlive this stack. */
+        ExitProcess(2);
+    }
     CloseHandle(thread);
     error = UN(RtlGetLastWin32Error)(); status = (ULONG)UN(RtlGetLastNtStatus)();
-    return !(error == 5 && status == 0xc0000022 && r.error == 6 &&
-             r.status == 0xc0000008 && r.error_after == 0x87654321 &&
-             r.status_after == 0xc0000008);
+    result = !(error == 5 && status == 0xc0000022 && r.error == 6 &&
+              r.status == 0xc0000008 && r.error_after == 0x87654321 &&
+              r.status_after == 0xc0000008);
+    restore_state(saved_status,saved_error);
+    return result;
 }
 TEST(rtl_status_thread_isolation)
 {
