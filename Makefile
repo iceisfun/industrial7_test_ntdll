@@ -6,7 +6,7 @@ AREAS   := $(notdir $(wildcard tests/*))
 EXES    := $(addprefix build/,$(addsuffix .exe,$(AREAS)))
 all: $(EXES)
 .SECONDEXPANSION:
-build/%.exe: $$(wildcard tests/$$*/*.c) common/t.c common/t.h common/modules.h
+build/%.exe: $$(wildcard tests/$$*/*.c tests/$$*/*.h tests/$$*/*.inc) common/t.c common/t.h common/modules.h
 	@mkdir -p build
 	$(CC) $(CFLAGS) -Icommon -o $@ $(wildcard tests/$*/*.c) common/t.c -static -lkernel32
 clean: ; rm -rf build

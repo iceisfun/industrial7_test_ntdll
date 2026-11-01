@@ -7,6 +7,7 @@ static int g_pass, g_fail, g_cur_fail, g_cur_skip;
 static const char *g_cur;
 static jmp_buf g_jb;
 static volatile int g_in_test;
+static DWORD g_main_tid;
 
 HMODULE t_module(const char *dll) {
     DWORD e = GetLastError();
@@ -57,7 +58,7 @@ void t_skip(const char *fmt, ...) { va_list a; va_start(a, fmt); printf("  SKIP 
 /* A crash inside a test is reported as a failure of that test and the run continues. */
 static LONG CALLBACK veh(PEXCEPTION_POINTERS ep) {
     DWORD c = ep->ExceptionRecord->ExceptionCode;
-    if (!g_in_test) return EXCEPTION_CONTINUE_SEARCH;
+    if (!g_in_test || GetCurrentThreadId() != g_main_tid) return EXCEPTION_CONTINUE_SEARCH;
     if (c == 0x40010006 || c == 0x406D1388 || c == DBG_PRINTEXCEPTION_C || c == 0x4001000A) return EXCEPTION_CONTINUE_SEARCH;
     if ((c & 0xF0000000) != 0xC0000000) return EXCEPTION_CONTINUE_SEARCH;
     printf("  FAIL exception 0x%08lx at %p in %s\n", c, ep->ExceptionRecord->ExceptionAddress, g_cur);
@@ -122,6 +123,7 @@ int main(int argc, char **argv) {
     const char *filter = argc > 1 ? argv[1] : NULL;
     int ran = 0, tskip = 0, tfail = 0;
     setvbuf(stdout, NULL, _IONBF, 0);
+    g_main_tid = GetCurrentThreadId();
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
     if (argc > 2 && !strcmp(argv[1], "--child")) {
         for (int i = 0; i < g_nc; i++) if (!strcmp(g_c[i].n, argv[2])) return g_c[i].f(argc - 2, argv + 2);
