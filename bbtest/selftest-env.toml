@@ -1,0 +1,21 @@
+# Profile selftest@1: the namespace and cgroup checks of the nstest recipes run on the
+# selftest shape (4 cpus, 8 GiB, 15 minutes), as the worker's environment self check.
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "selftest-env"
+title = "worker environment self check (selftest profile)"
+kind = "selftest"
+[job.requires]
+profile = "selftest"
+limits = { deadline_s = 120 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "pid"
+run = ["/bin/sh", "bbtest/ns/pid.sh"]
+[[job.step]]
+name = "net"
+run = ["/bin/sh", "bbtest/ns/net.sh"]
+[[job.step]]
+name = "mount"
+run = ["/bin/sh", "bbtest/ns/mount.sh"]
