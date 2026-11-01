@@ -1,8 +1,8 @@
 #include "t.h"
-/* Smallest possible corpus test: load, resolve, invoke, check. Replace/remove after scaffolding. */
+/* Smallest possible corpus test: load, resolve, invoke, check. */
 TEST(smoke_module_loads) { CHECK(t_module("ntdll.dll") != NULL); }
 TEST(smoke_getprocaddress_negative) {
-    /* Valid negative tests: documented/verified failures an implementor must reproduce. */
+    /* Documented failure: GetProcAddress for an absent export returns NULL with ERROR_PROC_NOT_FOUND. */
     SET_ERR(0);
     FARPROC p = GetProcAddress(t_module("kernel32.dll"), "NoSuchExport_xyz");
     CHECK(p == NULL); EXPECT_ERR(ERROR_PROC_NOT_FOUND);
