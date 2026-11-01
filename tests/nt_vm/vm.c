@@ -26,11 +26,14 @@ static PVOID allocate_vm(SIZE_T bytes, ULONG flags, ULONG protect, SIZE_T *actua
     NTSTATUS s = UN(NtAllocateVirtualMemory)(SELF, &p, 0, &n, flags, protect);
     EXPECT_EQ(s, 0);
     if (s < 0 || !p) { if (s >= 0) CHECK(p != NULL); return NULL; }
+    EXPECT_EQ(n, rounded(bytes));
+    if (n != rounded(bytes)) { release_vm(p); return NULL; }
     if (actual) *actual = n;
     return p;
 }
 static int query_vm(PVOID p, MEMORY_BASIC_INFORMATION *m) {
     SIZE_T n = 0;
+    memset(m,0,sizeof *m);
     NTSTATUS s = UN(NtQueryVirtualMemory)(SELF, p, 0, m, sizeof *m, &n);
     EXPECT_EQ(s, 0);
     if (s < 0) return 0;
@@ -81,7 +84,10 @@ static void reserve_case(int mode) {
         if (s >= 0 && q) {
             EXPECT_EQ(z, page_size());
             if (query_vm(q, &m)) { EXPECT_EQ(m.State, MEM_COMMIT); EXPECT_EQ(m.AllocationBase, p); }
-            CHECK(((BYTE *)q)[0] == 0); CHECK(((BYTE *)q)[z-1] == 0);
+            EXPECT_EQ(q, (BYTE *)p + (mode == 2 ? page_size() : 0));
+            if (q == (BYTE *)p + (mode == 2 ? page_size() : 0) && z == page_size()) {
+                CHECK(((BYTE *)q)[0] == 0); CHECK(((BYTE *)q)[z-1] == 0);
+            }
         }
     }
     release_vm(p);
@@ -146,9 +152,10 @@ static void protect_failure(int zero) {
     VM_APIS(); REQUIRE(UN(NtProtectVirtualMemory));
     PVOID p = allocate_vm(page_size(), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE, NULL);
     if (!p) return;
-    PVOID q = p; SIZE_T n = zero ? 0 : page_size(); ULONG old = 0;
+    PVOID q = p; SIZE_T n = zero ? 0 : page_size(); ULONG old = 0xa5a5a5a5;
     NTSTATUS s = UN(NtProtectVirtualMemory)(SELF, &q, &n, zero ? PAGE_READONLY : 0, &old);
     EXPECT_EQ(s, zero ? ST(0xc00000f1) : ST(0xc0000045));
+    if (s < 0) { EXPECT_EQ(q,p); EXPECT_EQ(n,zero ? 0 : page_size()); EXPECT_EQ(old,0xa5a5a5a5); }
     release_vm(p);
 }
 TEST(nt_vm_protect_zero_size_status) { protect_failure(1); }
@@ -199,9 +206,13 @@ static void decommit_case(int recommit) {
         if (query_vm(p, &m)) EXPECT_EQ(m.State, MEM_RESERVE);
         if (query_vm((BYTE *)p+page_size(), &m)) EXPECT_EQ(m.State, MEM_COMMIT);
         if (recommit) {
+            q=p; n=page_size();
             s = UN(NtAllocateVirtualMemory)(SELF, &q, 0, &n, MEM_COMMIT, PAGE_READWRITE);
             EXPECT_EQ(s, 0);
-            if (s >= 0) { int zero = 1; for (SIZE_T i=0;i<n;++i) if (((BYTE *)q)[i]) zero=0; CHECK(zero); }
+            if (s >= 0) {
+                EXPECT_EQ(q,p); EXPECT_EQ(n,page_size());
+                if (q==p && n==page_size()) { int zero = 1; for (SIZE_T i=0;i<n;++i) if (((BYTE *)q)[i]) zero=0; CHECK(zero); }
+            }
         }
     }
     release_vm(p);
@@ -209,11 +220,15 @@ static void decommit_case(int recommit) {
 TEST(nt_vm_decommit_rounding) { decommit_case(0); }
 TEST(nt_vm_recommit_zero_fills) { decommit_case(1); }
 TEST(nt_vm_free_conflicting_types_rejected) {
-    VM_APIS(); PVOID p = allocate_vm(1, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE, NULL);
+    VM_APIS(); REQUIRE(UN(NtQueryVirtualMemory)); PVOID p = allocate_vm(1, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE, NULL);
     if (!p) return;
     PVOID q=p; SIZE_T n=page_size(); NTSTATUS s=UN(NtFreeVirtualMemory)(SELF,&q,&n,MEM_RELEASE|MEM_DECOMMIT);
     EXPECT_EQ(s,ST(0xc00000f2));
-    if (s<0) release_vm(p);
+    if (s<0) { EXPECT_EQ(q,p); EXPECT_EQ(n,page_size()); release_vm(p); }
+    else {
+        MEMORY_BASIC_INFORMATION m;
+        if (query_vm(p,&m) && m.State!=MEM_FREE && m.AllocationBase==p) release_vm(p);
+    }
 }
 
 typedef struct { PVOID BaseAddress; ULONG AllocationAttributes; LARGE_INTEGER MaximumSize; } VM_SECTION_BASIC;
@@ -223,21 +238,29 @@ static void section_case(SIZE_T bytes, SIZE_T requested, ULONG protection, int m
     LARGE_INTEGER max; max.QuadPart=bytes; HANDLE h=NULL;
     NTSTATUS s=UN(NtCreateSection)(&h, SECTION_QUERY|SECTION_MAP_READ|SECTION_MAP_WRITE, NULL, &max, PAGE_READWRITE, SEC_COMMIT, NULL);
     EXPECT_EQ(s,0); if(s<0 || !h) { if(s>=0) CHECK(h!=NULL); return; }
-    VM_SECTION_BASIC info; SIZE_T got=0;
+    VM_SECTION_BASIC info={0}; SIZE_T got=0;
     s=UN(NtQuerySection)(h,0,&info,sizeof info,&got); EXPECT_EQ(s,0);
     if(s>=0) { EXPECT_EQ(got,sizeof info); EXPECT_EQ(info.MaximumSize.QuadPart,rounded(bytes)); CHECK(info.AllocationAttributes & SEC_COMMIT); }
     PVOID p=NULL; SIZE_T n=requested;
     s=UN(NtMapViewOfSection)(h,SELF,&p,0,0,NULL,&n,2,0,protection); EXPECT_EQ(s,0);
     if(s>=0 && p) {
         EXPECT_EQ(n, requested ? rounded(requested) : rounded(bytes));
+        if(n != (requested ? rounded(requested) : rounded(bytes))) {
+            EXPECT_EQ(UN(NtUnmapViewOfSection)(SELF,p),0); CHECK(CloseHandle(h)); return;
+        }
         int zero=1; for(SIZE_T i=0;i<n;++i) if(((BYTE *)p)[i]) zero=0; CHECK(zero);
         if(mode==1) {
             PVOID q=NULL; SIZE_T z=0;
             s=UN(NtMapViewOfSection)(h,SELF,&q,0,0,NULL,&z,2,0,PAGE_READWRITE); EXPECT_EQ(s,0);
-            if(s>=0 && q) { ((BYTE *)p)[0]=0x67; EXPECT_EQ(((BYTE *)q)[0],0x67); ((BYTE *)q)[z-1]=0x39; EXPECT_EQ(((BYTE *)p)[z-1],0x39); EXPECT_EQ(UN(NtUnmapViewOfSection)(SELF,q),0); }
+            if(s>=0 && q) {
+                EXPECT_EQ(z,n);
+                if(z==n) { ((BYTE *)p)[0]=0x67; EXPECT_EQ(((BYTE *)q)[0],0x67); ((BYTE *)q)[z-1]=0x39; EXPECT_EQ(((BYTE *)p)[z-1],0x39); }
+                EXPECT_EQ(UN(NtUnmapViewOfSection)(SELF,q),0);
+            } else if(s>=0) CHECK(q!=NULL);
         }
-        if(mode==2) { CHECK(CloseHandle(h)); h=NULL; EXPECT_EQ(((BYTE *)p)[0],0); }
-        EXPECT_EQ(UN(NtUnmapViewOfSection)(SELF,mode==3 ? (BYTE *)p+7 : p),0);
+        if(mode==2) { BOOL closed=CloseHandle(h); CHECK(closed); if(closed) h=NULL; EXPECT_EQ(((BYTE *)p)[0],0); }
+        s=UN(NtUnmapViewOfSection)(SELF,mode==3 ? (BYTE *)p+7 : p); EXPECT_EQ(s,0);
+        if(s<0 && mode==3) EXPECT_EQ(UN(NtUnmapViewOfSection)(SELF,p),0);
     } else if(s>=0) CHECK(p!=NULL);
     if(h) CHECK(CloseHandle(h));
 }
@@ -252,12 +275,15 @@ TEST(nt_vm_section_unmap_interior_address) { section_case(page_size(),0,PAGE_REA
 static void section_query_failure(SIZE_T length, ULONG cls) {
     SECTION_APIS(); HANDLE h=NULL; LARGE_INTEGER max; max.QuadPart=page_size();
     NTSTATUS s=UN(NtCreateSection)(&h,SECTION_QUERY,NULL,&max,PAGE_READWRITE,SEC_COMMIT,NULL);
-    EXPECT_EQ(s,0); if(s<0 || !h) return;
-    VM_SECTION_BASIC info; SIZE_T got=0;
+    EXPECT_EQ(s,0); if(s<0 || !h) { if(s>=0) CHECK(h!=NULL); return; }
+    VM_SECTION_BASIC info, before; SIZE_T got=0xabcdef;
+    memset(&info,0xa5,sizeof info); memcpy(&before,&info,sizeof info);
     s=UN(NtQuerySection)(h,cls,&info,length,&got);
     EXPECT_EQ(s,cls==0 ? ST(0xc0000004) : ST(0xc0000003));
+    if(s<0) { EXPECT_EQ(got,0xabcdef); CHECK(!memcmp(&info,&before,sizeof info)); }
     CHECK(CloseHandle(h));
 }
 TEST(nt_vm_section_query_zero_length) { section_query_failure(0,0); }
 TEST(nt_vm_section_query_short_length) { section_query_failure(sizeof(VM_SECTION_BASIC)-1,0); }
 TEST(nt_vm_section_query_invalid_class) { section_query_failure(sizeof(VM_SECTION_BASIC),0xffffffff); }
+TEST(nt_vm_section_query_invalid_class_before_length) { section_query_failure(0,0xffffffff); }
