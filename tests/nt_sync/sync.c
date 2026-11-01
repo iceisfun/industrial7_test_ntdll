@@ -307,6 +307,8 @@ static void named_roundtrip(int kind) {
     else if (kind == 1) s = UN(NtCreateSemaphore)(&h, ALL_SYNC, &oa, 2, 4);
     else if (kind == 2) s = UN(NtCreateMutant)(&h, MUTANT_ACCESS, &oa, FALSE);
     else s = UN(NtCreateTimer)(&h, ALL_SYNC, &oa, 0);
+    /* Creating objects in the global namespace directory depends on the caller's rights. */
+    if (s == DENIED || s == S(0xc000003a)) { t_skip("cannot create named object in \\BaseNamedObjects (%08lx)", (ULONG)s); return; }
     if (!ready(h, s)) return;
     if (kind == 0) s = UN(NtOpenEvent)(&opened, ALL_SYNC, &oa);
     else if (kind == 1) s = UN(NtOpenSemaphore)(&opened, ALL_SYNC, &oa);
