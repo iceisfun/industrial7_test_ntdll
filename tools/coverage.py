@@ -24,7 +24,11 @@ def inventory(root):
         if path.suffix not in ('.c', '.h'):
             continue
         text = strip_comments(path.read_text())
+        literals = list(re.finditer(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', text))
+        code = re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', lambda m: ' ' * len(m[0]), text)
         for match in re.finditer(resolver, text):
+            if any(literal.start() <= match.start() < literal.end() for literal in literals):
+                continue
             name = next(value for value in match.groupdict().values() if value)
             if name not in exports:
                 continue
@@ -39,7 +43,7 @@ def inventory(root):
             assignment = re.search(r'([A-Za-z_]\w*(?:\s*(?:\.|->)\s*[A-Za-z_]\w*)?)\s*=\s*(?:\([^;=]*\)\s*)?$', prefix)
             if assignment:
                 variable = re.sub(r'\s+', '', assignment[1])
-                if re.search(r'(?<![\w])' + re.escape(variable) + r'\s*\(', text):
+                if re.search(r'(?<![\w])' + re.escape(variable) + r'\s*\(', code):
                     called.setdefault(name, set()).add(location)
     public_path = root / 'tools/public_surface.txt'
     public = set(public_path.read_text().splitlines()) & exports if public_path.exists() else set()
