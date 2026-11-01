@@ -15,7 +15,7 @@ lines = ['# Coverage', '',
          '- %d named exports have static invocation candidates; %d do not.' % (coverage['static_invocation_candidates'], len(coverage['not_invoked'])),
          '- %d names in the documentation-derived surface; %d have static invocation candidates.' % (coverage['documented_surface'], coverage['documented_invocation_candidates']), '',
          '- Of those, %d names have full user-context documentation matches; %d have static invocation candidates. The remaining documentation matches are partial/variant/kernel-context evidence, not full user-mode contracts.' % (coverage['full_user_contract_surface'], coverage['full_user_contract_invocation_candidates']), '',
-         'These are **source-level candidates**, not proof of executed, asserted, deep, or Windows-correct behavior. Resolution-only checks do not count as calls. Macro-built names/helper indirection can be missed. See `tools/coverage.json` for detected source locations, `tools/uncovered.txt` for all static gaps, `tools/public_uncovered.txt` for documentation-surface gaps, and `tools/full_user_uncovered.txt` for full-user-context gaps.', '',
+         'These are **source-level candidates**, not proof of executed, asserted, deep, or Windows-correct behavior. Resolution-only checks do not count as calls. This inventory also uses compiler preprocessing to expand test macros; indirect helpers/aliases may still require manual review. Expanded locations are explicitly not original source line numbers. See `tools/coverage.json` for detected source locations, `tools/uncovered.txt` for all static gaps, `tools/public_uncovered.txt` for documentation-surface gaps, and `tools/full_user_uncovered.txt` for full-user-context gaps.', '',
          'The documented surface is derived reproducibly by `tools/map_public_surface.py`; its evidence distinguishes user-mode contracts from partial/kernel-context documentation. Header presence alone is not a behavioral contract. Consult `tools/public_surface_evidence.json` and `tools/public_surface_gaps.txt` before interpreting a denominator.', '',
          '## Areas and integrated Wine smoke', '',
          '| Area | Tests | Failed | Skipped | Checks pass/fail | Completed |',
@@ -31,7 +31,7 @@ lines += ['', 'Most behavioral areas include `tests/<area>/EVIDENCE.md` with act
           '- Exhaustive syscall validation/ordering, ALPC/LPC, ETW, transactions, loader internals, WNF, activation contexts, exception/unwind edge cases, advanced threadpool/I/O and undocumented internal RTL families remain gap/depth work.',
           '- Locale/NLS/DBCS, alternate architecture, privilege/elevation, hardware/SKU, alternate heap modes, real-world filesystem and cross-process races need dedicated passes.',
           '- No shutdown, account/security disabling, raw-disk or system-process destructive tests are included.', '',
-          'Regenerate after a clean build/run:', '', '```sh', 'python3 tools/coverage.py',
+          'Regenerate after a clean build/run:', '', '```sh', 'python3 tools/coverage.py --preprocess',
           'python3 tools/audit_build.py > results/build_audit.json', 'python3 tools/record_validation.py', 'python3 tools/write_reports.py', '```', '']
 (root / 'COVERAGE.md').write_text('\n'.join(lines))
 

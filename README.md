@@ -58,10 +58,10 @@ Hard assertions are grounded in documentation, actual implementation branches, o
 See [COVERAGE.md](COVERAGE.md) for areas, static call inventory, documented surface and explicit gaps. Regenerate the conservative source inventory with:
 
 ```sh
-python3 tools/coverage.py
+python3 tools/coverage.py --preprocess
 ```
 
-This is **not** runtime coverage or proof of checked behavior. Resolution-only expressions do not count as invocations; macro-generated/indirect calls can require manual review. The export sweep inspects the host's PE export table, checks name/ordinal consistency and image-evidenced Nt/Zw aliases, and resolves baseline entries without invoking unknown signatures.
+This is **not** runtime coverage or proof of checked behavior. Resolution-only expressions do not count as invocations. `--preprocess` expands test macros with the build compiler, recovering macro-generated names; indirect/aliased calls can still require manual review. Preprocessed locations are explicitly not original source line numbers. The export sweep inspects the host's PE export table, checks name/ordinal consistency and image-evidenced Nt/Zw aliases, and resolves baseline entries without invoking unknown signatures.
 
 The optional `tools/map_public_surface.py` regeneration tool also needs **libclang** and matching builtin headers (defaults: the already-installed libclang 15). This is not a build/test dependency; it uses Python `ctypes`, not an added Python package. Use `--libclang`/`--resource-dir` to override. Its 613 documented-name matches include partial kernel/variant evidence; only 158 are full user-context matches under the recorded mapping rules.
 

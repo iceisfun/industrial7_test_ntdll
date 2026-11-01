@@ -9,6 +9,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import subprocess
 
 
 def strip_comments(text):
@@ -16,14 +17,31 @@ def strip_comments(text):
     return token.sub(lambda m: ('\n' * m[0].count('\n') or ' ') if m[0].startswith(('/', '/*')) else m[0], text)
 
 
-def inventory(root):
+def preprocessed_test_source(root, path):
+    output = subprocess.check_output(['x86_64-w64-mingw32-gcc', '-E', '-O1', '-Icommon', str(path)], cwd=root, text=True)
+    selected, active = [], False
+    for line in output.splitlines():
+        marker = re.match(r'#\s+\d+\s+"([^"]+)"', line)
+        if marker:
+            origin = Path(marker[1])
+            if not origin.is_absolute():
+                origin = root / origin
+            active = origin.resolve().is_relative_to(root / 'tests')
+        elif active:
+            selected.append(line)
+    return '\n'.join(selected)
+
+
+def inventory(root, preprocess=False):
     exports = set((root / 'tools/ntdll_exports.txt').read_text().splitlines())
     called, resolved = {}, {}
     resolver = r'(?:\b(?:U|UN)\s*\(\s*(?P<plain>\w+)\s*\)|\bUIN\s*\(\s*"[^"]+"\s*,\s*(?P<pinned>\w+)\s*\)|\bt_proc(?:_in)?\s*\(\s*(?:"[^"]+"\s*,\s*)?"(?P<quoted>\w+)"\s*\))'
-    for path in sorted((root / 'tests').rglob('*')):
-        if path.suffix not in ('.c', '.h'):
-            continue
-        text = strip_comments(path.read_text())
+    paths = sorted(p for p in (root / 'tests').rglob('*') if p.suffix in ('.c', '.h'))
+    sources = [(p, p.read_text(), False) for p in paths]
+    if preprocess:
+        sources += [(p, preprocessed_test_source(root, p), True) for p in paths if p.suffix == '.c']
+    for path, source, expanded in sources:
+        text = strip_comments(source)
         literals = list(re.finditer(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', text))
         code = re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', lambda m: ' ' * len(m[0]), text)
         for match in re.finditer(resolver, text):
@@ -33,9 +51,11 @@ def inventory(root):
             if name not in exports:
                 continue
             location = '%s:%d' % (path.relative_to(root), text.count('\n', 0, match.start()) + 1)
+            if expanded:
+                location = '%s [preprocessed; not an original line number]' % path.relative_to(root)
             resolved.setdefault(name, set()).add(location)
             tail = text[match.end():]
-            if re.match(r'\s*\(', tail):
+            if re.match(r'\s*\(', tail) or (expanded and re.match(r'\s*(?:\)\s*)+\(', tail)):
                 called.setdefault(name, set()).add(location)
                 continue
             # Restrict alias inference to the same source file and exact variable spelling.
@@ -51,7 +71,7 @@ def inventory(root):
     evidence = json.loads(evidence_path.read_text()) if evidence_path.exists() else {}
     full = {name for name, record in evidence.get('exports', {}).items()
             if any(doc.get('contract') == 'full' for doc in record['docs'])} & exports
-    return dict(total_named_exports=len(exports), static_invocation_candidates=len(called),
+    return dict(total_named_exports=len(exports), static_invocation_candidates=len(called), preprocessed=preprocess,
                 documented_surface=len(public), documented_invocation_candidates=len(public & called.keys()),
                 full_user_contract_surface=len(full), full_user_contract_invocation_candidates=len(full & called.keys()),
                 full_user_contract_not_invoked=sorted(full - called.keys()),
@@ -64,9 +84,10 @@ def inventory(root):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('root', type=Path, nargs='?', default=Path(__file__).resolve().parent.parent)
+    parser.add_argument('--preprocess', action='store_true', help='also expand test macros with the build compiler (no execution)')
     args = parser.parse_args()
     root = args.root.resolve()
-    data = inventory(root)
+    data = inventory(root, preprocess=args.preprocess)
     (root / 'tools/coverage.json').write_text(json.dumps(data, indent=2) + '\n')
     for filename, names in [('uncovered.txt', data['not_invoked']), ('public_uncovered.txt', data['documented_not_invoked']),
                             ('full_user_uncovered.txt', data['full_user_contract_not_invoked'])]:
