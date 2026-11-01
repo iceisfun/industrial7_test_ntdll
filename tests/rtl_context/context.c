@@ -85,7 +85,7 @@ static void trace_case(int kind)
     REQUIRE(U(RtlCaptureStackBackTrace));
     memset(&box, 0, sizeof(box)); box.guard = 0x123456789abcdef0ULL;
     if (kind == 5) {
-        /* Win10's explicit >=255 skip rejection precedes the stack walk. */
+        /* A skip count of 255 or more is rejected before the stack is walked. */
         n = U(RtlCaptureStackBackTrace)(255, 8, box.frames, &hash);
         EXPECT_EQ(n, 0); EXPECT_EQ(hash, 0xdeadbeef);
         for (int i = 0; i < 16; i++) EXPECT_EQ(box.frames[i], NULL);
