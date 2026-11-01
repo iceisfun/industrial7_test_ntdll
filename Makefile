@@ -10,3 +10,6 @@ build/%.exe: $$(wildcard tests/$$*/*.c tests/$$*/*.h tests/$$*/*.inc) common/t.c
 	@mkdir -p build
 	$(CC) $(CFLAGS) -Icommon -o $@ $(wildcard tests/$*/*.c) common/t.c -static -lkernel32
 clean: ; rm -rf build
+check-tools:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p 'test_*.py'
+audit: all
