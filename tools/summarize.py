@@ -1,20 +1,38 @@
 #!/usr/bin/env python3
-"""Aggregate results/*.txt written by run_all.bat (or wine_run.sh output files).
-usage: summarize.py <results_dir> [--failures]"""
-import glob, os, re, sys
-d = sys.argv[1]; show = "--failures" in sys.argv
-tt = tf = ts = cf = 0
-rows = []
-for f in sorted(glob.glob(os.path.join(d, "*.txt"))):
-    txt = open(f, errors="replace").read()
-    m = re.findall(r"SUMMARY tests=(\d+) failed=(\d+) skipped=(\d+) checks_pass=(\d+) checks_fail=(\d+)", txt)
-    if not m: rows.append((os.path.basename(f), "NO SUMMARY (crash/timeout?)")); continue
-    t, fl, sk, cp, cfl = map(int, m[-1]); tt += t; tf += fl; ts += sk; cf += cfl
-    rows.append((os.path.basename(f), f"tests={t} failed={fl} skipped={sk} checks_failed={cfl}"))
-    if show and fl:
-        cur = None
-        for line in txt.splitlines():
-            if line.startswith("RUN "): cur = line[5:]
-            elif line.startswith("  FAIL"): print(f"{os.path.basename(f)}: {cur}: {line.strip()}")
-for r in rows: print(f"{r[0]:40} {r[1]}")
-print(f"TOTAL tests={tt} failed={tf} skipped={ts} checks_failed={cf}")
+"""Aggregate harness logs; missing/duplicate summaries and failed checks fail the command."""
+import argparse
+from pathlib import Path
+import re
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('results', type=Path)
+    parser.add_argument('--failures', action='store_true')
+    args = parser.parse_args()
+    totals = [0] * 5
+    incomplete = 0
+    files = [p for p in sorted(args.results.glob('*.txt')) if not p.name.endswith('.stderr.txt')]
+    for path in files:
+        text = path.read_text(errors='replace')
+        matches = re.findall(r'^SUMMARY tests=(\d+) failed=(\d+) skipped=(\d+) checks_pass=(\d+) checks_fail=(\d+)\s*$', text, re.M)
+        if len(matches) != 1:
+            print('%-32s INCOMPLETE (summary count=%d)' % (path.name, len(matches)))
+            incomplete += 1
+            continue
+        values = list(map(int, matches[0]))
+        totals = [a + b for a, b in zip(totals, values)]
+        print('%-32s tests=%d failed=%d skipped=%d checks_pass=%d checks_fail=%d' % (path.name, *values))
+        if args.failures:
+            current = ''
+            for line in text.splitlines():
+                if line.startswith('RUN '):
+                    current = line[5:]
+                elif line.startswith('  FAIL'):
+                    print('%s: %s: %s' % (path.name, current, line.strip()))
+    print('TOTAL tests=%d failed=%d skipped=%d checks_pass=%d checks_fail=%d incomplete=%d' % (*totals, incomplete))
+    return int(not files or incomplete > 0 or totals[1] > 0 or totals[4] > 0)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
