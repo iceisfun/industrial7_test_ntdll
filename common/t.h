@@ -53,6 +53,7 @@ const char *t_self_path(void);
 
 /* Scratch directory unique to this process, removed at exit (trailing backslash). */
 const char *t_tmpdir(void);
+/* Leaf only (no path separators/colon or trailing dot/space); invalid/truncated paths exit 2. */
 void t_tmpfile(char *out, size_t cap, const char *leaf);
 
 /* ---- assertions (non-fatal, counted) ----------------------------------- */
