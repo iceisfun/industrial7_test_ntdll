@@ -14,6 +14,12 @@ UDECL(NTSTATUS, RtlUnicodeToUTF8N, (PCHAR, ULONG, PULONG, PCWSTR, ULONG));
 #define SMALL ((NTSTATUS)0xc0000023)
 #define OVERFLOW ((NTSTATUS)0x80000005)
 
+static void untouched(const void *buffer, unsigned from, unsigned size)
+{
+    const unsigned char *p = buffer;
+    for (unsigned i = from; i < size; ++i) CHECKF(p[i] == 0x55,"byte %u got 0x%x want 0x55",i,p[i]);
+}
+
 /* All active ANSI/OEM code pages agree on these ASCII values, including NUL. */
 static void raw_case(unsigned kind, ULONG cap, BOOL no_count)
 {
@@ -28,6 +34,7 @@ static void raw_case(unsigned kind, ULONG cap, BOOL no_count)
         EXPECT_EQ(st,kind==1 && n<4?OVERFLOW:0);
         if(!no_count) EXPECT_EQ(count,n*2);
         CHECK(!memcmp(w,wide,n*2)); EXPECT_EQ(w[n],0x5555);
+        untouched(w,n*2,sizeof w);
     } else {
         n=cap<4?cap:4;
         if(kind==2) { REQUIRE(UN(RtlUnicodeToMultiByteN)); st=UN(RtlUnicodeToMultiByteN)(a,cap,no_count?NULL:&count,wide,8); }
@@ -35,6 +42,7 @@ static void raw_case(unsigned kind, ULONG cap, BOOL no_count)
         EXPECT_EQ(st,kind==3 && n<4?OVERFLOW:0);
         if(!no_count) EXPECT_EQ(count,n);
         CHECK(!memcmp(a,input,n)); EXPECT_EQ(a[n],0x55);
+        untouched(a,n,sizeof a);
     }
 }
 #define RAW(n,k,c,z) TEST(rtl_conversion_raw_##n) { raw_case(k,c,z); }
@@ -67,18 +75,22 @@ static void descriptor_case(unsigned kind, USHORT cap, BOOL allocate, BOOL empty
         else { REQUIRE(UN(RtlOemStringToUnicodeString)); st=UN(RtlOemStringToUnicodeString)(&wd,&as,allocate); }
         EXPECT_EQ(st,!allocate && cap<len*2+2?OVERFLOW:0); EXPECT_EQ(wd.Length,len*2);
         EXPECT_EQ(wd.MaximumLength,allocate?len*2+2:cap);
-        if(st==0) { CHECK(wd.Buffer!=NULL); if(wd.Buffer) { CHECK(!memcmp(wd.Buffer,ws.Buffer,len*2)); EXPECT_EQ(wd.Buffer[len],0); } }
-        else EXPECT_EQ(w[0],0x5555);
-        if(allocate && wd.Buffer) { U(RtlFreeUnicodeString)(&wd); EXPECT_EQ(wd.Buffer,NULL); EXPECT_EQ(wd.Length,0); EXPECT_EQ(wd.MaximumLength,0); }
+        if(!allocate) EXPECT_EQ(wd.Buffer,w);
+        else if(st==0) { EXPECT_NE((void *)wd.Buffer,(void *)as.Buffer); EXPECT_NE(wd.Buffer,w); }
+        if(st==0) { CHECK(wd.Buffer!=NULL); if(wd.Buffer && wd.MaximumLength>=len*2+2) { CHECK(!memcmp(wd.Buffer,ws.Buffer,len*2)); EXPECT_EQ(wd.Buffer[len],0); } }
+        if(!allocate) untouched(w,st==0?len*2+2:0,sizeof w);
+        if(allocate && wd.Buffer && (void *)wd.Buffer!=(void *)as.Buffer && wd.Buffer!=w) { U(RtlFreeUnicodeString)(&wd); EXPECT_EQ(wd.Buffer,NULL); EXPECT_EQ(wd.Length,0); EXPECT_EQ(wd.MaximumLength,0); }
     } else {
         if(kind==2) { REQUIRE(U(RtlFreeAnsiString)); REQUIRE(U(RtlUnicodeStringToAnsiString)); st=U(RtlUnicodeStringToAnsiString)(&ad,&ws,allocate); }
         else { REQUIRE(U(RtlFreeOemString)); REQUIRE(UN(RtlUnicodeStringToOemString)); st=UN(RtlUnicodeStringToOemString)(&ad,&ws,allocate); }
         EXPECT_EQ(st,!allocate && cap<len+1?OVERFLOW:0);
         unsigned written=!allocate && kind==2 && cap && cap<=len?cap-1:len;
         EXPECT_EQ(ad.Length,written); EXPECT_EQ(ad.MaximumLength,allocate?len+1:cap);
-        if(st==0 || (kind==2 && cap)) { CHECK(ad.Buffer!=NULL); if(ad.Buffer) { CHECK(!memcmp(ad.Buffer,as.Buffer,written)); EXPECT_EQ(ad.Buffer[written],0); } }
-        else EXPECT_EQ(a[0],0x55);
-        if(allocate && ad.Buffer) {
+        if(!allocate) EXPECT_EQ(ad.Buffer,a);
+        else if(st==0) { EXPECT_NE((void *)ad.Buffer,(void *)ws.Buffer); EXPECT_NE(ad.Buffer,a); }
+        if(st==0 || (kind==2 && cap && st==OVERFLOW)) { CHECK(ad.Buffer!=NULL); if(ad.Buffer && ad.MaximumLength>written) { CHECK(!memcmp(ad.Buffer,as.Buffer,written)); EXPECT_EQ(ad.Buffer[written],0); } }
+        if(!allocate) untouched(a,st==0 || (kind==2 && cap && st==OVERFLOW)?written+1:0,sizeof a);
+        if(allocate && ad.Buffer && (void *)ad.Buffer!=(void *)ws.Buffer && ad.Buffer!=a) {
             if(kind==2) { U(RtlFreeAnsiString)(&ad); EXPECT_EQ(ad.Buffer,NULL); EXPECT_EQ(ad.Length,0); EXPECT_EQ(ad.MaximumLength,0); }
             else { U(RtlFreeOemString)(&ad); /* Windows does not clear this descriptor. */ }
         }
@@ -89,13 +101,15 @@ DESC(ansi_zero,0,0,0,0) DESC(ansi_exact_data,0,6,0,0) DESC(ansi_exact_term,0,8,0
 DESC(oem_zero,1,0,0,0) DESC(oem_exact_data,1,6,0,0) DESC(oem_exact_term,1,8,0,0) DESC(oem_allocate,1,0,1,0) DESC(oem_empty,1,2,0,1)
 DESC(to_ansi_zero,2,0,0,0) DESC(to_ansi_one,2,1,0,0) DESC(to_ansi_exact_data,2,3,0,0) DESC(to_ansi_exact_term,2,4,0,0) DESC(to_ansi_allocate,2,0,1,0) DESC(to_ansi_empty,2,1,0,1)
 DESC(to_oem_zero,3,0,0,0) DESC(to_oem_exact_data,3,3,0,0) DESC(to_oem_exact_term,3,4,0,0) DESC(to_oem_allocate,3,0,1,0) DESC(to_oem_empty,3,1,0,1)
+DESC(ansi_empty_allocate,0,0,1,1) DESC(oem_empty_allocate,1,0,1,1)
+DESC(to_ansi_empty_allocate,2,0,1,1) DESC(to_oem_empty_allocate,3,0,1,1)
 
 /* UTF-8 arithmetic and surrogate assembly are explicit in the Windows bodies. */
 static void utf_case(unsigned v, BOOL encode, BOOL query)
 {
-    static const char *bytes[]={"A\0z","\xc2\xa2","\xe2\x82\xac","\xf0\x9f\x98\x80"};
-    static const WCHAR *wide[]={L"A\0z",L"\x00a2",L"\x20ac",L"\xd83d\xde00"};
-    static const ULONG bn[]={3,2,3,4}, wn[]={6,2,2,4};
+    static const char *bytes[]={"A\0z","\xc2\xa2","\xe2\x82\xac","\xf0\x9f\x98\x80",""};
+    static const WCHAR *wide[]={L"A\0z",L"\x00a2",L"\x20ac",L"\xd83d\xde00",L""};
+    static const ULONG bn[]={3,2,3,4,0}, wn[]={6,2,2,4,0};
     char a[16]; WCHAR w[16]; ULONG count=0x55555555;
     memset(a,0x55,sizeof a); for(unsigned i=0;i<16;++i) w[i]=0x5555;
     if(encode) {
@@ -113,6 +127,23 @@ UTF(ascii_decode,0,0,0) UTF(two_decode,1,0,0) UTF(three_decode,2,0,0) UTF(pair_d
 UTF(ascii_encode,0,1,0) UTF(two_encode,1,1,0) UTF(three_encode,2,1,0) UTF(pair_encode,3,1,0)
 UTF(ascii_decode_size,0,0,1) UTF(two_decode_size,1,0,1) UTF(three_decode_size,2,0,1) UTF(pair_decode_size,3,0,1)
 UTF(ascii_encode_size,0,1,1) UTF(two_encode_size,1,1,1) UTF(three_encode_size,2,1,1) UTF(pair_encode_size,3,1,1)
+UTF(empty_decode,4,0,0) UTF(empty_encode,4,1,0)
+UTF(empty_decode_size,4,0,1) UTF(empty_encode_size,4,1,1)
+
+TEST(rtl_conversion_utf_decode_null_source)
+{
+    WCHAR w[4]={0x5555,0x5555,0x5555,0x5555}; ULONG n=99;
+    REQUIRE(UN(RtlUTF8ToUnicodeN));
+    EXPECT_EQ(UN(RtlUTF8ToUnicodeN)(w,sizeof w,&n,NULL,0),(NTSTATUS)0xc00000f2);
+    EXPECT_EQ(n,99); untouched(w,0,sizeof w);
+}
+TEST(rtl_conversion_utf_encode_null_source)
+{
+    char a[8]; ULONG n=99; memset(a,0x55,sizeof a);
+    REQUIRE(UN(RtlUnicodeToUTF8N));
+    EXPECT_EQ(UN(RtlUnicodeToUTF8N)(a,sizeof a,&n,NULL,0),(NTSTATUS)0xc00000f2);
+    EXPECT_EQ(n,99); untouched(a,0,sizeof a);
+}
 
 TEST(rtl_conversion_utf_decode_short)
 {
