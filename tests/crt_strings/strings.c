@@ -8,7 +8,7 @@
 #define FILL(a, value) do { size_t j_; for (j_ = 0; j_ < ELEMENTS(a); ++j_) (a)[j_] = (value); } while (0)
 #define SAME(a, b, n) do { size_t j_; for (j_ = 0; j_ < (n); ++j_) EXPECT_EQ((a)[j_], (b)[j_]); } while (0)
 
-/* the reference uses element comparisons, never another CRT string export. */
+/* The reference results use element comparisons, never another CRT string export. */
 #define LEN_CASE(fn, T, Q, id, text, expected) \
     TEST(crt_strings_##fn##_##id) { \
         T s[96] = Q(text); LOAD(fn); EXPECT_EQ(f(s), expected); \
