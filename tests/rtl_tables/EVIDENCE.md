@@ -103,7 +103,7 @@ the DDI prose error.
 
 ## Test scope, lifetime and gaps
 
-48 focused registered tests: 24 contracts exercised independently against each
+Originally 48 focused registered tests: 24 contracts exercised independently against each
 implementation. Mixed insertion vectors force left/right navigation and indexed
 cache movement. Data keys, payload, and trailing bytes are independently checked.
 All tables are stack-local, accessed synchronously, with live callback/context
@@ -123,7 +123,7 @@ and concurrent synchronization (not part of this table contract) are untested.
 Callbacks may affect LastError, and these APIs expose no LastError contract;
 results, out-flags, contents, counts, callback effects and cleanup are checked.
 
-Wine-specific safety gates do not change Windows assertions: this Wine build's
+Original Wine-specific safety gates (narrowed by the review below) do not change Windows assertions: this Wine build's
 AVL deletion export aborts as unimplemented, so AVL tests skip before allocation.
 Splay NULL allocator callback crashes in Wine, so those two cases also skip
 before allocating. The initial smoke observed those failures; they are not
@@ -154,3 +154,73 @@ Several additional AVL exports were absent (EnumerateGenericTableAvl,
 GetElementGenericTableAvl, IsGenericTableEmptyAvl). These are emulator limitations,
 not changes to the verified Windows contracts. Windows execution, especially all
 AVL and callback-rejection cases, remains required.
+
+## Adversarial review (2026-10-31; supersedes original smoke classification)
+
+Reviewed writer `b86174a874357b89`, original smoke, harness nonfatal checks,
+README safety rules, and HANDOFF. Re-fetched initialization, Full insertion,
+AVL index `/decomp` and `/docs`, both initializer DDI pages, and initializer/
+Full insertion `/asm` serially with HTTP 503 retry. No dependencies added.
+
+### Findings and fixes
+
+- **Overbroad AVL skip fixed.** Only deletion and cases that insert (including
+  cleanup) retain the emulator safety guard. Safe initialize, empty lookup,
+  empty enumeration and empty indexing now reach their own prerequisites.
+  Removed the empty-predicate prerequisite from initialization and registered
+  independent empty-predicate tests for both implementations: **50 tests** total.
+  This exposes the real Wine initializer no-op as **one failure / five checks**,
+  rather than silently skipping Windows-correct callback/context/root assertions.
+- Wine source `wine/dlls/ntdll/ntdll.spec:620` marks AVL deletion `@ stub` (the
+  original log observed its abort). `rtl.c:1583–1587` has a no-op initializer;
+  `1613–1616` has a **void** insertion stub, not the Windows pointer-returning
+  function. Calling it as a successful insertion risks dereferencing a meaningless
+  return. Hence allocating cases remain skipped before allocation. Empty lookup
+  is safe (`1621–1624`, returns NULL) and executes; a smoke pass of that test does
+  not establish a functioning AVL tree. Missing enumeration/index/empty exports
+  now report their exact REQUIRE failures instead of a blanket deletion reason.
+- **Allocator rejection is supported by this Windows image.** Splay Full tests
+  RAX at `0x6525a` and branches on NULL to `0xbf153`, clears optional NewElement
+  at `0xbf158`, and returns NULL. AVL Full tests RAX at `0x5bae0`, branches to
+  `0xbc7ea`, clears the flag at `0xbc7ef`, and zeros EAX at `0xbc7f2`. Both
+  branches precede link/count mutation. These are bounded rejected requests,
+  not overflow or exhaustion. Windows assertions remain intact. Wine
+  `rtl.c:589–590` passes NULL directly to RtlInitializeSplayLinks, supporting
+  the existing two explicit splay crash guards and the original fault log.
+- Callback/structure audit: initializer assembly verifies splay offsets
+  0x28/0x30/0x38/0x40 and AVL 0x48/0x50/0x58/0x60, with AVL memset size 0x68.
+  `/api/types/ntdll/_RTL_AVL_TABLE` confirms the full 104-byte layout and gives
+  AllocateRoutine as `void* (*)(_RTL_AVL_TABLE*, unsigned long)`. Corrected
+  A_ALLOC to ULONG to match this exact user-mode PDB, rather than the DDI's
+  CLONG prose. Small positive request values have identical x64 ABI; the shared
+  allocator's signed conversion is bounded to these small requests. The splay
+  type endpoint returned 404; its offsets were verified in assembly instead.
+  Compare enum ordering and callback table parameters agree with the DDI pages.
+- AVL indexed sorted order remains correct: decomp at 0xf79a0 walks leftmost,
+  RealSuccessor/RealPredecessor, despite DDI's insertion-order wording.
+- All prerequisites precede allocation and propagate through ready=0; every
+  direct t_skip has an explicit return. Seed failure goes to cleanup. Cleanup
+  uses recorded keys, no optional enumeration, then verifies count/free totals
+  and releases only still-owned bases. Earlier deletes leave keys recorded but
+  lookup avoids deleting them twice. A failed deletion is reported and residual
+  allocations are freed only after all API calls, so no later table traversal
+  uses those freed bases. No fail-path defect was found for conforming Windows.
+
+### Review validation
+
+`make build/rtl_bitmap.exe build/rtl_tables.exe` succeeded without warnings.
+```sh
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_tables.exe >/tmp/opencode/ntdll_review_tables.log 2>&1
+```
+Exit **1**, complete summary at log line 132:
+```text
+SUMMARY tests=50 failed=1 skipped=25 checks_pass=1537 checks_fail=5
+```
+24 passes (23 splay, one AVL empty lookup). Five failures at log lines 74–78
+are the Windows-verified AVL context, root-parent, compare, allocate and free
+initialization stores. Skips: 20 unsafe AVL insertion/deletion cases, three
+missing AVL exports, two unsafe splay callback-rejection cases. This is improved
+visibility, not a regression caused by weakening expected behavior. No native
+Windows run was available; the remaining 25 skipped branches need it. Wine
+safety gates are emulator-wide rather than version-probed, so later Wine
+implementations should revisit them using their actual stub/NULL handling.

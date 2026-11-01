@@ -133,3 +133,48 @@ unchanged) and `rtl_bitmap_forward_run_boundaries` (only from=size leaves start
 unchanged). RtlTestBit is missing and correctly skipped. The decompilation's
 verified Windows return/output expectations remain hard checks, not Wine-derived
 expectations. No native Windows run was available.
+
+## Adversarial review (2026-10-31)
+
+Reviewed writer `b86174a874357b89`, the original log above, `README.md` safety/
+nonfatal-check rules, `HANDOFF.md`, and `common/t.h`. Re-fetched the run-search
+`/decomp`, `/docs`, exact DDI pages, and backward/forward `/asm`, one request at
+a time with 503 retry. The Windows expectations are retained:
+
+- Backward successful vectors are inclusive of FromIndex: `(128,120,9)`,
+  `(119,30,40)`, `(69,30,40)`, `(35,30,6)`, `(29,3,5)` (from,start,length).
+  Assembly `0x5265a..0x52662` writes last-set-index+1 and returns
+  last-clear-index minus last-set-index. All five Wine returns of 0 are genuine
+  smoke divergences, not wrong expected lengths.
+- Backward `0xba8c6` writes FromIndex to output and returns zero; forward
+  `0xba8f6` does the same. Thus both start=999 observations at from=size are
+  divergences from this exact Windows build even though DDI calls failure output
+  meaningless. These are implementation-specific assertions, not portable DDI
+  guarantees. Together these explain all 12 failed checks in two tests.
+- Local Wine implementation `wine/dlls/ntdll/rtlbitmap.c:710–719,758–761`
+  independently explains the observations: forward skips its output assignment
+  at from>=size; backward is a return-zero stub. No Wine failure was weakened.
+- All mutation endpoints are <=257, including `[128,257)`; overlapping ranges
+  end at 101. Bit reads stop at 256. Logical-failure predicate/search inputs do
+  not invoke unbounded mutation. The 12-word backing buffer is 384 bits and
+  accommodates rounded 64-bit reads at the 257-bit tail. Explicit 8-byte storage
+  alignment and RUN size/offset assertions now make this safety property clear.
+- Added capacity-one FALSE checks (first run, not longest), and checked every
+  unused RUN slot after both capacity-one calls, not just the distant guard.
+  Windows `RtlFindClearRuns` returns immediately at capacity for FALSE; TRUE
+  scans and replaces the shortest retained run. No capacity-zero call is made:
+  its implementation can read run[-1]. No tie-order assumption was added.
+- REQUIRE explicitly returns; there are no bare nonfatal CHECK/t_skip guards
+  followed by unsafe pointer use in these fixtures.
+
+Review build: `make build/rtl_bitmap.exe build/rtl_tables.exe` succeeded.
+Review smoke (exit **1**, complete summary):
+```sh
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_bitmap.exe >/tmp/opencode/ntdll_review_bitmap.log 2>&1
+```
+```text
+SUMMARY tests=41 failed=2 skipped=1 checks_pass=1768 checks_fail=12
+```
+The single skip remains missing RtlTestBit. Log lines 7–20 classify every failed
+check as above; line 97 is the summary. Windows execution was not available;
+these are image-verified differences, not native-runtime validation.
