@@ -84,9 +84,12 @@ static void boundary_case(int kind, SIZE_T n, unsigned offset, ULONGLONG seed)
     EXPECT_EQ(result,expected); EXPECT_EQ(error,0x12345678);
     /* Every split includes empty prefix/suffix and crosses aligned block paths. */
     for (split = 0; split <= n; ++split) {
+        SET_ERR(0x12345678);
         chunked = crc_call(kind,data + offset,split,seed);
         chunked = crc_call(kind,data + offset + split,n - split,chunked);
+        error = GetLastError();
         EXPECT_EQ(chunked,expected);
+        EXPECT_EQ(error,0x12345678);
     }
     CHECK(!memcmp(before,data,sizeof data));
 }
@@ -105,6 +108,9 @@ static void boundary_case(int kind, SIZE_T n, unsigned offset, ULONGLONG seed)
 BOUNDS(ieee,0,0x12345678)
 BOUNDS(castagnoli,1,0x87654321)
 BOUNDS(crc64,2,0x1234567887654321ULL)
+BOUND(ieee_all_bits_seed,0,65,1,0xffffffff)
+BOUND(castagnoli_all_bits_seed,1,65,1,0xffffffff)
+BOUND(crc64_all_bits_seed,2,65,1,0xffffffffffffffffULL)
 
 static void binary_case(int kind, ULONGLONG expected)
 {
