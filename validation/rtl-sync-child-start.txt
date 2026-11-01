@@ -1,0 +1,114 @@
+wineserver: using server-side synchronization.
+RUN  rtl_sync_once_thread_publication
+OK   rtl_sync_once_thread_publication
+RUN  rtl_sync_once_execute_optional_context
+OK   rtl_sync_once_execute_optional_context
+RUN  rtl_sync_once_execute_failure_retries
+OK   rtl_sync_once_execute_failure_retries
+RUN  rtl_sync_once_execute_callback_once
+OK   rtl_sync_once_execute_callback_once
+RUN  rtl_sync_once_failed_completion_retries
+OK   rtl_sync_once_failed_completion_retries
+RUN  rtl_sync_once_complete_without_begin
+OK   rtl_sync_once_complete_without_begin
+RUN  rtl_sync_once_begin_invalid_flags
+  FAIL tests/rtl_sync/sync.c:375: s_ == (((NTSTATUS)(0xc00000f0))) (got 0xffffffffc000000d want 0xffffffffc00000f0)
+FAIL rtl_sync_once_begin_invalid_flags
+RUN  rtl_sync_once_async_complete_context
+OK   rtl_sync_once_async_complete_context
+RUN  rtl_sync_once_sync_complete_null
+OK   rtl_sync_once_sync_complete_null
+RUN  rtl_sync_once_sync_complete_context
+OK   rtl_sync_once_sync_complete_context
+RUN  rtl_sync_once_check_uninitialized
+OK   rtl_sync_once_check_uninitialized
+RUN  rtl_sync_once_initialize
+OK   rtl_sync_once_initialize
+RUN  rtl_sync_cv_srw_shared_wake_all_handshake
+OK   rtl_sync_cv_srw_shared_wake_all_handshake
+RUN  rtl_sync_cv_srw_shared_wake_handshake
+OK   rtl_sync_cv_srw_shared_wake_handshake
+RUN  rtl_sync_cv_srw_exclusive_wake_all_handshake
+OK   rtl_sync_cv_srw_exclusive_wake_all_handshake
+RUN  rtl_sync_cv_srw_exclusive_wake_handshake
+OK   rtl_sync_cv_srw_exclusive_wake_handshake
+RUN  rtl_sync_cv_cs_wake_all_handshake
+OK   rtl_sync_cv_cs_wake_all_handshake
+RUN  rtl_sync_cv_cs_wake_handshake
+  SKIP bounded child fixture prerequisite unavailable (dead0000)
+SKIP rtl_sync_cv_cs_wake_handshake
+RUN  rtl_sync_cv_srw_invalid_flags
+  FAIL tests/rtl_sync/sync.c:295: s_ == (((NTSTATUS)(0xc00000f0))) (got 0x102 want 0xffffffffc00000f0)
+FAIL rtl_sync_cv_srw_invalid_flags
+RUN  rtl_sync_cv_srw_shared_timeout_reacquires
+OK   rtl_sync_cv_srw_shared_timeout_reacquires
+RUN  rtl_sync_cv_srw_exclusive_timeout_reacquires
+OK   rtl_sync_cv_srw_exclusive_timeout_reacquires
+RUN  rtl_sync_cv_cs_zero_timeout_reacquires
+OK   rtl_sync_cv_cs_zero_timeout_reacquires
+RUN  rtl_sync_cv_wake_all_empty
+  FAIL tests/rtl_sync/sync.c:270: cv.Ptr == NULL (got 0x1 want 0x0)
+FAIL rtl_sync_cv_wake_all_empty
+RUN  rtl_sync_cv_wake_empty
+  FAIL tests/rtl_sync/sync.c:266: cv.Ptr == NULL (got 0x1 want 0x0)
+FAIL rtl_sync_cv_wake_empty
+RUN  rtl_sync_cv_initialize
+OK   rtl_sync_cv_initialize
+RUN  rtl_sync_srw_foreign_shared_allows_reader
+OK   rtl_sync_srw_foreign_shared_allows_reader
+RUN  rtl_sync_srw_foreign_exclusive_excludes_both
+OK   rtl_sync_srw_foreign_exclusive_excludes_both
+RUN  rtl_sync_cs_foreign_try_and_handoff
+OK   rtl_sync_cs_foreign_try_and_handoff
+RUN  rtl_sync_srw_try_shared_free
+OK   rtl_sync_srw_try_shared_free
+RUN  rtl_sync_srw_try_exclusive_free
+OK   rtl_sync_srw_try_exclusive_free
+RUN  rtl_sync_srw_shared_release_then_exclusive
+OK   rtl_sync_srw_shared_release_then_exclusive
+RUN  rtl_sync_srw_exclusive_release_then_shared
+OK   rtl_sync_srw_exclusive_release_then_shared
+RUN  rtl_sync_srw_initialize
+OK   rtl_sync_srw_initialize
+RUN  rtl_sync_cs_delete_then_reinitialize
+OK   rtl_sync_cs_delete_then_reinitialize
+RUN  rtl_sync_cs_spin_previous_count
+  NOTE effective spin count=99
+OK   rtl_sync_cs_spin_previous_count
+RUN  rtl_sync_cs_ex_invalid_spin_high_bits
+  FAIL tests/rtl_sync/sync.c:141: s == S(0xc00000f0) (got 0x0 want 0xffffffffc00000f0)
+  FAIL tests/rtl_sync/sync.c:141: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0x1 want 0x0)
+FAIL rtl_sync_cs_ex_invalid_spin_high_bits
+RUN  rtl_sync_cs_ex_invalid_flags
+  FAIL tests/rtl_sync/sync.c:134: s == S(0xc00000f1) (got 0x0 want 0xffffffffc00000f1)
+  FAIL tests/rtl_sync/sync.c:134: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0x1 want 0x0)
+FAIL rtl_sync_cs_ex_invalid_flags
+RUN  rtl_sync_cs_ex_conflicting_debug_flags
+  FAIL tests/rtl_sync/sync.c:127: s == S(0xc00000f1) (got 0x0 want 0xffffffffc00000f1)
+  FAIL tests/rtl_sync/sync.c:127: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0xffffffffffffffff want 0x0)
+FAIL rtl_sync_cs_ex_conflicting_debug_flags
+RUN  rtl_sync_cs_ex_force_debug_info
+OK   rtl_sync_cs_ex_force_debug_info
+RUN  rtl_sync_cs_initialize_ex_no_debug
+OK   rtl_sync_cs_initialize_ex_no_debug
+RUN  rtl_sync_cs_initialize_ex
+OK   rtl_sync_cs_initialize_ex
+RUN  rtl_sync_cs_initialize_spin_nonzero
+OK   rtl_sync_cs_initialize_spin_nonzero
+RUN  rtl_sync_cs_initialize_spin_zero
+OK   rtl_sync_cs_initialize_spin_zero
+RUN  rtl_sync_cs_reacquire_after_release
+OK   rtl_sync_cs_reacquire_after_release
+RUN  rtl_sync_cs_release_clears_owner
+OK   rtl_sync_cs_release_clears_owner
+RUN  rtl_sync_cs_recursive_try
+OK   rtl_sync_cs_recursive_try
+RUN  rtl_sync_cs_recursive_enter
+OK   rtl_sync_cs_recursive_enter
+RUN  rtl_sync_cs_try_free
+OK   rtl_sync_cs_try_free
+RUN  rtl_sync_cs_enter_owner
+OK   rtl_sync_cs_enter_owner
+RUN  rtl_sync_cs_initial_unlocked
+OK   rtl_sync_cs_initial_unlocked
+SUMMARY tests=50 failed=7 skipped=1 checks_pass=191 checks_fail=10

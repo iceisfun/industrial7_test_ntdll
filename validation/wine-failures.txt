@@ -1,0 +1,208 @@
+core_smoke.txt                   tests=3 failed=0 skipped=0 checks_pass=4 checks_fail=0
+crt_algorithms.txt               tests=159 failed=0 skipped=0 checks_pass=45166 checks_fail=0
+crt_strings.txt                  tests=181 failed=2 skipped=0 checks_pass=741 checks_fail=2
+crt_strings.txt: crt_strings_wcsstr_both_empty: FAIL tests/crt_strings/strings.c:175: actual == expected (got 0000000000000000 want 000000000031fd80; haystack 000000000031fd80 control 000000000031fcc0)
+crt_strings.txt: crt_strings_strstr_both_empty: FAIL tests/crt_strings/strings.c:174: actual == expected (got 0000000000000000 want 000000000031fde0; haystack 000000000031fde0 control 000000000031fd80)
+export_surface.txt               tests=5 failed=0 skipped=0 checks_pass=5905 checks_fail=0
+harness_checks.txt               tests=11 failed=0 skipped=1 checks_pass=39 checks_fail=0
+ldr_image.txt                    tests=44 failed=2 skipped=0 checks_pass=95 checks_fail=6
+ldr_image.txt: ldr_image_proc_counted_header: FAIL tests/ldr_image/ldr_image.c:51: s == 0 (got 0xffffffffc000007a want 0x0)
+ldr_image.txt: ldr_image_proc_counted_header: FAIL tests/ldr_image/ldr_image.c:52: out == t_proc_in("ntdll.dll", name) (got 0x0 want 0x6ffffff19d20)
+ldr_image.txt: ldr_image_proc_counted_header: FAIL tests/ldr_image/ldr_image.c:53: out != NULL
+ldr_image.txt: ldr_image_proc_counted_close: FAIL tests/ldr_image/ldr_image.c:51: s == 0 (got 0xffffffffc000007a want 0x0)
+ldr_image.txt: ldr_image_proc_counted_close: FAIL tests/ldr_image/ldr_image.c:52: out == t_proc_in("ntdll.dll", name) (got 0x0 want 0x6fffffefec60)
+ldr_image.txt: ldr_image_proc_counted_close: FAIL tests/ldr_image/ldr_image.c:53: out != NULL
+nt_file.txt                      tests=50 failed=0 skipped=0 checks_pass=383 checks_fail=0
+nt_process.txt                   tests=47 failed=12 skipped=0 checks_pass=258 checks_fail=21
+nt_process.txt: nt_process_duplicate_inheritable_handle: FAIL tests/nt_process/process.c:190: info.Attributes & 2 == inherit ? 2 : 0 (got 0x0 want 0x2)
+nt_process.txt: nt_process_system_exception_short_length: FAIL tests/nt_process/process.c:137: s == ST(0xc0000004) (got 0xffffffffc0000003 want 0xffffffffc0000004)
+nt_process.txt: nt_process_system_exception_short_length: FAIL tests/nt_process/process.c:137: n == 16 (got 0x0 want 0x10)
+nt_process.txt: nt_process_system_exception_safe_query: FAIL tests/nt_process/process.c:138: s == 0 (got 0xffffffffc0000003 want 0x0)
+nt_process.txt: nt_process_thread_start_address_short: FAIL tests/nt_process/process.c:107: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)
+nt_process.txt: nt_process_thread_start_address_short: FAIL tests/nt_process/process.c:107: n == 0 (got 0x7 want 0x0)
+nt_process.txt: nt_process_thread_start_address_short: FAIL tests/nt_process/process.c:107: value == ~(ULONG_PTR)0 (got 0xff006fffff081410 want 0xffffffffffffffff)
+nt_process.txt: nt_process_thread_basic_oversized_length: FAIL tests/nt_process/process.c:87: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)
+nt_process.txt: nt_process_thread_basic_oversized_length: FAIL tests/nt_process/process.c:87: n == 0 (got 0x30 want 0x0)
+nt_process.txt: nt_process_thread_basic_oversized_length: FAIL tests/nt_process/process.c:87: !memcmp(&storage,&before,sizeof storage)
+nt_process.txt: nt_process_thread_basic_short_length: FAIL tests/nt_process/process.c:87: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)
+nt_process.txt: nt_process_thread_basic_short_length: FAIL tests/nt_process/process.c:87: n == 0 (got 0x2f want 0x0)
+nt_process.txt: nt_process_thread_basic_short_length: FAIL tests/nt_process/process.c:87: !memcmp(&storage,&before,sizeof storage)
+nt_process.txt: nt_process_thread_basic_one_byte: FAIL tests/nt_process/process.c:87: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)
+nt_process.txt: nt_process_thread_basic_one_byte: FAIL tests/nt_process/process.c:87: n == 0 (got 0x1 want 0x0)
+nt_process.txt: nt_process_thread_basic_one_byte: FAIL tests/nt_process/process.c:87: !memcmp(&storage,&before,sizeof storage)
+nt_process.txt: nt_process_thread_basic_zero_length: FAIL tests/nt_process/process.c:87: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)
+nt_process.txt: nt_process_basic_oversized_length: FAIL tests/nt_process/process.c:29: n == 0 (got 0x30 want 0x0)
+nt_process.txt: nt_process_basic_short_length: FAIL tests/nt_process/process.c:29: n == 0 (got 0x30 want 0x0)
+nt_process.txt: nt_process_basic_one_byte: FAIL tests/nt_process/process.c:29: n == 0 (got 0x30 want 0x0)
+nt_process.txt: nt_process_basic_zero_length: FAIL tests/nt_process/process.c:29: n == 0 (got 0x30 want 0x0)
+nt_registry.txt                  tests=42 failed=0 skipped=0 checks_pass=449 checks_fail=0
+nt_sync.txt                      tests=69 failed=7 skipped=0 checks_pass=685 checks_fail=9
+nt_sync.txt: nt_sync_wait_multiple_bad_type: FAIL tests/nt_sync/sync.c:365: s_ == (((NTSTATUS)(0xc00000f1))) (got 0x0 want 0xffffffffc00000f1)
+nt_sync.txt: nt_sync_timer_query_only_denies_set: FAIL tests/nt_sync/sync.c:296: prev == 7 (got 0x0 want 0x7)
+nt_sync.txt: nt_sync_timer_negative_period: FAIL tests/nt_sync/sync.c:290: s_ == (((NTSTATUS)(0xc00000f4))) (got 0x0 want 0xffffffffc00000f4)
+nt_sync.txt: nt_sync_timer_negative_period: FAIL tests/nt_sync/sync.c:290: prev == 7 (got 0x0 want 0x7)
+nt_sync.txt: nt_sync_timer_invalid_type: FAIL tests/nt_sync/sync.c:268: s_ == (((NTSTATUS)(0xc00000f2))) (got 0xffffffffc000000d want 0xffffffffc00000f2)
+nt_sync.txt: nt_sync_mutant_release_not_owned: FAIL tests/nt_sync/sync.c:256: prev == 123 (got 0x1 want 0x7b)
+nt_sync.txt: nt_sync_semaphore_release_negative: FAIL tests/nt_sync/sync.c:220: s_ == (want) (got 0xffffffffc0000047 want 0xffffffffc000000d)
+nt_sync.txt: nt_sync_semaphore_release_zero: FAIL tests/nt_sync/sync.c:220: s_ == (want) (got 0x0 want 0xffffffffc000000d)
+nt_sync.txt: nt_sync_semaphore_release_zero: FAIL tests/nt_sync/sync.c:221: prev == 123 (got 0x1 want 0x7b)
+nt_token.txt                     tests=28 failed=7 skipped=0 checks_pass=518 checks_fail=14
+nt_token.txt: nttoken_query_access_before_size: FAIL tests/nt_token/token.c:264: UN(NtQueryInformationToken)(h,TokenType,&type,0,&n) == TS(0xc0000022) (got 0xffffffffc0000023 want 0xffffffffc0000022)
+nt_token.txt: nttoken_query_access_before_size: FAIL tests/nt_token/token.c:265: n == 0xa5a5a5a5 (got 0x4 want 0xa5a5a5a5)
+nt_token.txt: nttoken_duplicate_bad_type: FAIL tests/nt_token/token.c:247: st == TS(0xc000000d) (got 0x0 want 0xffffffffc000000d)
+nt_token.txt: nttoken_duplicate_bad_type: FAIL tests/nt_token/token.c:247: duplicate == NULL
+nt_token.txt: nttoken_query_mandatory_policy: FAIL tests/nt_token/token.c:58: st == TS(0xc0000023) (got 0xffffffffc0000002 want 0xffffffffc0000023)
+nt_token.txt: nttoken_query_mandatory_policy: FAIL tests/nt_token/token.c:59: n > 0 && n <= 1024*1024
+nt_token.txt: nttoken_query_virtualization_allowed: FAIL tests/nt_token/token.c:58: st == TS(0xc0000023) (got 0xffffffffc0000002 want 0xffffffffc0000023)
+nt_token.txt: nttoken_query_virtualization_allowed: FAIL tests/nt_token/token.c:59: n > 0 && n <= 1024*1024
+nt_token.txt: nttoken_query_has_restrictions: FAIL tests/nt_token/token.c:58: st == TS(0xc0000023) (got 0xffffffffc0000002 want 0xffffffffc0000023)
+nt_token.txt: nttoken_query_has_restrictions: FAIL tests/nt_token/token.c:59: n > 0 && n <= 1024*1024
+nt_token.txt: nttoken_query_restricted_sids: FAIL tests/nt_token/token.c:58: st == TS(0xc0000023) (got 0xffffffffc0000002 want 0xffffffffc0000023)
+nt_token.txt: nttoken_query_restricted_sids: FAIL tests/nt_token/token.c:59: n > 0 && n <= 1024*1024
+nt_token.txt: nttoken_query_privileges: FAIL tests/nt_token/token.c:66: ntk_untouched(buffer,n+16)
+nt_token.txt: nttoken_query_privileges: FAIL tests/nt_token/token.c:70: ntk_untouched(buffer,n+16)
+nt_vm.txt                        tests=52 failed=5 skipped=0 checks_pass=489 checks_fail=5
+nt_vm.txt: nt_vm_section_query_invalid_class_before_length: FAIL tests/nt_vm/vm.c:282: s == cls==0 ? ST(0xc0000004) : ST(0xc0000003) (got 0xffffffffc0000002 want 0xffffffffc0000003)
+nt_vm.txt: nt_vm_section_query_invalid_class: FAIL tests/nt_vm/vm.c:282: s == cls==0 ? ST(0xc0000004) : ST(0xc0000003) (got 0xffffffffc0000002 want 0xffffffffc0000003)
+nt_vm.txt: nt_vm_free_conflicting_types_rejected: FAIL tests/nt_vm/vm.c:226: s == ST(0xc00000f2) (got 0xffffffffc000000d want 0xffffffffc00000f2)
+nt_vm.txt: nt_vm_protect_invalid_protection_status: FAIL tests/nt_vm/vm.c:158: old == 0xa5a5a5a5 (got 0x1 want 0xa5a5a5a5)
+nt_vm.txt: nt_vm_protect_zero_size_status: FAIL tests/nt_vm/vm.c:157: s == zero ? ST(0xc00000f1) : ST(0xc0000045) (got 0x0 want 0xffffffffc00000f1)
+rtl_bitmap.txt                   tests=41 failed=2 skipped=1 checks_pass=1768 checks_fail=12
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x9)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x78)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x28)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x1e)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x28)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x1e)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x6)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x1e)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x5)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x3)
+rtl_bitmap.txt: rtl_bitmap_backward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x81)
+rtl_bitmap.txt: rtl_bitmap_forward_run_boundaries: FAIL tests/rtl_bitmap/bitmap.c:220: start == v[i][1] (got 0x3e7 want 0x81)
+rtl_compression.txt              tests=45 failed=4 skipped=7 checks_pass=829 checks_fail=4
+rtl_compression.txt: rtl_compression_roundtrip_zeros: FAIL tests/rtl_compression/compression.c:95: s == pattern == 0 ? RC_ZEROS : 0 (got 0x0 want 0x117)
+rtl_compression.txt: rtl_compression_workspace_hiber: FAIL tests/rtl_compression/compression.c:22: s == expected (got 0x0 want 0xffffffffc00000bb)
+rtl_compression.txt: rtl_compression_workspace_maximum: FAIL tests/rtl_compression/compression.c:25: c == format == 0x102 ? 0x20 : 0x10020 (got 0x10 want 0x20)
+rtl_compression.txt: rtl_compression_workspace_standard: FAIL tests/rtl_compression/compression.c:25: c == format == 0x102 ? 0x20 : 0x10020 (got 0x10 want 0x10020)
+rtl_context.txt                  tests=25 failed=1 skipped=0 checks_pass=230 checks_fail=1
+rtl_context.txt: rtl_context_backtrace_skip_limit: FAIL tests/rtl_context/context.c:90: hash == 0xdeadbeef (got 0x0 want 0xdeadbeef)
+rtl_conversion.txt               tests=81 failed=8 skipped=0 checks_pass=1282 checks_fail=11
+rtl_conversion.txt: rtl_conversion_descriptor_to_oem_exact_data: FAIL tests/rtl_conversion/conversion.c:88: ad.Length == written (got 0x2 want 0x3)
+rtl_conversion.txt: rtl_conversion_descriptor_to_oem_exact_data: FAIL tests/rtl_conversion/conversion.c:20: p[i] == 0x55 (byte 0 got 0x61 want 0x55)
+rtl_conversion.txt: rtl_conversion_descriptor_to_oem_exact_data: FAIL tests/rtl_conversion/conversion.c:20: p[i] == 0x55 (byte 1 got 0x0 want 0x55)
+rtl_conversion.txt: rtl_conversion_descriptor_to_oem_exact_data: FAIL tests/rtl_conversion/conversion.c:20: p[i] == 0x55 (byte 2 got 0x0 want 0x55)
+rtl_conversion.txt: rtl_conversion_raw_to_oem_short: FAIL tests/rtl_conversion/conversion.c:42: st == kind==3 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)
+rtl_conversion.txt: rtl_conversion_raw_to_oem_one: FAIL tests/rtl_conversion/conversion.c:42: st == kind==3 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)
+rtl_conversion.txt: rtl_conversion_raw_to_oem_zero: FAIL tests/rtl_conversion/conversion.c:42: st == kind==3 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)
+rtl_conversion.txt: rtl_conversion_raw_oem_odd: FAIL tests/rtl_conversion/conversion.c:34: st == kind==1 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)
+rtl_conversion.txt: rtl_conversion_raw_oem_short: FAIL tests/rtl_conversion/conversion.c:34: st == kind==1 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)
+rtl_conversion.txt: rtl_conversion_raw_oem_one: FAIL tests/rtl_conversion/conversion.c:34: st == kind==1 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)
+rtl_conversion.txt: rtl_conversion_raw_oem_zero: FAIL tests/rtl_conversion/conversion.c:34: st == kind==1 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)
+rtl_environment.txt              tests=46 failed=5 skipped=0 checks_pass=711 checks_fail=5
+rtl_environment.txt: rtl_environment_query_empty_zero: FAIL tests/rtl_environment/environment.c:72: s == expected (got 0x0 want 0xffffffffc0000023)
+rtl_environment.txt: rtl_environment_query_odd_capacity: FAIL tests/rtl_environment/environment.c:72: s == expected (got 0x0 want 0xffffffffc0000023)
+rtl_environment.txt: rtl_environment_query_exact_payload: FAIL tests/rtl_environment/environment.c:72: s == expected (got 0x0 want 0xffffffffc0000023)
+rtl_environment.txt: rtl_environment_query_short: FAIL tests/rtl_environment/environment.c:81: buffer[0] == 0 (got 0xa5a5 want 0x0)
+rtl_environment.txt: rtl_environment_query_one_char: FAIL tests/rtl_environment/environment.c:81: buffer[0] == 0 (got 0xa5a5 want 0x0)
+rtl_hash.txt                     tests=59 failed=0 skipped=34 checks_pass=2808 checks_fail=0
+rtl_heap.txt                     tests=47 failed=3 skipped=0 checks_pass=340 checks_fail=3
+rtl_heap.txt: rtl_heap_process_heaps_capacity_one: FAIL tests/rtl_heap/heap.c:198: heaps[0] != NULL
+rtl_heap.txt: rtl_heap_realloc_null_nonzero: FAIL tests/rtl_heap/heap.c:152: error == ERROR_SUCCESS (got 0x12345678 want 0x0)
+rtl_heap.txt: rtl_heap_realloc_null_zero: FAIL tests/rtl_heap/heap.c:152: error == ERROR_SUCCESS (got 0x12345678 want 0x0)
+rtl_memory.txt                   tests=55 failed=0 skipped=0 checks_pass=4349 checks_fail=0
+rtl_numeric.txt                  tests=82 failed=3 skipped=3 checks_pass=534 checks_fail=17
+rtl_numeric.txt: rtl_numeric_unicode_odd_exact_capacity: FAIL tests/rtl_numeric/numeric.c:192: UN(RtlIntegerToUnicodeString)(123, 10, &s) == capacity < 8 ? (NTSTATUS)0x80000005 : (NTSTATUS)0 (got 0x0 want 0xffffffff80000005)
+rtl_numeric.txt: rtl_numeric_unicode_odd_exact_capacity: FAIL tests/rtl_numeric/numeric.c:196: w[i] == capacity >= 8 && i < 4 ? L"123"[i] : 0x5a5a (got 0x31 want 0x5a5a)
+rtl_numeric.txt: rtl_numeric_unicode_odd_exact_capacity: FAIL tests/rtl_numeric/numeric.c:196: w[i] == capacity >= 8 && i < 4 ? L"123"[i] : 0x5a5a (got 0x32 want 0x5a5a)
+rtl_numeric.txt: rtl_numeric_unicode_odd_exact_capacity: FAIL tests/rtl_numeric/numeric.c:196: w[i] == capacity >= 8 && i < 4 ? L"123"[i] : 0x5a5a (got 0x33 want 0x5a5a)
+rtl_numeric.txt: rtl_numeric_unicode_odd_exact_capacity: FAIL tests/rtl_numeric/numeric.c:196: w[i] == capacity >= 8 && i < 4 ? L"123"[i] : 0x5a5a (got 0x0 want 0x5a5a)
+rtl_numeric.txt: rtl_numeric_unicode_invalid_lengths: FAIL tests/rtl_numeric/numeric.c:103: UN(RtlUnicodeStringToInteger)(&s, 10, &v) == (NTSTATUS)0xc000000d (got 0x0 want 0xffffffffc000000d)
+rtl_numeric.txt: rtl_numeric_unicode_invalid_lengths: FAIL tests/rtl_numeric/numeric.c:106: UN(RtlUnicodeStringToInteger)(&s, 10, &v) == (NTSTATUS)0xc000000d (got 0x0 want 0xffffffffc000000d)
+rtl_numeric.txt: rtl_numeric_unicode_invalid_lengths: FAIL tests/rtl_numeric/numeric.c:107: v == 0 (got 0x1 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_numeric.txt: rtl_numeric_invalid_bases: FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)
+rtl_path.txt                     tests=68 failed=0 skipped=0 checks_pass=215 checks_fail=0
+rtl_security.txt                 tests=73 failed=11 skipped=0 checks_pass=351 checks_fail=12
+rtl_security.txt: rtlsec_sd_control_bits_outside_mask: FAIL tests/rtl_security/security.c:325: UN(RtlSetControlSecurityDescriptor)(&sd,0,SE_DACL_PROTECTED) == S(0xc000000d) (got 0x0 want 0xffffffffc000000d)
+rtl_security.txt: rtlsec_sd_dacl_absent: FAIL tests/rtl_security/security.c:300: out == &acl.acl (got 0x0 want 0x31fd40)
+rtl_security.txt: rtlsec_sd_dacl_absent: FAIL tests/rtl_security/security.c:300: d == 0x7f (got 0x0 want 0x7f)
+rtl_security.txt: rtlsec_acl_query_class_before_size: FAIL tests/rtl_security/security.c:217: UN(RtlQueryInformationAcl)(&a.acl,&q,0,(ACL_INFORMATION_CLASS)0) == S(0xc0000003) (got 0xffffffffc000000d want 0xffffffffc0000003)
+rtl_security.txt: rtlsec_acl_create_short_before_revision: FAIL tests/rtl_security/security.c:203: UN(RtlCreateAcl)(&a.acl,7,1) == S(0xc0000023) (got 0xffffffffc000000d want 0xffffffffc0000023)
+rtl_security.txt: rtlsec_acl_query_bad_class: FAIL tests/rtl_security/security.c:195: UN(RtlQueryInformationAcl)(&a.acl,&q,sizeof q,(ACL_INFORMATION_CLASS)0) == S(0xc0000003) (got 0xffffffffc000000d want 0xffffffffc0000003)
+rtl_security.txt: rtlsec_acl_query_short: FAIL tests/rtl_security/security.c:188: UN(RtlQueryInformationAcl)(&a.acl,&q,sizeof q-1,AclSizeInformation) == S(0xc0000023) (got 0xffffffffc000000d want 0xffffffffc0000023)
+rtl_security.txt: rtlsec_acl_create_round_down: FAIL tests/rtl_security/security.c:166: a.acl.AclSize == (255)&~3 (got 0xff want 0xfc)
+rtl_security.txt: rtlsec_sid_copy_short: FAIL tests/rtl_security/security.c:155: UN(RtlCopySid)(19,&b,&a) == S(0xc0000023) (got 0x0 want 0xffffffffc0000023)
+rtl_security.txt: rtlsec_sid_copy_exact: FAIL tests/rtl_security/security.c:148: s_ == 0 (got 0x1 want 0x0)
+rtl_security.txt: rtlsec_sid_initialize_fifteen: FAIL tests/rtl_security/security.c:74: sid.sub[0] == 0xa5a5a5a5 (got 0x0 want 0xa5a5a5a5)
+rtl_security.txt: rtlsec_sid_initialize_one: FAIL tests/rtl_security/security.c:73: sid.sub[0] == 0xa5a5a5a5 (got 0x0 want 0xa5a5a5a5)
+rtl_status.txt                   tests=55 failed=1 skipped=0 checks_pass=406 checks_fail=3
+rtl_status.txt: rtl_status_map_nt_bit_facility_not_retested: FAIL tests/rtl_status/status.c:42: r1 == error (got 0x5 want 0x13d)
+rtl_status.txt: rtl_status_map_nt_bit_facility_not_retested: FAIL tests/rtl_status/status.c:42: r2 == error (got 0x5 want 0x13d)
+rtl_status.txt: rtl_status_map_nt_bit_facility_not_retested: FAIL tests/rtl_status/status.c:45: e3 == error (got 0x5 want 0x13d)
+rtl_strings.txt                  tests=65 failed=4 skipped=0 checks_pass=984 checks_fail=9
+rtl_strings.txt: rtl_strings_hash_invalid: FAIL tests/rtl_strings/strings.c:227: h == algorithm<2?expected:0 (got 0x55555555 want 0x0)
+rtl_strings.txt: rtl_strings_find_invalid_flags: FAIL tests/rtl_strings/strings.c:158: UN(RtlFindCharInUnicodeString)(flags,&s,&chars,&out) == status (got 0xffffffffc0000225 want 0xffffffffc000000d)
+rtl_strings.txt: rtl_strings_find_invalid_flags: FAIL tests/rtl_strings/strings.c:158: out == offset (got 0x5555 want 0x0)
+rtl_strings.txt: rtl_strings_find_case: FAIL tests/rtl_strings/strings.c:158: UN(RtlFindCharInUnicodeString)(flags,&s,&chars,&out) == status (got 0xffffffffc0000225 want 0x0)
+rtl_strings.txt: rtl_strings_find_case: FAIL tests/rtl_strings/strings.c:158: out == offset (got 0x5555 want 0x2)
+rtl_strings.txt: rtl_strings_init_large_boundaries: FAIL tests/rtl_strings/strings.c:61: s.Length == 0 (got 0xfffc want 0x0)
+rtl_strings.txt: rtl_strings_init_large_boundaries: FAIL tests/rtl_strings/strings.c:61: s.MaximumLength == 0 (got 0xfffe want 0x0)
+rtl_strings.txt: rtl_strings_init_large_boundaries: FAIL tests/rtl_strings/strings.c:64: s.Length == 0 (got 0xfffc want 0x0)
+rtl_strings.txt: rtl_strings_init_large_boundaries: FAIL tests/rtl_strings/strings.c:64: s.MaximumLength == 0 (got 0xfffe want 0x0)
+rtl_sync.txt                     tests=50 failed=7 skipped=0 checks_pass=192 checks_fail=10
+rtl_sync.txt: rtl_sync_once_begin_invalid_flags: FAIL tests/rtl_sync/sync.c:375: s_ == (((NTSTATUS)(0xc00000f0))) (got 0xffffffffc000000d want 0xffffffffc00000f0)
+rtl_sync.txt: rtl_sync_cv_srw_invalid_flags: FAIL tests/rtl_sync/sync.c:295: s_ == (((NTSTATUS)(0xc00000f0))) (got 0x102 want 0xffffffffc00000f0)
+rtl_sync.txt: rtl_sync_cv_wake_all_empty: FAIL tests/rtl_sync/sync.c:270: cv.Ptr == NULL (got 0x1 want 0x0)
+rtl_sync.txt: rtl_sync_cv_wake_empty: FAIL tests/rtl_sync/sync.c:266: cv.Ptr == NULL (got 0x1 want 0x0)
+rtl_sync.txt: rtl_sync_cs_ex_invalid_spin_high_bits: FAIL tests/rtl_sync/sync.c:141: s == S(0xc00000f0) (got 0x0 want 0xffffffffc00000f0)
+rtl_sync.txt: rtl_sync_cs_ex_invalid_spin_high_bits: FAIL tests/rtl_sync/sync.c:141: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0x1 want 0x0)
+rtl_sync.txt: rtl_sync_cs_ex_invalid_flags: FAIL tests/rtl_sync/sync.c:134: s == S(0xc00000f1) (got 0x0 want 0xffffffffc00000f1)
+rtl_sync.txt: rtl_sync_cs_ex_invalid_flags: FAIL tests/rtl_sync/sync.c:134: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0x1 want 0x0)
+rtl_sync.txt: rtl_sync_cs_ex_conflicting_debug_flags: FAIL tests/rtl_sync/sync.c:127: s == S(0xc00000f1) (got 0x0 want 0xffffffffc00000f1)
+rtl_sync.txt: rtl_sync_cs_ex_conflicting_debug_flags: FAIL tests/rtl_sync/sync.c:127: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0xffffffffffffffff want 0x0)
+rtl_tables.txt                   tests=50 failed=1 skipped=25 checks_pass=1537 checks_fail=5
+rtl_tables.txt: rtl_tables_avl_initialize_callbacks_context: FAIL tests/rtl_tables/tables.c:189: f.table.a.Context == &f.ctx (got 0x0 want 0x31fab8)
+rtl_tables.txt: rtl_tables_avl_initialize_callbacks_context: FAIL tests/rtl_tables/tables.c:189: f.table.a.Root.Parent == &f.table.a.Root (got 0x0 want 0x31fa50)
+rtl_tables.txt: rtl_tables_avl_initialize_callbacks_context: FAIL tests/rtl_tables/tables.c:190: f.table.a.Compare==a_compare
+rtl_tables.txt: rtl_tables_avl_initialize_callbacks_context: FAIL tests/rtl_tables/tables.c:190: f.table.a.Allocate==a_allocate
+rtl_tables.txt: rtl_tables_avl_initialize_callbacks_context: FAIL tests/rtl_tables/tables.c:190: f.table.a.Free==a_release
+rtl_threadpool.txt               tests=28 failed=0 skipped=0 checks_pass=28 checks_fail=0
+rtl_time.txt                     tests=79 failed=5 skipped=0 checks_pass=354 checks_fail=10
+rtl_time.txt: rtl_time_invalid_century2100: FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)
+rtl_time.txt: rtl_time_invalid_century2100: FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x22f9fc03dc34000 want 0x123456789abcdef)
+rtl_time.txt: rtl_time_invalid_century1900: FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)
+rtl_time.txt: rtl_time_invalid_century1900: FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x14f6598c43f8000 want 0x123456789abcdef)
+rtl_time.txt: rtl_time_invalid_nonleap: FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)
+rtl_time.txt: rtl_time_invalid_nonleap: FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x1d94bd0c4224000 want 0x123456789abcdef)
+rtl_time.txt: rtl_time_invalid_short_maximum_year: FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)
+rtl_time.txt: rtl_time_invalid_short_maximum_year: FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x887d13de97f34000 want 0x123456789abcdef)
+rtl_time.txt: rtl_time_invalid_above_maximum_year: FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)
+rtl_time.txt: rtl_time_invalid_above_maximum_year: FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x7fff35f4f06c8000 want 0x123456789abcdef)
+RUN FAILED CHECKS (completed): crt_strings
+RUN FAILED CHECKS (completed): ldr_image
+RUN FAILED CHECKS (completed): nt_process
+RUN FAILED CHECKS (completed): nt_sync
+RUN FAILED CHECKS (completed): nt_token
+RUN FAILED CHECKS (completed): nt_vm
+RUN FAILED CHECKS (completed): rtl_bitmap
+RUN FAILED CHECKS (completed): rtl_compression
+RUN FAILED CHECKS (completed): rtl_context
+RUN FAILED CHECKS (completed): rtl_conversion
+RUN FAILED CHECKS (completed): rtl_environment
+RUN FAILED CHECKS (completed): rtl_heap
+RUN FAILED CHECKS (completed): rtl_numeric
+RUN FAILED CHECKS (completed): rtl_security
+RUN FAILED CHECKS (completed): rtl_status
+RUN FAILED CHECKS (completed): rtl_strings
+RUN FAILED CHECKS (completed): rtl_sync
+RUN FAILED CHECKS (completed): rtl_tables
+RUN FAILED CHECKS (completed): rtl_time
+TOTAL tests=1640 failed=90 skipped=71 checks_pass=71650 checks_fail=159 incomplete=0

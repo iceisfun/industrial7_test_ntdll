@@ -1,0 +1,1576 @@
+{
+  "generated_utc": "2026-11-01T02:39:56.906507+00:00",
+  "source_commit": "fb923256207e728b3b82e53f110900b6b8aea28a",
+  "authority": "Wine smoke validation only; not native Windows conformance",
+  "provenance_caveat": "Commit/source/binary/log hashes describe files at recording time. Use an unchanged clean-build/run/record sequence; the recorder alone cannot prove historical compiler or execution provenance.",
+  "command": "python3 tools/smoke_all.py --timeout 120 --results results/wine",
+  "compiler": "x86_64-w64-mingw32-gcc (GCC) 13-win32",
+  "wine_path": "/home/iceisfun/work/wine/proton-ge-custom/build/dist/files/bin/wine",
+  "wine_version": "wine-11.0 (Staging)",
+  "totals": {
+    "tests": 1640,
+    "failed": 90,
+    "skipped": 71,
+    "checks_pass": 71650,
+    "checks_fail": 159
+  },
+  "all_areas_completed": true,
+  "all_checks_pass": false,
+  "compiled_runtime_test_counts_match": true,
+  "build_audit": {
+    "areas": [
+      {
+        "area": "core_smoke",
+        "tests": 3,
+        "children": 1,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "crt_algorithms",
+        "tests": 159,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "crt_strings",
+        "tests": 181,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "export_surface",
+        "tests": 5,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "harness_checks",
+        "tests": 11,
+        "children": 6,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "ldr_image",
+        "tests": 44,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "nt_file",
+        "tests": 50,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "nt_process",
+        "tests": 47,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "nt_registry",
+        "tests": 42,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "nt_sync",
+        "tests": 69,
+        "children": 1,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "nt_token",
+        "tests": 28,
+        "children": 1,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "nt_vm",
+        "tests": 52,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_bitmap",
+        "tests": 41,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_compression",
+        "tests": 45,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_context",
+        "tests": 25,
+        "children": 1,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_conversion",
+        "tests": 81,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_environment",
+        "tests": 46,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_hash",
+        "tests": 59,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_heap",
+        "tests": 47,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_memory",
+        "tests": 55,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_numeric",
+        "tests": 82,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_path",
+        "tests": 68,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_security",
+        "tests": 73,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_status",
+        "tests": 55,
+        "children": 1,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_strings",
+        "tests": 65,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_sync",
+        "tests": 50,
+        "children": 5,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_tables",
+        "tests": 50,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_threadpool",
+        "tests": 28,
+        "children": 1,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      },
+      {
+        "area": "rtl_time",
+        "tests": 79,
+        "children": 0,
+        "imports": [
+          "KERNEL32.dll",
+          "msvcrt.dll"
+        ]
+      }
+    ],
+    "total_tests": 1640,
+    "errors": []
+  },
+  "source_hashes": {
+    "Makefile": "a0580d36204bcd3e13351c379cdbc0251cc03e3c07b7adc0666b0770aaf9fef8",
+    "common/modules.h": "317134f984303c0b688e18841ad19e0aa083601ea83b195347cf390ee060d34a",
+    "common/t.c": "73e4849b9ac8f304ca837f859a8ac754e76be267387eccebb1e1f694702cd0ca",
+    "common/t.h": "3b0172a6d8abce423ea62ae3d58142b1be896207012be93ad1fb0775940decc5",
+    "tests/core_smoke/smoke.c": "47629b38d10bf89eeb96dfceb3141d44453d64ba33c48719bca3b4afaf1e41e0",
+    "tests/crt_algorithms/algorithms.c": "d93ab73ca8fa8448221b37162e0fdaa23efbf6439f20ab2a6504339d3a1fc557",
+    "tests/crt_strings/strings.c": "f9d451eed7f212a41162aefe01295c2e630b297902ec6cdf21366eefc167d0fd",
+    "tests/export_surface/exports.c": "63e95e6e3de8c8511a2e8130c4384981f03a561de86c640d6396ddd7c5e7c94b",
+    "tests/export_surface/reference.inc": "a70cbcf35ee27740f012b3b184beea248515cd07d9e0a7e20d2e7421b00839d4",
+    "tests/harness_checks/checks.c": "09dc342216e9f02bf80a45f86b4fced02acab74e720d3cd588502d789a3c8e74",
+    "tests/ldr_image/ldr_image.c": "6f5de2720294482b231052d20de04efe7d91702ec6546c6d481aa897c31ccf75",
+    "tests/nt_file/file.c": "d7dab3baf89d877d1927b3a21cbc3ee5ce552cd9459480b848fb03ed3ec29eb9",
+    "tests/nt_process/process.c": "fe0bc9d0a61e84f18ba4e5958a557ff14eb41916e84e48c5590bb3de08142543",
+    "tests/nt_registry/registry.c": "d63b91633a54c8bcba6429da446b2bd67fb7e5d8931bb2a787eac1a1bd152de8",
+    "tests/nt_sync/sync.c": "a714a913114e2bdf2171adc32f4edcf763a4601abe8a2222915975882d20e4e2",
+    "tests/nt_token/token.c": "71f260f30c1deca9cc020809fdb75b8fc97e7b58e1de89f793fc26a49ccd6b3a",
+    "tests/nt_vm/vm.c": "27590f9f8482de2d01de9fa210238c0d4d27f995eb506849fc2ca13e96e5b49b",
+    "tests/rtl_bitmap/bitmap.c": "e021d6a33c2412430cc8d9ca741ac43cb7f9f763b1e0a2e6883fccb4a7c7c5b0",
+    "tests/rtl_compression/compression.c": "30b3ee2c97017c142f5abd74d416b184e00846273040eb82ef1c7a7a9861f1fe",
+    "tests/rtl_context/context.c": "5102af93fa5ad404d852ecd30ab55ca146a16c6c762513432608187831078d11",
+    "tests/rtl_conversion/conversion.c": "eb6a7e305d6f58343550cef22360d30303bf52dc9981febd081f0f0d878c58c3",
+    "tests/rtl_environment/environment.c": "918d1ef54e01c307550ab8dc68cc618e27d7eeda8fbcc770c0dfc13ac6bb9a63",
+    "tests/rtl_hash/hash.c": "9cb9602e52cf9fe8ae03b0116fddc3927bc5df269072f78e491f24939cdcfa25",
+    "tests/rtl_heap/heap.c": "fa79aab5b238a514c135b31eb6a15324140ed14ccd97db033cfd3895c3b6b302",
+    "tests/rtl_memory/memory.c": "0c82718e63f9b6c643dd5074ab69756e654f03c141cca62273131b254e36c379",
+    "tests/rtl_numeric/numeric.c": "6a757443135ddd38b123b519847f9307a9166d7cbd23265e36a7bf301f253814",
+    "tests/rtl_path/rtl_path.c": "fee1d403ee70c650a2c22fa1f01b1ca4c2018a0472830799922f18b7982df379",
+    "tests/rtl_security/security.c": "de3d04ded44f3c316a2bd001162afb07e87bdbda81c5379990ba49152449d53e",
+    "tests/rtl_status/status.c": "f5a2bdeaf730eb98869dd996cd092349ae05a875b0e7a6b683761b1e141031d9",
+    "tests/rtl_strings/strings.c": "4b939bcc40d0d833f7e1eb094392f8810d632364d7dbe6e15381005bbb0aca8d",
+    "tests/rtl_sync/sync.c": "e1328816675ef68208e126a2e88ac292278750e406771b473db78eaffb763b2e",
+    "tests/rtl_tables/tables.c": "0f8bd26ea319ed33d67c0ed85d6aa1396ff1afa0d7f4a6e917e582a93f970531",
+    "tests/rtl_threadpool/threadpool.c": "c2cb3c12860a137451035c9c26ab4b942ad9ca50c35a7c8ed235630243ab7aac",
+    "tests/rtl_time/time.c": "5fb36113e61d078a540f83355e75275528a06960e9c231cd2414ede0ea8361d3",
+    "tools/audit_build.py": "13ce4c513a0580eaf37d7a8e3f584c9b1192d6361ea850289ccee8cff22e1a74",
+    "tools/coverage.py": "bc262a788bcc6dbc23ea2d73e732e4f85ae5ef7dad184571035da154a01b578c",
+    "tools/fetch_exports.py": "2a8e832e86b6e18e4fd429fa17ef61ad4aa988e7cbafada3e9652f7d8be24bcc",
+    "tools/generate_export_table.py": "f106b3ac8837690287a842518dde5e777fde8aa809728bfb96d6228ced1bea60",
+    "tools/make_base_prefix.sh": "37ceb602c9b2ad16f3b4d3b3de00cac1d7d22d24863b83002d7f4e412272437d",
+    "tools/map_public_surface.py": "ba0327db82d86e86aca9d01d67cb4b26ed02490742b2d6354d7446f82bd086db",
+    "tools/reap_wine.py": "5c1a853537556da1c14faa8c4c8f82cc43f90faf1eb38ab204792d343dec9e66",
+    "tools/record_validation.py": "f51f655a88da1ca842478f19943c67951f68b9428c27ac2f93f0d07a28820f7a",
+    "tools/run_all.bat": "e34a7c743bad1d1cdf81dd1a6a6bc05a49182ec84d249f13dab7b95188f0b78d",
+    "tools/run_all.ps1": "f17ff078e7bc7517d98b90d60ec121ef90c20eef6c136ea9f69eb2903ecc5c7e",
+    "tools/smoke_all.py": "2c914c16940373854dafa5415ca074d3cfdbb22a63ab1dfed7485b702d3654d8",
+    "tools/suggest_areas.py": "3049cc0abb1e7608825863bb1ca68e84565182ff69a0e7305f06ce8e8f956402",
+    "tools/summarize.py": "ab6b7ecd8bdfa077fc9147e40faec74d919a7edd85be5c831d6b3d6658228a59",
+    "tools/test_coverage.py": "ba4ab7f16f3d46389f8e16758e2a048a4079f35a0a90c36686b2b4ef8e571141",
+    "tools/test_tools.py": "ebe8d50e042dd9d4f70660029330aa097355d79cbe3ef2f654121d0723b9d036",
+    "tools/wine_run.sh": "d7fd476faad7ce2f5e94b08dd7303214f6d06b4a65981f05bd54fe9658dae268",
+    "tools/write_reports.py": "170fcdea6d3a0f8746ad92666ee84fac242ad22d99d051261113e1d22ffb55c9"
+  },
+  "areas": [
+    {
+      "area": "core_smoke",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.217,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/core_smoke.txt",
+      "tests": 3,
+      "failed": 0,
+      "skipped": 0,
+      "checks_pass": 4,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "6ae263f1957b57da03f9143c9696859320f88f4e379ab61dec3ae6635edf109d",
+      "executable_sha256": "053557c640f2651c8668f2caff0cdd2ec277b68f0ca3a5032e74cc8a7e7a3ffb"
+    },
+    {
+      "area": "crt_algorithms",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.217,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/crt_algorithms.txt",
+      "tests": 159,
+      "failed": 0,
+      "skipped": 0,
+      "checks_pass": 45166,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "afa316d76fbd715fcba1d9c4c26900904d21b09a83f4e9adcc75a82983c9fffd",
+      "executable_sha256": "98f7050595851902808f4c01b78b8f99161efb4961ff68d1f1244a801586c3a8"
+    },
+    {
+      "area": "crt_strings",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.117,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/crt_strings.txt",
+      "tests": 181,
+      "failed": 2,
+      "skipped": 0,
+      "checks_pass": 741,
+      "checks_fail": 2,
+      "completed": true,
+      "log_sha256": "3a04c20f6377093398d0b398274cada2e03f4b08bbb0dee804d5f267654576ed",
+      "executable_sha256": "c26048827b3738c56aa742a7bdc4b0298dfa94ad810a5fd438909d6058a5c6b3"
+    },
+    {
+      "area": "export_surface",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.32,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/export_surface.txt",
+      "tests": 5,
+      "failed": 0,
+      "skipped": 0,
+      "checks_pass": 5905,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "4cf3f72523db270042980bcc49101ff69fe456929d6a4cc5abb4457b67a3d112",
+      "executable_sha256": "0ab71526311cc0f3e40b12fc45ea45021fd56446a96488241e530655b54daa53"
+    },
+    {
+      "area": "harness_checks",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.619,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/harness_checks.txt",
+      "tests": 11,
+      "failed": 0,
+      "skipped": 1,
+      "checks_pass": 39,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "962176d78f94a333824acaa85c9e3362f5be59822acfc3096aab21b6e5d3477f",
+      "executable_sha256": "be9052c3485927fe635c6db6dbf04f1c151fb58ac0cbb5b8100fdb92fc412a88"
+    },
+    {
+      "area": "ldr_image",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.217,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/ldr_image.txt",
+      "tests": 44,
+      "failed": 2,
+      "skipped": 0,
+      "checks_pass": 95,
+      "checks_fail": 6,
+      "completed": true,
+      "log_sha256": "7b10bd1ef4ef698e017e12245ff1aa471b8e9a75bfa91a4ff3cfe00301e240dd",
+      "executable_sha256": "e26f21d71657eb30e614a122b0163e32ea51a0180f61b2150ae9b94809a53b20"
+    },
+    {
+      "area": "nt_file",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.268,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/nt_file.txt",
+      "tests": 50,
+      "failed": 0,
+      "skipped": 0,
+      "checks_pass": 383,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "9a6155c83d4619d59bac0ffbcb6ea539060975b7335ca10b275d9e0045eb5f8d",
+      "executable_sha256": "c4eb63185a42ab9ec1f37432aed8eeb906519195a2ebd291e781207fcc69d790"
+    },
+    {
+      "area": "nt_process",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.318,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/nt_process.txt",
+      "tests": 47,
+      "failed": 12,
+      "skipped": 0,
+      "checks_pass": 258,
+      "checks_fail": 21,
+      "completed": true,
+      "log_sha256": "e07ca9e2cf7fb4dcf7b038fe625b4c8d5664533c35806833e879e2884d34f7c7",
+      "executable_sha256": "9011a43de1a1e0fbf0c20d14795e7a60e42ea10970a5dc3e70b76841a3f3a9d5"
+    },
+    {
+      "area": "nt_registry",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.169,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/nt_registry.txt",
+      "tests": 42,
+      "failed": 0,
+      "skipped": 0,
+      "checks_pass": 449,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "c45d1e7e08290cf4e0b789324666c3f1446069363514d8d1d305016808fd6c47",
+      "executable_sha256": "d7a56c12df6139bd81b6d4c717258ba69c7b6222ea8e1ae9a2f3b27c0d9271c6"
+    },
+    {
+      "area": "nt_sync",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.319,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/nt_sync.txt",
+      "tests": 69,
+      "failed": 7,
+      "skipped": 0,
+      "checks_pass": 685,
+      "checks_fail": 9,
+      "completed": true,
+      "log_sha256": "9cff12dcb6d2dd09b72dbfe5c9e507138cc7612a6381722934f376ec9e7a3f24",
+      "executable_sha256": "435eda71d1d4f0235ab25c663d861ef13c0a6d25e8b13d488ade406feabc91f0"
+    },
+    {
+      "area": "nt_token",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.319,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/nt_token.txt",
+      "tests": 28,
+      "failed": 7,
+      "skipped": 0,
+      "checks_pass": 518,
+      "checks_fail": 14,
+      "completed": true,
+      "log_sha256": "167a8db1fca1b90ff0585bb4a15571e5bfc61fd168e843d33bd5184a86c18301",
+      "executable_sha256": "bee4811d30432c18f9a993f2cc30d62da015ede5157d70e40d807f2d17198bc2"
+    },
+    {
+      "area": "nt_vm",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.219,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/nt_vm.txt",
+      "tests": 52,
+      "failed": 5,
+      "skipped": 0,
+      "checks_pass": 489,
+      "checks_fail": 5,
+      "completed": true,
+      "log_sha256": "6481cec0c7af31c096be793e9e13b525d9c8efe78e00d91c11e9a2376acf0cb7",
+      "executable_sha256": "64b45597433e38d9e248267ff1bcd475cdbf6a542e2b253b2b3351ff7f107d74"
+    },
+    {
+      "area": "rtl_bitmap",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.169,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_bitmap.txt",
+      "tests": 41,
+      "failed": 2,
+      "skipped": 1,
+      "checks_pass": 1768,
+      "checks_fail": 12,
+      "completed": true,
+      "log_sha256": "521dfc30b394343f8d7e4ab717fe2edcbe55e9e5d087d0047735ad70c9643d2c",
+      "executable_sha256": "cdbcb1322ebf41d750109d2432239708ce06e4642545413514c857dabd3d27df"
+    },
+    {
+      "area": "rtl_compression",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.318,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_compression.txt",
+      "tests": 45,
+      "failed": 4,
+      "skipped": 7,
+      "checks_pass": 829,
+      "checks_fail": 4,
+      "completed": true,
+      "log_sha256": "5b3cb55990ac4e550aaef06e23148fa1a6dfc4588ff3464521e3f49dd852d800",
+      "executable_sha256": "e5bd0453d377a48090c47e4be450f399a621f65f87e5eee6bd18a1498565ad2e"
+    },
+    {
+      "area": "rtl_context",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.118,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_context.txt",
+      "tests": 25,
+      "failed": 1,
+      "skipped": 0,
+      "checks_pass": 230,
+      "checks_fail": 1,
+      "completed": true,
+      "log_sha256": "63ad87b3098b4e60e4db83a4db3060c05096533f330ef3658f826f124917803f",
+      "executable_sha256": "aee1c2fe4c6ba5f5920af6105829ec63c3b88ad12c415ae94f382272f42ab726"
+    },
+    {
+      "area": "rtl_conversion",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.267,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_conversion.txt",
+      "tests": 81,
+      "failed": 8,
+      "skipped": 0,
+      "checks_pass": 1282,
+      "checks_fail": 11,
+      "completed": true,
+      "log_sha256": "1a49f4be18e01f2645d7df7dcbce9d24ce6d7286de4b92ddadadde4cec8e9a3b",
+      "executable_sha256": "d06208d1fe3f6edddbd8f24ec717d5c0928026502aee2e80807fb0708b7add0b"
+    },
+    {
+      "area": "rtl_environment",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.318,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_environment.txt",
+      "tests": 46,
+      "failed": 5,
+      "skipped": 0,
+      "checks_pass": 711,
+      "checks_fail": 5,
+      "completed": true,
+      "log_sha256": "970bd33c0a085374ccac0105f9189abcdfaf43acbc751701d868adc565f79511",
+      "executable_sha256": "30e2d94b42bbeadacf06a485e3b1b6a550c776b49ec825f15f241127d9cfbc6d"
+    },
+    {
+      "area": "rtl_hash",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.118,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_hash.txt",
+      "tests": 59,
+      "failed": 0,
+      "skipped": 34,
+      "checks_pass": 2808,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "e05fdb1a4dcafade984b067048ef6c5287770cbe757a9d2f899f24ea8c712ec9",
+      "executable_sha256": "05f196d8b1448bb8d1ab00a2d2f7bce461b7224f24e7468dd55d461a0422afcc"
+    },
+    {
+      "area": "rtl_heap",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.268,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_heap.txt",
+      "tests": 47,
+      "failed": 3,
+      "skipped": 0,
+      "checks_pass": 340,
+      "checks_fail": 3,
+      "completed": true,
+      "log_sha256": "bd4569faf09362bd21d619595565c258e3435bc409d4b2c55978c7f361abab4a",
+      "executable_sha256": "cd715a5b5cb0b02501133e02be0111476be78b724c614cfe6d07c2e91284326b"
+    },
+    {
+      "area": "rtl_memory",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.218,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_memory.txt",
+      "tests": 55,
+      "failed": 0,
+      "skipped": 0,
+      "checks_pass": 4349,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "220a305307c495e9d132958e902ff11dd648c3ca110cfc7d7795e83804498344",
+      "executable_sha256": "46ec2e2ac28b79e2fed5f5cb9d6736a8ea770e4c6d3cdedf38397e9f23001b21"
+    },
+    {
+      "area": "rtl_numeric",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.268,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_numeric.txt",
+      "tests": 82,
+      "failed": 3,
+      "skipped": 3,
+      "checks_pass": 534,
+      "checks_fail": 17,
+      "completed": true,
+      "log_sha256": "be7c7e6c1aaa18f48f98ff671fa0c50429da45509566dbd64c10d0b0ef3dc7b0",
+      "executable_sha256": "fd720a7ab5f4c86e9a50fd8b630ce5827d91b823fbec86558eabe78ee787b36e"
+    },
+    {
+      "area": "rtl_path",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 1.267,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_path.txt",
+      "tests": 68,
+      "failed": 0,
+      "skipped": 0,
+      "checks_pass": 215,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "d7cdd8a17353ff6cf03efa29a440ba3ddd45b398e5272756d80fc098bf21c923",
+      "executable_sha256": "7656ed8db9ffd214304acac187fc12d5b1019a56badad73a41a15153ec821a23"
+    },
+    {
+      "area": "rtl_security",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.268,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_security.txt",
+      "tests": 73,
+      "failed": 11,
+      "skipped": 0,
+      "checks_pass": 351,
+      "checks_fail": 12,
+      "completed": true,
+      "log_sha256": "c07045fe89dddad040985a9c7b0e05b06f57ebbfc6760a334a19a5e5548af789",
+      "executable_sha256": "57db8ffdd132c78c7c241df45555649e06cabfbe1949208d85a58b9e27fca25e"
+    },
+    {
+      "area": "rtl_status",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.166,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_status.txt",
+      "tests": 55,
+      "failed": 1,
+      "skipped": 0,
+      "checks_pass": 406,
+      "checks_fail": 3,
+      "completed": true,
+      "log_sha256": "f1bbe18725365f9501cfe11f55df268490ad1a7fd55b41c0c91bb42828f39867",
+      "executable_sha256": "e9b9518c42287781540d273809ea07b0b82bfbd2f91178dc353ac314d445bade"
+    },
+    {
+      "area": "rtl_strings",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.116,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_strings.txt",
+      "tests": 65,
+      "failed": 4,
+      "skipped": 0,
+      "checks_pass": 984,
+      "checks_fail": 9,
+      "completed": true,
+      "log_sha256": "df69bf36348376678a6ee595dc39e58518e374a283b116e1beab02dfb1f9daff",
+      "executable_sha256": "18abdd8224b6316c7619b5615118bde8d9de9abfb39cbf5517be35444355398c"
+    },
+    {
+      "area": "rtl_sync",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.467,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_sync.txt",
+      "tests": 50,
+      "failed": 7,
+      "skipped": 0,
+      "checks_pass": 192,
+      "checks_fail": 10,
+      "completed": true,
+      "log_sha256": "986581071c8afc59cbbfc90d6fcf50345d96fe998a502ca597fc032cce15a1cf",
+      "executable_sha256": "c7d5e8d8ff1653c27e95be780e9b1f7f4728141ece8f389ac5487fcf9f65e10b"
+    },
+    {
+      "area": "rtl_tables",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.169,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_tables.txt",
+      "tests": 50,
+      "failed": 1,
+      "skipped": 25,
+      "checks_pass": 1537,
+      "checks_fail": 5,
+      "completed": true,
+      "log_sha256": "2d56f2f7da059086e383b4177a845f85c1e9aecfe2efd4f471fffa74f3b0edc4",
+      "executable_sha256": "0b1a6fe85fa34cd9a1251333af2d98423cb44ebf3d42f5e9957e2f0d9bd5ca22"
+    },
+    {
+      "area": "rtl_threadpool",
+      "exit_code": 0,
+      "timeout": false,
+      "seconds": 2.019,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_threadpool.txt",
+      "tests": 28,
+      "failed": 0,
+      "skipped": 0,
+      "checks_pass": 28,
+      "checks_fail": 0,
+      "completed": true,
+      "log_sha256": "d2838a4c02cb3e2c69f9702f22dfd3cafcf00d11411a9b1f560b93d52d431c97",
+      "executable_sha256": "59258f21a3daff32e0829d88ec96bb8ae0d5f4dc1f4e735b50c55166f9a831df"
+    },
+    {
+      "area": "rtl_time",
+      "exit_code": 1,
+      "timeout": false,
+      "seconds": 1.318,
+      "log": "/home/iceisfun/industrial7_test_ntdll/results/wine/rtl_time.txt",
+      "tests": 79,
+      "failed": 5,
+      "skipped": 0,
+      "checks_pass": 354,
+      "checks_fail": 10,
+      "completed": true,
+      "log_sha256": "d8a7b427e56bc359363473f2d8dbd852f620e53cfcedde6c1696e12c6af694c6",
+      "executable_sha256": "caa2e1c5f50eadacca5d76fd4b8e7ee093c01fd63f521ff6ec6f1e3057f7c7bf"
+    }
+  ],
+  "failed_checks": [
+    {
+      "area": "crt_strings",
+      "test": "crt_strings_wcsstr_both_empty",
+      "detail": "FAIL tests/crt_strings/strings.c:175: actual == expected (got 0000000000000000 want 000000000031fd80; haystack 000000000031fd80 control 000000000031fcc0)"
+    },
+    {
+      "area": "crt_strings",
+      "test": "crt_strings_strstr_both_empty",
+      "detail": "FAIL tests/crt_strings/strings.c:174: actual == expected (got 0000000000000000 want 000000000031fde0; haystack 000000000031fde0 control 000000000031fd80)"
+    },
+    {
+      "area": "ldr_image",
+      "test": "ldr_image_proc_counted_header",
+      "detail": "FAIL tests/ldr_image/ldr_image.c:51: s == 0 (got 0xffffffffc000007a want 0x0)"
+    },
+    {
+      "area": "ldr_image",
+      "test": "ldr_image_proc_counted_header",
+      "detail": "FAIL tests/ldr_image/ldr_image.c:52: out == t_proc_in(\"ntdll.dll\", name) (got 0x0 want 0x6ffffff19d20)"
+    },
+    {
+      "area": "ldr_image",
+      "test": "ldr_image_proc_counted_header",
+      "detail": "FAIL tests/ldr_image/ldr_image.c:53: out != NULL"
+    },
+    {
+      "area": "ldr_image",
+      "test": "ldr_image_proc_counted_close",
+      "detail": "FAIL tests/ldr_image/ldr_image.c:51: s == 0 (got 0xffffffffc000007a want 0x0)"
+    },
+    {
+      "area": "ldr_image",
+      "test": "ldr_image_proc_counted_close",
+      "detail": "FAIL tests/ldr_image/ldr_image.c:52: out == t_proc_in(\"ntdll.dll\", name) (got 0x0 want 0x6fffffefec60)"
+    },
+    {
+      "area": "ldr_image",
+      "test": "ldr_image_proc_counted_close",
+      "detail": "FAIL tests/ldr_image/ldr_image.c:53: out != NULL"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_duplicate_inheritable_handle",
+      "detail": "FAIL tests/nt_process/process.c:190: info.Attributes & 2 == inherit ? 2 : 0 (got 0x0 want 0x2)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_system_exception_short_length",
+      "detail": "FAIL tests/nt_process/process.c:137: s == ST(0xc0000004) (got 0xffffffffc0000003 want 0xffffffffc0000004)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_system_exception_short_length",
+      "detail": "FAIL tests/nt_process/process.c:137: n == 16 (got 0x0 want 0x10)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_system_exception_safe_query",
+      "detail": "FAIL tests/nt_process/process.c:138: s == 0 (got 0xffffffffc0000003 want 0x0)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_start_address_short",
+      "detail": "FAIL tests/nt_process/process.c:107: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_start_address_short",
+      "detail": "FAIL tests/nt_process/process.c:107: n == 0 (got 0x7 want 0x0)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_start_address_short",
+      "detail": "FAIL tests/nt_process/process.c:107: value == ~(ULONG_PTR)0 (got 0xff006fffff081410 want 0xffffffffffffffff)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_oversized_length",
+      "detail": "FAIL tests/nt_process/process.c:87: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_oversized_length",
+      "detail": "FAIL tests/nt_process/process.c:87: n == 0 (got 0x30 want 0x0)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_oversized_length",
+      "detail": "FAIL tests/nt_process/process.c:87: !memcmp(&storage,&before,sizeof storage)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_short_length",
+      "detail": "FAIL tests/nt_process/process.c:87: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_short_length",
+      "detail": "FAIL tests/nt_process/process.c:87: n == 0 (got 0x2f want 0x0)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_short_length",
+      "detail": "FAIL tests/nt_process/process.c:87: !memcmp(&storage,&before,sizeof storage)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_one_byte",
+      "detail": "FAIL tests/nt_process/process.c:87: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_one_byte",
+      "detail": "FAIL tests/nt_process/process.c:87: n == 0 (got 0x1 want 0x0)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_one_byte",
+      "detail": "FAIL tests/nt_process/process.c:87: !memcmp(&storage,&before,sizeof storage)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_thread_basic_zero_length",
+      "detail": "FAIL tests/nt_process/process.c:87: s == ST(0xc0000004) (got 0x0 want 0xffffffffc0000004)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_basic_oversized_length",
+      "detail": "FAIL tests/nt_process/process.c:29: n == 0 (got 0x30 want 0x0)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_basic_short_length",
+      "detail": "FAIL tests/nt_process/process.c:29: n == 0 (got 0x30 want 0x0)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_basic_one_byte",
+      "detail": "FAIL tests/nt_process/process.c:29: n == 0 (got 0x30 want 0x0)"
+    },
+    {
+      "area": "nt_process",
+      "test": "nt_process_basic_zero_length",
+      "detail": "FAIL tests/nt_process/process.c:29: n == 0 (got 0x30 want 0x0)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_wait_multiple_bad_type",
+      "detail": "FAIL tests/nt_sync/sync.c:365: s_ == (((NTSTATUS)(0xc00000f1))) (got 0x0 want 0xffffffffc00000f1)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_timer_query_only_denies_set",
+      "detail": "FAIL tests/nt_sync/sync.c:296: prev == 7 (got 0x0 want 0x7)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_timer_negative_period",
+      "detail": "FAIL tests/nt_sync/sync.c:290: s_ == (((NTSTATUS)(0xc00000f4))) (got 0x0 want 0xffffffffc00000f4)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_timer_negative_period",
+      "detail": "FAIL tests/nt_sync/sync.c:290: prev == 7 (got 0x0 want 0x7)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_timer_invalid_type",
+      "detail": "FAIL tests/nt_sync/sync.c:268: s_ == (((NTSTATUS)(0xc00000f2))) (got 0xffffffffc000000d want 0xffffffffc00000f2)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_mutant_release_not_owned",
+      "detail": "FAIL tests/nt_sync/sync.c:256: prev == 123 (got 0x1 want 0x7b)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_semaphore_release_negative",
+      "detail": "FAIL tests/nt_sync/sync.c:220: s_ == (want) (got 0xffffffffc0000047 want 0xffffffffc000000d)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_semaphore_release_zero",
+      "detail": "FAIL tests/nt_sync/sync.c:220: s_ == (want) (got 0x0 want 0xffffffffc000000d)"
+    },
+    {
+      "area": "nt_sync",
+      "test": "nt_sync_semaphore_release_zero",
+      "detail": "FAIL tests/nt_sync/sync.c:221: prev == 123 (got 0x1 want 0x7b)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_access_before_size",
+      "detail": "FAIL tests/nt_token/token.c:264: UN(NtQueryInformationToken)(h,TokenType,&type,0,&n) == TS(0xc0000022) (got 0xffffffffc0000023 want 0xffffffffc0000022)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_access_before_size",
+      "detail": "FAIL tests/nt_token/token.c:265: n == 0xa5a5a5a5 (got 0x4 want 0xa5a5a5a5)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_duplicate_bad_type",
+      "detail": "FAIL tests/nt_token/token.c:247: st == TS(0xc000000d) (got 0x0 want 0xffffffffc000000d)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_duplicate_bad_type",
+      "detail": "FAIL tests/nt_token/token.c:247: duplicate == NULL"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_mandatory_policy",
+      "detail": "FAIL tests/nt_token/token.c:58: st == TS(0xc0000023) (got 0xffffffffc0000002 want 0xffffffffc0000023)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_mandatory_policy",
+      "detail": "FAIL tests/nt_token/token.c:59: n > 0 && n <= 1024*1024"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_virtualization_allowed",
+      "detail": "FAIL tests/nt_token/token.c:58: st == TS(0xc0000023) (got 0xffffffffc0000002 want 0xffffffffc0000023)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_virtualization_allowed",
+      "detail": "FAIL tests/nt_token/token.c:59: n > 0 && n <= 1024*1024"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_has_restrictions",
+      "detail": "FAIL tests/nt_token/token.c:58: st == TS(0xc0000023) (got 0xffffffffc0000002 want 0xffffffffc0000023)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_has_restrictions",
+      "detail": "FAIL tests/nt_token/token.c:59: n > 0 && n <= 1024*1024"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_restricted_sids",
+      "detail": "FAIL tests/nt_token/token.c:58: st == TS(0xc0000023) (got 0xffffffffc0000002 want 0xffffffffc0000023)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_restricted_sids",
+      "detail": "FAIL tests/nt_token/token.c:59: n > 0 && n <= 1024*1024"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_privileges",
+      "detail": "FAIL tests/nt_token/token.c:66: ntk_untouched(buffer,n+16)"
+    },
+    {
+      "area": "nt_token",
+      "test": "nttoken_query_privileges",
+      "detail": "FAIL tests/nt_token/token.c:70: ntk_untouched(buffer,n+16)"
+    },
+    {
+      "area": "nt_vm",
+      "test": "nt_vm_section_query_invalid_class_before_length",
+      "detail": "FAIL tests/nt_vm/vm.c:282: s == cls==0 ? ST(0xc0000004) : ST(0xc0000003) (got 0xffffffffc0000002 want 0xffffffffc0000003)"
+    },
+    {
+      "area": "nt_vm",
+      "test": "nt_vm_section_query_invalid_class",
+      "detail": "FAIL tests/nt_vm/vm.c:282: s == cls==0 ? ST(0xc0000004) : ST(0xc0000003) (got 0xffffffffc0000002 want 0xffffffffc0000003)"
+    },
+    {
+      "area": "nt_vm",
+      "test": "nt_vm_free_conflicting_types_rejected",
+      "detail": "FAIL tests/nt_vm/vm.c:226: s == ST(0xc00000f2) (got 0xffffffffc000000d want 0xffffffffc00000f2)"
+    },
+    {
+      "area": "nt_vm",
+      "test": "nt_vm_protect_invalid_protection_status",
+      "detail": "FAIL tests/nt_vm/vm.c:158: old == 0xa5a5a5a5 (got 0x1 want 0xa5a5a5a5)"
+    },
+    {
+      "area": "nt_vm",
+      "test": "nt_vm_protect_zero_size_status",
+      "detail": "FAIL tests/nt_vm/vm.c:157: s == zero ? ST(0xc00000f1) : ST(0xc0000045) (got 0x0 want 0xffffffffc00000f1)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x9)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x78)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x28)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x1e)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x28)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x1e)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x6)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x1e)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: UN(RtlFindLastBackwardRunClear)(&b,v[i][0],&start) == v[i][2] (got 0x0 want 0x5)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x3)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_backward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:229: start == v[i][1] (got 0x3e7 want 0x81)"
+    },
+    {
+      "area": "rtl_bitmap",
+      "test": "rtl_bitmap_forward_run_boundaries",
+      "detail": "FAIL tests/rtl_bitmap/bitmap.c:220: start == v[i][1] (got 0x3e7 want 0x81)"
+    },
+    {
+      "area": "rtl_compression",
+      "test": "rtl_compression_roundtrip_zeros",
+      "detail": "FAIL tests/rtl_compression/compression.c:95: s == pattern == 0 ? RC_ZEROS : 0 (got 0x0 want 0x117)"
+    },
+    {
+      "area": "rtl_compression",
+      "test": "rtl_compression_workspace_hiber",
+      "detail": "FAIL tests/rtl_compression/compression.c:22: s == expected (got 0x0 want 0xffffffffc00000bb)"
+    },
+    {
+      "area": "rtl_compression",
+      "test": "rtl_compression_workspace_maximum",
+      "detail": "FAIL tests/rtl_compression/compression.c:25: c == format == 0x102 ? 0x20 : 0x10020 (got 0x10 want 0x20)"
+    },
+    {
+      "area": "rtl_compression",
+      "test": "rtl_compression_workspace_standard",
+      "detail": "FAIL tests/rtl_compression/compression.c:25: c == format == 0x102 ? 0x20 : 0x10020 (got 0x10 want 0x10020)"
+    },
+    {
+      "area": "rtl_context",
+      "test": "rtl_context_backtrace_skip_limit",
+      "detail": "FAIL tests/rtl_context/context.c:90: hash == 0xdeadbeef (got 0x0 want 0xdeadbeef)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_descriptor_to_oem_exact_data",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:88: ad.Length == written (got 0x2 want 0x3)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_descriptor_to_oem_exact_data",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:20: p[i] == 0x55 (byte 0 got 0x61 want 0x55)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_descriptor_to_oem_exact_data",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:20: p[i] == 0x55 (byte 1 got 0x0 want 0x55)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_descriptor_to_oem_exact_data",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:20: p[i] == 0x55 (byte 2 got 0x0 want 0x55)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_raw_to_oem_short",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:42: st == kind==3 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_raw_to_oem_one",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:42: st == kind==3 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_raw_to_oem_zero",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:42: st == kind==3 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_raw_oem_odd",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:34: st == kind==1 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_raw_oem_short",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:34: st == kind==1 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_raw_oem_one",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:34: st == kind==1 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)"
+    },
+    {
+      "area": "rtl_conversion",
+      "test": "rtl_conversion_raw_oem_zero",
+      "detail": "FAIL tests/rtl_conversion/conversion.c:34: st == kind==1 && n<4?OVERFLOW:0 (got 0x0 want 0xffffffff80000005)"
+    },
+    {
+      "area": "rtl_environment",
+      "test": "rtl_environment_query_empty_zero",
+      "detail": "FAIL tests/rtl_environment/environment.c:72: s == expected (got 0x0 want 0xffffffffc0000023)"
+    },
+    {
+      "area": "rtl_environment",
+      "test": "rtl_environment_query_odd_capacity",
+      "detail": "FAIL tests/rtl_environment/environment.c:72: s == expected (got 0x0 want 0xffffffffc0000023)"
+    },
+    {
+      "area": "rtl_environment",
+      "test": "rtl_environment_query_exact_payload",
+      "detail": "FAIL tests/rtl_environment/environment.c:72: s == expected (got 0x0 want 0xffffffffc0000023)"
+    },
+    {
+      "area": "rtl_environment",
+      "test": "rtl_environment_query_short",
+      "detail": "FAIL tests/rtl_environment/environment.c:81: buffer[0] == 0 (got 0xa5a5 want 0x0)"
+    },
+    {
+      "area": "rtl_environment",
+      "test": "rtl_environment_query_one_char",
+      "detail": "FAIL tests/rtl_environment/environment.c:81: buffer[0] == 0 (got 0xa5a5 want 0x0)"
+    },
+    {
+      "area": "rtl_heap",
+      "test": "rtl_heap_process_heaps_capacity_one",
+      "detail": "FAIL tests/rtl_heap/heap.c:198: heaps[0] != NULL"
+    },
+    {
+      "area": "rtl_heap",
+      "test": "rtl_heap_realloc_null_nonzero",
+      "detail": "FAIL tests/rtl_heap/heap.c:152: error == ERROR_SUCCESS (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_heap",
+      "test": "rtl_heap_realloc_null_zero",
+      "detail": "FAIL tests/rtl_heap/heap.c:152: error == ERROR_SUCCESS (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_unicode_odd_exact_capacity",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:192: UN(RtlIntegerToUnicodeString)(123, 10, &s) == capacity < 8 ? (NTSTATUS)0x80000005 : (NTSTATUS)0 (got 0x0 want 0xffffffff80000005)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_unicode_odd_exact_capacity",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:196: w[i] == capacity >= 8 && i < 4 ? L\"123\"[i] : 0x5a5a (got 0x31 want 0x5a5a)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_unicode_odd_exact_capacity",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:196: w[i] == capacity >= 8 && i < 4 ? L\"123\"[i] : 0x5a5a (got 0x32 want 0x5a5a)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_unicode_odd_exact_capacity",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:196: w[i] == capacity >= 8 && i < 4 ? L\"123\"[i] : 0x5a5a (got 0x33 want 0x5a5a)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_unicode_odd_exact_capacity",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:196: w[i] == capacity >= 8 && i < 4 ? L\"123\"[i] : 0x5a5a (got 0x0 want 0x5a5a)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_unicode_invalid_lengths",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:103: UN(RtlUnicodeStringToInteger)(&s, 10, &v) == (NTSTATUS)0xc000000d (got 0x0 want 0xffffffffc000000d)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_unicode_invalid_lengths",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:106: UN(RtlUnicodeStringToInteger)(&s, 10, &v) == (NTSTATUS)0xc000000d (got 0x0 want 0xffffffffc000000d)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_unicode_invalid_lengths",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:107: v == 0 (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_numeric",
+      "test": "rtl_numeric_invalid_bases",
+      "detail": "FAIL tests/rtl_numeric/numeric.c:83: b == 0 (got 0x12345678 want 0x0)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_sd_control_bits_outside_mask",
+      "detail": "FAIL tests/rtl_security/security.c:325: UN(RtlSetControlSecurityDescriptor)(&sd,0,SE_DACL_PROTECTED) == S(0xc000000d) (got 0x0 want 0xffffffffc000000d)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_sd_dacl_absent",
+      "detail": "FAIL tests/rtl_security/security.c:300: out == &acl.acl (got 0x0 want 0x31fd40)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_sd_dacl_absent",
+      "detail": "FAIL tests/rtl_security/security.c:300: d == 0x7f (got 0x0 want 0x7f)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_acl_query_class_before_size",
+      "detail": "FAIL tests/rtl_security/security.c:217: UN(RtlQueryInformationAcl)(&a.acl,&q,0,(ACL_INFORMATION_CLASS)0) == S(0xc0000003) (got 0xffffffffc000000d want 0xffffffffc0000003)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_acl_create_short_before_revision",
+      "detail": "FAIL tests/rtl_security/security.c:203: UN(RtlCreateAcl)(&a.acl,7,1) == S(0xc0000023) (got 0xffffffffc000000d want 0xffffffffc0000023)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_acl_query_bad_class",
+      "detail": "FAIL tests/rtl_security/security.c:195: UN(RtlQueryInformationAcl)(&a.acl,&q,sizeof q,(ACL_INFORMATION_CLASS)0) == S(0xc0000003) (got 0xffffffffc000000d want 0xffffffffc0000003)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_acl_query_short",
+      "detail": "FAIL tests/rtl_security/security.c:188: UN(RtlQueryInformationAcl)(&a.acl,&q,sizeof q-1,AclSizeInformation) == S(0xc0000023) (got 0xffffffffc000000d want 0xffffffffc0000023)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_acl_create_round_down",
+      "detail": "FAIL tests/rtl_security/security.c:166: a.acl.AclSize == (255)&~3 (got 0xff want 0xfc)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_sid_copy_short",
+      "detail": "FAIL tests/rtl_security/security.c:155: UN(RtlCopySid)(19,&b,&a) == S(0xc0000023) (got 0x0 want 0xffffffffc0000023)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_sid_copy_exact",
+      "detail": "FAIL tests/rtl_security/security.c:148: s_ == 0 (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_sid_initialize_fifteen",
+      "detail": "FAIL tests/rtl_security/security.c:74: sid.sub[0] == 0xa5a5a5a5 (got 0x0 want 0xa5a5a5a5)"
+    },
+    {
+      "area": "rtl_security",
+      "test": "rtlsec_sid_initialize_one",
+      "detail": "FAIL tests/rtl_security/security.c:73: sid.sub[0] == 0xa5a5a5a5 (got 0x0 want 0xa5a5a5a5)"
+    },
+    {
+      "area": "rtl_status",
+      "test": "rtl_status_map_nt_bit_facility_not_retested",
+      "detail": "FAIL tests/rtl_status/status.c:42: r1 == error (got 0x5 want 0x13d)"
+    },
+    {
+      "area": "rtl_status",
+      "test": "rtl_status_map_nt_bit_facility_not_retested",
+      "detail": "FAIL tests/rtl_status/status.c:42: r2 == error (got 0x5 want 0x13d)"
+    },
+    {
+      "area": "rtl_status",
+      "test": "rtl_status_map_nt_bit_facility_not_retested",
+      "detail": "FAIL tests/rtl_status/status.c:45: e3 == error (got 0x5 want 0x13d)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_hash_invalid",
+      "detail": "FAIL tests/rtl_strings/strings.c:227: h == algorithm<2?expected:0 (got 0x55555555 want 0x0)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_find_invalid_flags",
+      "detail": "FAIL tests/rtl_strings/strings.c:158: UN(RtlFindCharInUnicodeString)(flags,&s,&chars,&out) == status (got 0xffffffffc0000225 want 0xffffffffc000000d)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_find_invalid_flags",
+      "detail": "FAIL tests/rtl_strings/strings.c:158: out == offset (got 0x5555 want 0x0)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_find_case",
+      "detail": "FAIL tests/rtl_strings/strings.c:158: UN(RtlFindCharInUnicodeString)(flags,&s,&chars,&out) == status (got 0xffffffffc0000225 want 0x0)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_find_case",
+      "detail": "FAIL tests/rtl_strings/strings.c:158: out == offset (got 0x5555 want 0x2)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_init_large_boundaries",
+      "detail": "FAIL tests/rtl_strings/strings.c:61: s.Length == 0 (got 0xfffc want 0x0)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_init_large_boundaries",
+      "detail": "FAIL tests/rtl_strings/strings.c:61: s.MaximumLength == 0 (got 0xfffe want 0x0)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_init_large_boundaries",
+      "detail": "FAIL tests/rtl_strings/strings.c:64: s.Length == 0 (got 0xfffc want 0x0)"
+    },
+    {
+      "area": "rtl_strings",
+      "test": "rtl_strings_init_large_boundaries",
+      "detail": "FAIL tests/rtl_strings/strings.c:64: s.MaximumLength == 0 (got 0xfffe want 0x0)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_once_begin_invalid_flags",
+      "detail": "FAIL tests/rtl_sync/sync.c:375: s_ == (((NTSTATUS)(0xc00000f0))) (got 0xffffffffc000000d want 0xffffffffc00000f0)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cv_srw_invalid_flags",
+      "detail": "FAIL tests/rtl_sync/sync.c:295: s_ == (((NTSTATUS)(0xc00000f0))) (got 0x102 want 0xffffffffc00000f0)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cv_wake_all_empty",
+      "detail": "FAIL tests/rtl_sync/sync.c:270: cv.Ptr == NULL (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cv_wake_empty",
+      "detail": "FAIL tests/rtl_sync/sync.c:266: cv.Ptr == NULL (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cs_ex_invalid_spin_high_bits",
+      "detail": "FAIL tests/rtl_sync/sync.c:141: s == S(0xc00000f0) (got 0x0 want 0xffffffffc00000f0)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cs_ex_invalid_spin_high_bits",
+      "detail": "FAIL tests/rtl_sync/sync.c:141: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cs_ex_invalid_flags",
+      "detail": "FAIL tests/rtl_sync/sync.c:134: s == S(0xc00000f1) (got 0x0 want 0xffffffffc00000f1)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cs_ex_invalid_flags",
+      "detail": "FAIL tests/rtl_sync/sync.c:134: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cs_ex_conflicting_debug_flags",
+      "detail": "FAIL tests/rtl_sync/sync.c:127: s == S(0xc00000f1) (got 0x0 want 0xffffffffc00000f1)"
+    },
+    {
+      "area": "rtl_sync",
+      "test": "rtl_sync_cs_ex_conflicting_debug_flags",
+      "detail": "FAIL tests/rtl_sync/sync.c:127: memcmp(&cs, &before, sizeof(cs)) == 0 (got 0xffffffffffffffff want 0x0)"
+    },
+    {
+      "area": "rtl_tables",
+      "test": "rtl_tables_avl_initialize_callbacks_context",
+      "detail": "FAIL tests/rtl_tables/tables.c:189: f.table.a.Context == &f.ctx (got 0x0 want 0x31fab8)"
+    },
+    {
+      "area": "rtl_tables",
+      "test": "rtl_tables_avl_initialize_callbacks_context",
+      "detail": "FAIL tests/rtl_tables/tables.c:189: f.table.a.Root.Parent == &f.table.a.Root (got 0x0 want 0x31fa50)"
+    },
+    {
+      "area": "rtl_tables",
+      "test": "rtl_tables_avl_initialize_callbacks_context",
+      "detail": "FAIL tests/rtl_tables/tables.c:190: f.table.a.Compare==a_compare"
+    },
+    {
+      "area": "rtl_tables",
+      "test": "rtl_tables_avl_initialize_callbacks_context",
+      "detail": "FAIL tests/rtl_tables/tables.c:190: f.table.a.Allocate==a_allocate"
+    },
+    {
+      "area": "rtl_tables",
+      "test": "rtl_tables_avl_initialize_callbacks_context",
+      "detail": "FAIL tests/rtl_tables/tables.c:190: f.table.a.Free==a_release"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_century2100",
+      "detail": "FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_century2100",
+      "detail": "FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x22f9fc03dc34000 want 0x123456789abcdef)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_century1900",
+      "detail": "FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_century1900",
+      "detail": "FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x14f6598c43f8000 want 0x123456789abcdef)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_nonleap",
+      "detail": "FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_nonleap",
+      "detail": "FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x1d94bd0c4224000 want 0x123456789abcdef)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_short_maximum_year",
+      "detail": "FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_short_maximum_year",
+      "detail": "FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x887d13de97f34000 want 0x123456789abcdef)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_above_maximum_year",
+      "detail": "FAIL tests/rtl_time/time.c:70: ok == FALSE (got 0x1 want 0x0)"
+    },
+    {
+      "area": "rtl_time",
+      "test": "rtl_time_invalid_above_maximum_year",
+      "detail": "FAIL tests/rtl_time/time.c:71: t.QuadPart == 0x123456789abcdefLL (got 0x7fff35f4f06c8000 want 0x123456789abcdef)"
+    }
+  ],
+  "windows_validation_performed": false,
+  "powershell_runner_executed": false
+}
