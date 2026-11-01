@@ -61,9 +61,10 @@ static LONG CALLBACK veh(PEXCEPTION_POINTERS ep) {
     if (!g_in_test || GetCurrentThreadId() != g_main_tid) return EXCEPTION_CONTINUE_SEARCH;
     if (c == 0x40010006 || c == 0x406D1388 || c == DBG_PRINTEXCEPTION_C || c == 0x4001000A) return EXCEPTION_CONTINUE_SEARCH;
     if ((c & 0xF0000000) != 0xC0000000) return EXCEPTION_CONTINUE_SEARCH;
+    /* A second fault while reporting must not recurse into this handler. */
+    g_in_test = 0;
     printf("  FAIL exception 0x%08lx at %p in %s\n", c, ep->ExceptionRecord->ExceptionAddress, g_cur);
     g_fail++; g_cur_fail++;
-    g_in_test = 0;
     longjmp(g_jb, 1);
     return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -92,6 +93,10 @@ DWORD t_run_child(const char *name, const char *extra, DWORD timeout_ms) {
 static char g_tmp[MAX_PATH];
 static void rmtree(const char *dir) {
     char pat[MAX_PATH + 4], sub[MAX_PATH + 300]; WIN32_FIND_DATAA fd;
+    DWORD attrs = GetFileAttributesA(dir);
+    if (attrs == INVALID_FILE_ATTRIBUTES) return;
+    /* Never descend through a junction, including a replaced scratch root. */
+    if (attrs & FILE_ATTRIBUTE_REPARSE_POINT) { RemoveDirectoryA(dir); return; }
     snprintf(pat, sizeof pat, "%s\\*", dir);
     HANDLE h = FindFirstFileA(pat, &fd);
     if (h != INVALID_HANDLE_VALUE) {
@@ -110,14 +115,31 @@ static void rmtree(const char *dir) {
 static void cleanup_tmp(void) { if (g_tmp[0]) { char d[MAX_PATH]; strcpy(d, g_tmp); d[strlen(d) - 1] = 0; rmtree(d); g_tmp[0] = 0; } }
 const char *t_tmpdir(void) {
     if (!g_tmp[0]) {
-        char base[MAX_PATH]; if (!GetTempPathA(sizeof base, base)) strcpy(base, ".\\");
-        snprintf(g_tmp, sizeof g_tmp, "%s" T_TMP_PREFIX "_%lu\\", base, GetCurrentProcessId());
-        CreateDirectoryA(g_tmp, NULL);
-        atexit(cleanup_tmp);
+        char base[MAX_PATH], candidate[MAX_PATH];
+        DWORD length = GetTempPathA(sizeof base, base);
+        if (!length || length >= sizeof base) { fprintf(stderr, "FATAL invalid temp path\n"); exit(2); }
+        for (unsigned i = 0; i < 1024; i++) {
+            int n = snprintf(candidate, sizeof candidate, "%s" T_TMP_PREFIX "_%lu_%lu_%u", base, GetCurrentProcessId(), GetTickCount(), i);
+            if (n < 0 || (size_t)n + 1 >= sizeof g_tmp) break;
+            if (CreateDirectoryA(candidate, NULL)) {
+                snprintf(g_tmp, sizeof g_tmp, "%s\\", candidate);
+                atexit(cleanup_tmp);
+                return g_tmp;
+            }
+            if (GetLastError() != ERROR_ALREADY_EXISTS) break;
+        }
+        fprintf(stderr, "FATAL cannot create private temp directory\n");
+        exit(2);
     }
     return g_tmp;
 }
-void t_tmpfile(char *out, size_t cap, const char *leaf) { snprintf(out, cap, "%s%s", t_tmpdir(), leaf); }
+void t_tmpfile(char *out, size_t cap, const char *leaf) {
+    if (!leaf || !*leaf || !strcmp(leaf, ".") || !strcmp(leaf, "..") || strpbrk(leaf, "\\/:") || leaf[strlen(leaf) - 1] == '.' || leaf[strlen(leaf) - 1] == ' ') {
+        fprintf(stderr, "FATAL scratch filename must be a leaf\n"); exit(2);
+    }
+    int n = snprintf(out, cap, "%s%s", t_tmpdir(), leaf);
+    if (n < 0 || (size_t)n >= cap) { fprintf(stderr, "FATAL scratch filename truncated\n"); exit(2); }
+}
 
 int main(int argc, char **argv) {
     const char *filter = argc > 1 ? argv[1] : NULL;

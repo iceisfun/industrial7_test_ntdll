@@ -61,11 +61,11 @@ void t_check(int ok, const char *file, int line, const char *expr, const char *f
 #define CHECKF(c, ...)    t_check(!!(c), __FILE__, __LINE__, #c, __VA_ARGS__)
 #define EXPECT_EQ(a, b)   do { ULONG_PTR ta_ = (ULONG_PTR)(a), tb_ = (ULONG_PTR)(b); t_check(ta_ == tb_, __FILE__, __LINE__, #a " == " #b, "got 0x%llx want 0x%llx", (unsigned long long)ta_, (unsigned long long)tb_); } while (0)
 #define EXPECT_NE(a, b)   do { ULONG_PTR ta_ = (ULONG_PTR)(a), tb_ = (ULONG_PTR)(b); t_check(ta_ != tb_, __FILE__, __LINE__, #a " != " #b, "got 0x%llx", (unsigned long long)ta_); } while (0)
-#define EXPECT_STR(a, b)  t_check(!strcmp((a), (b)), __FILE__, __LINE__, #a " == " #b, "got \"%s\" want \"%s\"", (a), (b))
-#define EXPECT_WSTR(a, b) t_check(!lstrcmpW((a), (b)), __FILE__, __LINE__, #a " == " #b, "wide string mismatch")
+#define EXPECT_STR(a, b)  do { const char *ta_ = (a), *tb_ = (b); DWORD te_ = GetLastError(); int tok_ = !strcmp(ta_, tb_); SetLastError(te_); t_check(tok_, __FILE__, __LINE__, #a " == " #b, "got \"%s\" want \"%s\"", ta_, tb_); } while (0)
+#define EXPECT_WSTR(a, b) do { const WCHAR *ta_ = (a), *tb_ = (b); DWORD te_ = GetLastError(); int tok_ = !lstrcmpW(ta_, tb_); SetLastError(te_); t_check(tok_, __FILE__, __LINE__, #a " == " #b, "wide string mismatch"); } while (0)
 /* Check GetLastError right after a call that must fail. */
-#define EXPECT_ERR(err)   do { DWORD e_ = GetLastError(); \
-    t_check(e_ == (DWORD)(err), __FILE__, __LINE__, #err, "GetLastError got %lu want %lu", e_, (DWORD)(err)); } while (0)
+#define EXPECT_ERR(err)   do { DWORD e_ = GetLastError(), want_ = (DWORD)(err); \
+    SetLastError(e_); t_check(e_ == want_, __FILE__, __LINE__, #err, "GetLastError got %lu want %lu", e_, want_); } while (0)
 #define SET_ERR(e)        SetLastError(e)
 /* A call that must FAIL with a specific error: r is the call's failure sentinel test. */
 #define EXPECT_FAIL(is_failure, err) do { t_check(!!(is_failure), __FILE__, __LINE__, #is_failure, "call unexpectedly succeeded"); EXPECT_ERR(err); } while (0)
