@@ -2,7 +2,7 @@
 
 ## Scope and authority
 
-51 focused tests; native x64, dynamically resolved ntdll exports. Only this
+52 focused tests; native x64, dynamically resolved ntdll exports. Only this
 process's small private allocations (normally 1–3 pages) and unnamed pagefile
 sections are changed. No executable pages, physical-memory sections, files,
 privileges, or system-wide state. Each successful fixture is guarded before use;
@@ -47,7 +47,7 @@ Built with `make build/nt_vm.exe` without compiler diagnostics. Ran only:
 TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_vm.exe >/tmp/opencode/ntdll_nt_vm.log 2>&1
 ```
 
-Final smoke: **51 tests, 3 failed, 0 skipped, 433 passing checks, 3 failing checks**;
+Initial writer smoke: **51 tests, 3 failed, 0 skipped, 433 passing checks, 3 failing checks**;
 exit 1, no exception/timeout. Retained Windows-specific expectations:
 
 | Test | Wine | Windows service branch |
@@ -62,3 +62,71 @@ MmCopyVirtualMemory were not exhaustively traced; valid-call assertions rely on
 the documented allocation/view semantics in addition to inspected service paths.
 No arbitrary bad pointers, use-after-free reads, guard faults, exhaustion or
 remote-process memory operations are included.
+
+## Adversarial review (2026-10-31)
+
+Reviewed the writer's 51 tests and `/tmp/opencode/ntdll_nt_vm.log` against the
+actual corpus again, one API request at a time, retrying 503. This is **static
+Windows implementation verification, not execution on Windows**. The harness's
+CHECK/EXPECT_EQ are nonfatal (`common/t.h:58-75`).
+
+### Failure triage and validation order
+
+The `/api/syscalls?q=<name>` mappings independently connect ntdll services
+NtFreeVirtualMemory (0x1e), NtProtectVirtualMemory (0x50), and NtQuerySection
+(0x51) to the kernel routines cited above. User-mode buffers here are owned,
+fully backed and naturally aligned; probes occur before the section class/size
+checks and before free's internal flag validation. No kernel-only Zw assumptions
+or invalid-pointer shortcuts are used.
+
+- **Section invalid class:** `/asm` confirms RVA 0x81439e loads 0xc0000003;
+  0x6cc196 checks length only after selecting a recognized class. Added a zero-
+  length/invalid-class case to lock that precedence. Both failure paths leave
+  output bytes and ReturnLength unchanged; 0x6cc226 writes ReturnLength only on
+  success. The user-mode NtQuerySection doc was re-read, not a kernel substitute.
+- **Conflicting MEM_RELEASE|MEM_DECOMMIT:** NtFreeVirtualMemory captures inputs,
+  calls MmFreeVirtualMemory and copies back only on success. Mm's initial
+  `(FreeType & 0xc000) == 0xc000` branch returns `-0x3fffff0e`, computed as
+  0xc00000f2. Retained the exact status, added unchanged base/size checks.
+- **Zero protect size:** `/asm` at 0x67bbd0 tests size and branches to the
+  0xc00000f1 return at 0x8087e1. Invalid protection is rejected earlier, at
+  0x80878a (0xc0000045). These early failures do not copy back base/size/old
+  protection. Added sentinel checks. Wine additionally changes OldProtection
+  to PAGE_NOACCESS (1) for invalid protection; this is a newly exposed output
+  discrepancy, not grounds to weaken the expectation.
+
+The MmFreeVirtualMemory `/asm` request returned HTTP 404 (`no listing available`,
+capstone not importable / objdump unavailable); its validation and output checks
+are supported by the service/helper decompilations, not a claimed assembly read.
+
+### Safety fixes
+
+- Validate allocation size before returning fixtures; guard commit/recommit
+  output address/length before zero-fill indexing. Reset recommit inputs to the
+  owned page rather than reusing possibly malformed decommit outputs.
+- Guard section view lengths before scanning or indexing a second shared view;
+  report a successful NULL second-view pointer as a failure.
+- Keep the section handle live for final cleanup when early CloseHandle fails;
+  retry interior unmap failure with the original view base. If conflicting free
+  unexpectedly succeeds, query the original allocation and release a surviving
+  owned reservation rather than unconditionally leaking it or double-freeing it.
+- Initialize query buffers so a broken successful implementation cannot cause
+  reads of indeterminate fixture fields. These guards do not promise recovery
+  from arbitrary corruption or from an OS refusing every cleanup operation.
+
+### Review smoke
+
+Built only `build/nt_vm.exe` and `build/nt_process.exe` with
+`TMPDIR=/tmp/opencode make build/nt_vm.exe build/nt_process.exe`, without compiler
+diagnostics. VM run:
+
+```sh
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_vm.exe > /tmp/opencode/ntdll_review_vm.log 2>&1
+```
+
+**52 tests, 5 failed, 0 skipped; 489 passing checks, 5 failing checks; exit 1.**
+No exception/timeout. Failures: the original three, the added invalid-class-before-
+length test (same Wine 0xc0000002), and invalid-protection OldProtection sentinel
+(Wine 1 instead of untouched 0xa5a5a5a5). Every retained assertion has the Windows
+branch evidence above. No native run was performed; valid allocation/page-fault
+semantics and internal section construction remain non-exhaustive as stated above.

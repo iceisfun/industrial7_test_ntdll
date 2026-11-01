@@ -2,7 +2,7 @@
 
 ## Scope and authority
 
-45 focused tests. All process/thread handles refer to this process or its calling
+47 focused tests. All process/thread handles refer to this process or its calling
 thread. Only safe read-only process/thread/system information classes are queried.
 Handles are duplicated/closed, but no process or thread is killed, suspended,
 created, modified or debugged; no privileges or security policy are changed.
@@ -44,7 +44,7 @@ Built with `make build/nt_process.exe` without compiler diagnostics. Ran only:
 TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_process.exe >/tmp/opencode/ntdll_nt_process.log 2>&1
 ```
 
-Final smoke: **45 tests, 6 failed, 0 skipped, 232 passing checks, 6 failing checks**;
+Initial writer smoke: **45 tests, 6 failed, 0 skipped, 232 passing checks, 6 failing checks**;
 exit 1, no exceptions or timeout. Differences retained against inspected Windows
 branches:
 
@@ -62,3 +62,102 @@ the internal ObQueryTypeInfo and pseudo-handle resolution implementations were
 not exhaustively traced. RtlCreateUserThread was intentionally omitted: no thread
 creation is necessary to meet safe current-thread query coverage, and an untested
 creation/timeout cleanup path would add risk. No child process was needed.
+
+## Adversarial review (2026-10-31)
+
+Re-read all 45 writer tests, the harness (nonfatal assertions), and
+`/tmp/opencode/ntdll_nt_process.log`. Sequential corpus requests, retrying 503,
+independently verified all six original failing tests against actual Windows
+services. **No native Windows execution occurred.** The original statement that
+inheritable handles need native confirmation remains a runtime-baseline gap, not
+a reason to accept Wine's missing basic Attributes flag.
+
+### Actual failure paths, not generic docs
+
+The syscall API maps NtQueryInformationThread 0x25 to ntoskrnl RVA 0x5f1760,
+NtQuerySystemInformation 0x36 to 0x607ee0, and NtDuplicateObject 0x3c to 0x5face0.
+The ntdll stubs do not implement these contracts. Thread's user-mode entry checks
+alignment (4 bytes for our 7/47-byte calls), address range and optional length
+pointer before entering the class dispatch. Full-size aligned fixtures back all
+advertised short sizes, including zero; none relies on a bad pointer.
+
+- **ThreadBasicInformation sizes 0/1/47:** helper `/asm` at 0x5f1b33 compares
+  size with 0x30 and `jne` targets 0x7ef715, which loads 0xc0000004. This returns
+  before data/ReturnLength writes. Retained all three; added size 49, backed by
+  a 64-byte aligned fixture, plus unchanged-buffer/length checks. Successful
+  queries also check a 16-byte tail canary.
+- **Thread start address size 7:** helper `/asm` at 0x7eeac4 compares with 8,
+  `jne` reaches the same 0xc0000004 return. Only the successful branch writes
+  the pointer and ReturnLength (0x7eeb17 / 0x7eeb1f). Added unchanged-output
+  checks; no docs-based assumption that a short query writes required length.
+- **SystemExceptionInformation (33):** ExpQuerySystemInformation `/decomp`
+  case 0x21 and `/asm` 0x6094e7-0x60955c require at least 16, report 16 for a
+  short buffer, and write four ULONG counters for success. Retained success
+  expectation and added a 15-byte short-size query. Counts are opaque and never
+  compared to environment-specific values. TimeOfDay similarly remains opaque;
+  only the inspected 48-byte protocol is checked.
+- **Inheritable duplicate:** NtDuplicateObject passes the supplied attributes
+  to ObDuplicateObject separately from options. ObDuplicateObject `/decomp`
+  preserves supplied attributes unless option bit 4 (DUPLICATE_SAME_ATTRIBUTES)
+  is set; our inheritable case passes options zero and attributes 2. `/asm`
+  0x67801b-0x67802a confirms this option branch. NtQueryObject `/decomp` class 0
+  copies HandleAttributes from ObReferenceObjectByHandle's handle information
+  into the first ULONG, without removing OBJ_INHERIT. Retained the exact bit-2
+  expectation. Added class-4 (two BOOLEAN handle flags) queries to every duplicate
+  case: **Wine reports Inherit=1 correctly there while basic Attributes is 0**.
+  Thus the observed failure is the basic-info representation, not evidence that
+  the test's attribute argument is wrong.
+
+User-mode NtQueryInformationThread/SystemInformation and the partial-context
+ZwDuplicateObject DDI page were re-read. The short-buffer ReturnLength statements
+in general documentation do not override actual early-return branches. Requests
+for NtQueryObject `/asm` (including explicit objdump) returned HTTP 404:
+`no listing available`, capstone not importable / objdump unavailable. Its flag
+representation is verified from `/decomp`, not claimed as assembly-verified.
+
+### Additional output-state findings and safety
+
+- ProcessBasicInformation invalid sizes 0/1/47/49 now verify ReturnLength stays
+  untouched (initialized zero). `/decomp` returns immediately for sizes other
+  than 0x30/0x40; `/asm` 0x637124-0x637128 branches straight to the 0xc0000004
+  return at 0x63a69c, before length output. Wine writes 48 on these failures.
+  The 0x40 extended ABI is deliberately **not** classified as an invalid length;
+  it is not exercised by this basic-only fixture.
+- Initialize process/thread/object/name query outputs before interpreting them;
+  keep counted strings bounded and never dereference PEB/TEB/debug pointers.
+  The I/O-pending note masks the unused upper ULONG of its pointer-sized fixture.
+- Class sizes/statuses above target the inspected Windows 10 implementation;
+  this is not a cross-version claim for arbitrary future information classes.
+  Native x64 is intentional. Priorities, affinity, parent/debug-port values and
+  actual processor/counter values remain notes rather than fixed host constants.
+  Handle cleanup remains after checks; no fixture owns a handle at any REQUIRE
+  return, and no close-source duplication or process/thread creation is used.
+
+### Review smoke
+
+Built only `build/nt_vm.exe` and `build/nt_process.exe` with
+`TMPDIR=/tmp/opencode make build/nt_vm.exe build/nt_process.exe`, without compiler
+diagnostics. Process run:
+
+```sh
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_process.exe > /tmp/opencode/ntdll_review_process.log 2>&1
+```
+
+**47 tests, 12 failed, 0 skipped; 258 passing checks, 21 failing checks; exit 1.**
+No exception/timeout. Exact triage:
+
+| Failing tests | Wine observation | Inspected Windows expectation |
+|---|---|---|
+| inheritable duplicate | basic Attributes 0; class-4 Inherit 1 | basic OBJ_INHERIT 2; class-4 Inherit 1 |
+| exception 16-byte query | 0xc0000003 | success, ReturnLength 16 |
+| exception 15-byte query (new) | 0xc0000003, ReturnLength 0 | 0xc0000004, ReturnLength 16 |
+| thread start address 7 bytes | success, ReturnLength 7, partial pointer overwrite | 0xc0000004; outputs untouched |
+| thread basic 0/1/47/49 bytes (49 new) | success; nonzero sizes overwrite output/length | 0xc0000004; outputs untouched |
+| process basic 0/1/47/49 bytes | expected mismatch status, but ReturnLength 48 | mismatch status; ReturnLength untouched |
+
+All original six failures remain. Six additional failing tests expose the same
+missing class/strict sizing and newly checked output-state differences; none is
+converted into a permissive alternative. Remaining doubts: no native Windows
+baseline, and no exhaustive ObQueryTypeInfo / object reference implementation
+trace. These limitations are unchanged; no Wine-only claim is labeled Windows-
+executed or universally version-independent.
