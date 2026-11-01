@@ -71,8 +71,9 @@ Queried `/docs` for LdrGetDllHandle, LdrGetProcedureAddress, LdrLoadDll,
 LdrUnloadDll, RtlImageNtHeader, RtlImageDirectoryEntryToData, RtlImageRvaToVa:
 all returned total=0. Expectations therefore derive from the concrete
 decompiled branches, not an invented documentation contract. No ordinal
-lookup, forwarded export policy, malformed offset probing, low-bit tagged
-image base, PE32, or version-specific failure-output contract is claimed.
+lookup, forwarded export policy, malformed offset probing, PE32, or
+version-specific failure-output contract is claimed. Low-bit tagged bases
+were added during review below.
 
 ## Development validation
 
@@ -87,3 +88,66 @@ when MaximumLength=Length and Buffer[Length]='!'. The Windows branch
 explicitly makes a terminated copy in this case, so these assertions are
 retained rather than weakened to Wine behavior. Native Windows confirmation
 remains outstanding.
+
+## Adversarial review
+
+Reviewed writer commit `4597e40`; all reference HTTP requests were serial
+(503 retries supported; none needed). Re-read the wrapper decompilation,
+`LdrGetProcedureAddressForCaller/asm`, and the exact export records from
+`/api/modules/ntdll/exports?q=NtClose` and `?q=RtlImageNtHeader`.
+The records name `NtClose` at RVA 0x9d230 (ordinal 262) and
+`RtlImageNtHeader` at RVA 0x35bd0 (ordinal 1126), neither forwarded.
+
+Both retained failures are verified separately:
+
+| Test | Name / Length / MaximumLength | Windows expectation | Wine result |
+|---|---|---|---|
+| `ldr_image_proc_counted_close` | `NtClose` / 7 / 7 | success, matching export address | 0xc000007a, NULL |
+| `ldr_image_proc_counted_header` | `RtlImageNtHeader` / 16 / 16 | success, matching export address | 0xc000007a, NULL |
+
+In both cases Buffer[Length]='!'. At VA 0x18002fe3e-0x18002fe4a,
+assembly loads Length and MaximumLength, computes Length+1, then uses
+unsigned `jb 0x18002fe5d` when MaximumLength is smaller. Both names take
+the stack-copy branch at 0x18002fe9f; 0x18002fea3-0x18002fead copies
+exactly Length bytes, and 0x18002feb7 writes the new terminator. This
+independently confirms the decompilation's polarity and exact boundary.
+Each Wine test fails three checks (status, address equality, non-NULL),
+not three independent behavioral differences. No expectation was weakened.
+
+Fixes and additional scope:
+- Zero the entire export-name buffer before inserting the non-NUL marker,
+  so even an implementation incorrectly scanning beyond Length encounters
+  a deterministic terminator inside the fixture.
+- Check every load output for NULL before breaking; previously a successful
+  status with NULL could pass without recording a failure. Unload still
+  applies only to successful, non-NULL references acquired by this test.
+- Add tagged-base raw section/header cases, based on the reread
+  `RtlpImageDirectoryEntryToDataEx/decomp` at 0x32920: it clears low two
+  bits and forces raw interpretation when bit 0 is set.
+- Add a valid section-cache hit and an RVA in headers (not a section),
+  based on reread `RtlImageRvaToVa` / `RtlImageRvaToSection` branches.
+
+Bounds review: the 8-byte-aligned 0x4000-byte fixture contains the DOS,
+NT, optional and two section headers, including the relocated header copy.
+All synthetic RVAs, raw translations, cache pointers, and directory indices
+used for memory access remain in that fixture. Rejected index 16 is checked
+against count 16 before table access; the out-of-count case uses count 0.
+Returned addresses are compared, never parsed/dereferenced. The real loaded
+ntdll DOS header is read only after a non-NULL module check. The PE32+
+fixture intentionally matches this repository's x86_64-only Makefile;
+PE32 and ARM64 are not validated. No arbitrary invalid offsets are probed.
+`common/t.h:75` explicitly returns after nonfatal `t_skip`; no bare
+`t_skip` calls exist in this area. No global state changes or new resources.
+
+Review validation:
+- `make build/ldr_image.exe build/rtl_path.exe`: success, no warnings.
+- `TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/ldr_image.exe >/tmp/opencode/ntdll_review_ldr_image.log 2>&1`
+  exited **1**, with exactly the two retained failures above.
+- `/tmp/opencode/ntdll_review_ldr_image.log:98`:
+  `SUMMARY tests=44 failed=2 skipped=0 checks_pass=95 checks_fail=6`.
+- `git diff --check -- tests/ldr_image tests/rtl_path`: success.
+
+No native Windows execution or alternate-architecture run was available;
+the retained differences are static Windows evidence plus Wine smoke, not
+a claim of a successful native baseline. Ordinals, PE32, forwarded-export
+policy, and malformed offsets remain scope gaps.

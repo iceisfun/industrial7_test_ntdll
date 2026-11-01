@@ -89,3 +89,56 @@ Run only via:
 Observed summary: 66 tests, 0 failed, 0 skipped, 191 checks passed,
 0 checks failed. This is smoke evidence only; native Windows 10 execution
 is still needed to validate all hard expectations against the target OS.
+
+## Adversarial review
+
+Reviewed writer commit `1e9d002`. The original log has no failures to
+reclassify (`/tmp/opencode/ntdll_rtl_path.log:134`). Reference requests
+were serial (503 retries supported; none needed).
+
+Fixes:
+- Replace unbounded comparisons of implementation-produced full paths and
+  file parts with fixed-length comparisons, including the expected NUL.
+  FilePart must match the exact expected address, and output Length and
+  MaximumLength must support the read. Address comparison uses integer
+  arithmetic so a bad returned length cannot cause out-of-object pointer
+  arithmetic while checking a mismatching FilePart.
+- Initialize output buffers before use. Current-directory output must have
+  an in-range, even byte count and a NUL at that count before lstrlenW.
+- Increase current-directory storage to the counted Unicode string range
+  (32768 WCHARs), avoiding a host-dependent 511-character assumption.
+  The second buffer has one extra WCHAR for the sentinel: previously a
+  successful 1022-byte name made capacity 1024 and accessed small[512]
+  outside the old 512-WCHAR buffer in the exact-capacity test.
+
+Added two successful extended-path vectors: `\\?\C:\alpha\.\file`
+and `\\?\C:\alpha\..\file` preserve the literal dot/parent components,
+through Boolean/status entry points respectively. Re-read
+`RtlpWin32NtNameToNtPathName/decomp` (RVA 0x17108): it appends the prefix
+and source after four WCHARs directly with RtlAppendUnicodeStringToString,
+then scans backward for FilePart, without full-path normalization.
+This distinguishes extended syntax from the existing normalized DOS cases.
+
+Re-read `RtlGetCurrentDirectory_U/decomp` (0x5d290): root paths require
+length+2 capacity; nonroots copy their internal trailing separator and
+replace it with NUL, returning the shortened byte count. Both cases give
+the existing required=returned_length+2 contract. No cwd mutation was
+introduced. Literal C: and UNC inputs are lexical fixtures, not host-path
+assumptions or filesystem/network probes. Allocated conversion strings
+remain freed via RtlFreeUnicodeString, including failure cleanup when a
+buffer is returned. Export guards use `common/t.h:75`, which explicitly
+returns after nonfatal `t_skip`; there are no bare skip calls in this area.
+
+Review validation:
+- `make build/ldr_image.exe build/rtl_path.exe`: success, no warnings.
+- `TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_path.exe >/tmp/opencode/ntdll_review_rtl_path.log 2>&1`
+  exited **0**.
+- `/tmp/opencode/ntdll_review_rtl_path.log:138`:
+  `SUMMARY tests=68 failed=0 skipped=0 checks_pass=215 checks_fail=0`.
+- Exact retained failure list: **none**.
+- `git diff --check -- tests/ldr_image tests/rtl_path`: success.
+
+Native Windows execution remains unavailable. Relative/per-drive state,
+invalid-input allocation outputs, long-path conversion policy and
+relative-name handle ownership remain untested; the larger cwd buffers
+remove a test-side limit but do not constitute a long-cwd runtime baseline.
