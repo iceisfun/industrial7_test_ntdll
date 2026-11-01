@@ -45,7 +45,9 @@ static void ldr_image_proc(const char *name, int missing, int counted)
     if (counted) { text[a.Length] = '!'; a.MaximumLength = a.Length; }
     s = UN(LdrGetProcedureAddress)(GetModuleHandleA("ntdll.dll"), &a, 0, &out);
     if (missing) {
-        EXPECT_EQ(s, (NTSTATUS)0xc000007a);
+        /* Windows 10 reports STATUS_ENTRYPOINT_NOT_FOUND (older releases used STATUS_PROCEDURE_NOT_FOUND). */
+        EXPECT_EQ(s, (NTSTATUS)0xc0000139);
+        CHECK(out == NULL);
         t_note("missing export output=%p", out);
     } else {
         EXPECT_EQ(s, 0);
@@ -61,7 +63,7 @@ PROC_CASE(header, "RtlImageNtHeader", 0, 0)
 PROC_CASE(load, "LdrLoadDll", 0, 0)
 PROC_CASE(counted_close, "NtClose", 0, 1)
 PROC_CASE(counted_header, "RtlImageNtHeader", 0, 1)
-PROC_CASE(missing, "no_such_export_73f42", 1, 0)
+PROC_CASE(missing, "ntdll_no_such_export_73f42", 1, 0)
 PROC_CASE(wrong_case, "ntclose", 1, 0)
 
 static void ldr_image_load(const WCHAR *name, unsigned count)
