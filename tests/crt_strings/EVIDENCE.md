@@ -88,3 +88,43 @@ These assertions remain hard checks because the Windows assembly confirms them:
 
 No Wine-specific expectation or waiver was added. Windows runtime validation of
 all 175 cases remains outstanding.
+
+## Independent adversarial review (2026-10-31)
+
+Re-read the original smoke log and both search functions' `/asm`, `/decomp`,
+and `/docs` sequentially, retrying HTTP 503 if encountered. The empty-needle
+branches quoted above are unchanged: neither reads the haystack before returning
+it. **Classification: two Wine implementation divergences, not bad expectations.**
+The hard checks remain; there are no permissive Wine branches.
+
+The `strstr/docs` lookup misleadingly labels SHLWAPI `StrStrA`/`StrStrW` pages
+as exact matches through case-insensitive symbol matching. Those are not ntdll
+CRT documentation and were not used as authority. `wcsstr/docs` has `total: 0`.
+Local review responses: `/tmp/opencode/review_{strstr,wcsstr}_{asm,decomp,docs}.txt`.
+
+Added six focused cases (three per width): matches after a haystack NUL must be
+ignored, a needle stops at its embedded NUL, and a partial match exhausting the
+haystack must fail. These follow the decompiled first-zero/partial-match loops,
+not Wine behavior. Fixed `%p` diagnostics to pass actual `void *` arguments.
+
+Audit found no direct API-under-test calls, overlap UB, output-length-driven
+reads, or missing prerequisite guards: returned pointers are compared but never
+dereferenced, fixed oracle lengths fit their arrays, and secure capacities include
+the zero. All secure calls remain valid-input-only; no handler can be triggered
+by an intentionally invalid test. Zero-count cases assert pointer/side-effect
+contracts and are not vacuous. Shared macro cases are parameterized coverage,
+not repeated identical inputs for a count target.
+
+Review build: `make build/crt_strings.exe build/crt_algorithms.exe`, no warnings.
+Separate `-O1 -Wall -Icommon -c` compilation and `x86_64-w64-mingw32-nm -u`
+again show only `t_check`, `t_proc_in`, `t_register`, and `t_skip`.
+
+```
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/crt_strings.exe > /tmp/opencode/ntdll_review_strings.log 2>&1
+SUMMARY tests=181 failed=2 skipped=0 checks_pass=741 checks_fail=2
+```
+
+Exit 1; exactly the same `strstr_both_empty` and `wcsstr_both_empty` failures
+(log lines 85-86 and 154-155). All six additions pass. Windows runtime execution
+remains unavailable; page-boundary read detection and invalid-handler recovery
+remain outside this suite.

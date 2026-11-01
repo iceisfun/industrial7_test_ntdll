@@ -18,7 +18,7 @@ All operations use valid buffers, including count-zero cases. Memory helpers
 check the entire destination array (both surrounding regions included), return
 pointer identity, and source preservation for disjoint copies. Overlap expected
 results are computed from a saved pre-call snapshot, not from a second memmove.
-Counts are at most 255, array sizes at most 512. No inaccessible-memory probes,
+Counts are at most 509, array sizes at most 512. No inaccessible-memory probes,
 page-guard tests, stress cases, or overlap through memcpy are used.
 
 ## Sorting and searching callbacks
@@ -123,3 +123,49 @@ SUMMARY tests=155 failed=0 skipped=0 checks_pass=42505 checks_fail=0
 ```
 
 This is only Wine smoke validation. Windows execution remains outstanding.
+
+## Independent adversarial review (2026-10-31)
+
+Read the original smoke log and independently fetched secure algorithms'
+`/asm`, `/decomp`, and `/docs`, one request at a time with HTTP 503 retry handling.
+`qsort_s/asm` still returns HTTP 404; both secure `/docs` responses have `total: 0`.
+The small-sort decompilation explicitly dispatches `(_Context, puVar6, puVar8)`.
+`bsearch_s` assembly at 0x18008ef29/36/47/4a confirms context/key/candidate in
+RCX/RDX/R8. Installed `/usr/share/mingw-w64/include/sec_api/stdlib_s.h:15,51`
+declares context as the final API argument and the first `__cdecl` comparator
+argument, matching both typed dynamic pointers and callbacks. No ABI change needed.
+Local responses: `/tmp/opencode/review_{qsort_s,bsearch_s}_{asm,decomp,docs}.txt`.
+
+**Classification: no incorrect existing Windows expectations found.** Ctype inputs
+are integer ASCII 0..127, never negative signed chars; class outputs are normalized
+only for truth comparisons. All API calls are dynamically resolved. Missing-export,
+count, and callback-context prerequisites return before unsafe use. Sort results
+are checked for order and multiplicity; search results are compared without
+dereferencing untrusted returned pointers. Count-zero cases check unchanged buffers
+and/or callback suppression, so are not vacuous. Boundary tables are legitimate
+size-branch coverage rather than duplicate tests for a target count.
+
+Fixed a latent helper limitation: old `count + offset < size` checks excluded
+valid exact-end operations and could wrap if reused with very large arguments.
+Helpers now validate offsets first, then compare count against `size - offset`,
+with explicit returns after nonfatal CHECK failures. Added disjoint memcpy ending
+at both arrays' ends (509 bytes), forward/backward overlapping memmove ending at
+source or destination end (496 bytes), and exact-end memset (509 bytes).
+Independently read memcpy/memmove/memset decompilations: bounded tail accesses
+and backward-overlap logic support these valid ranges. Full-array byte oracles
+and source snapshots remain independent of the CRT. These are not guard-page
+tests and do not detect every speculative/vector overread or out-of-array write.
+
+Review build: `make build/crt_strings.exe build/crt_algorithms.exe`, no warnings.
+Separate `-O1 -Wall -Icommon -c` compilation and `x86_64-w64-mingw32-nm -u`
+again report only `t_check`, `t_proc_in`, `t_register`, and `t_skip`; no host CRT
+or compiler-lowered CRT references exist in this test object.
+
+```
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/crt_algorithms.exe > /tmp/opencode/ntdll_review_algorithms.log 2>&1
+SUMMARY tests=159 failed=0 skipped=0 checks_pass=45166 checks_fail=0
+```
+
+Exit 0. All four additions pass. Windows runtime validation, large secure-sort
+partitions, non-int element widths, non-ASCII/EOF behavior, duplicate search
+selection, and isolated invalid-parameter recovery remain untested.
