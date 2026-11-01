@@ -91,3 +91,65 @@ Final ntdll-only module-list build/run reported
 An intermediate rebuild skipped all tests because GetCurrentProcessId was
 looked up in the native-only list; pinning this fixture helper to kernel32 via
 REQUIRE/UIN fixed that integration issue without changing native expectations.
+
+## Adversarial review (2026-10-31)
+
+Reviewed the harness and test-pattern writing/safety rules. All mutations use
+the newly created volatile key under the SID-specific HKCU root, or its child;
+no machine/default/other-user hive fallback or unscoped deletion was found.
+Preexisting top-level keys are closed without deletion. Nonfatal assertions do
+not bypass cleanup. Cleanup now checks close statuses and clears ownership.
+
+Findings/fixes:
+
+* Successful basic/full value-buffer queries previously checked only status and
+  ResultLength. They now verify type, counted Unicode name, and full-information
+  data length/content using the returned DataOffset. Returned lengths/offsets
+  are explicitly bounded before dependent reads: failed CHECKs do not suffice
+  as guards. Partial information also verifies payload.
+* All buffer vectors check the canary beyond the supplied capacity, on success
+  and failure. The partial-data offset has a compile-time 12-byte check.
+* Added two partial-information header-boundary vectors: 11 and 12 bytes.
+  Partial short-buffer statuses are now exact, based on Windows implementation,
+  not on the Wine result. Basic/full retain the documented pair of statuses.
+* Child enumeration now checks the returned header/name extent before reading
+  it, rather than silently omitting checks for a short header. Its buffer has
+  explicit eight-byte alignment.
+
+Independent serial Windows corpus re-checks (503 retries enabled):
+
+* `/function/ntdll/NtQueryValueKey/asm` is the service-0x17 syscall stub.
+  `/function/ntoskrnl/NtQueryValueKey/decomp` (0x618560) and
+  `/CmQueryValueKey/decomp` (0x67a400) lead to CmpQueryKeyValueData.
+* `/function/ntoskrnl/CmpQueryKeyValueData/decomp` and `/asm` (0x67ab00):
+  class 2 sets required size to data length + 12. At 0x67aba4, `cmp r13d,0xc`
+  followed by unsigned `jb` selects 0xc0000023 at 0x67ac42. With the header
+  present, 0x67abc2 compares capacity-minus-12 to payload length; unsigned
+  `cmovb` selects 0x80000005 if truncated. Thus this seven-byte value needs
+  19 bytes: 0/1/11 return SMALL, 12/18 return OVERFLOW, and 19/512 succeed.
+  The basic/full field and copy offsets also match the new parsing checks.
+* `/function/ntoskrnl/NtQueryKey/decomp` (0x618ff0) and
+  `/NtSetValueKey/decomp` (0x66deb0) were read; the latter references access 2,
+  consistent with query-only write denial. `/NtQueryValueKey/docs` and
+  `/NtOpenKey/docs` flag Zw twins as **partial**, with the PreviousMode caveat;
+  the user-mode Nt path remains authoritative. Structure pages
+  `wdm/ns-wdm-_key_value_{basic,full,partial}_information.md` were read via
+  `/docs/page/windows-driver-docs-ddi/`.
+
+Corpus gaps encountered: NtQueryValueKey kernel `/asm` returned
+`no listing available` (capstone/objdump unavailable), and these registry
+structure names were absent from the PDB type endpoint. The successful service
+decompilation, CmpQueryKeyValueData assembly, and vendored structure docs were
+used instead; no unavailable view is claimed as verified.
+
+Validation: build completed without compiler diagnostics, followed only by:
+
+```sh
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_registry.exe > /tmp/opencode/ntdll_review_nt_registry.log 2>&1
+```
+
+Log line 86: `SUMMARY tests=42 failed=0 skipped=0 checks_pass=449 checks_fail=0`.
+This supersedes the earlier 40-test smoke count. No native Windows execution or
+security-callback/virtualization policy matrix was available. Cleanup failures
+are reported, but successful deletion cannot be guaranteed if the implementation
+under test rejects its own cleanup calls; no broad recovery deletion is used.

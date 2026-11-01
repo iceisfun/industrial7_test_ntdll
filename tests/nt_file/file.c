@@ -13,9 +13,9 @@ UDECL(NTSTATUS, NtQueryVolumeInformationFile, (HANDLE, PIO_STATUS_BLOCK, PVOID, 
 typedef struct { HANDLE h; UNICODE_STRING path; WCHAR dos[MAX_PATH]; BOOL ready; } fixture;
 static void finish(fixture *f)
 {
-    if (f->h) { U(NtClose)(f->h); f->h = NULL; }
+    if (f->h) { EXPECT_EQ(U(NtClose)(f->h),0); f->h = NULL; }
     if (f->path.Buffer) { U(RtlFreeUnicodeString)(&f->path); f->path.Buffer = NULL; }
-    if (f->ready) CHECK(UIN("kernel32.dll", DeleteFileW)(f->dos));
+    if (f->ready) { CHECK(UIN("kernel32.dll", DeleteFileW)(f->dos)); f->ready = FALSE; }
 }
 static void setup(fixture *f, const char *tag)
 {
@@ -29,7 +29,7 @@ static void setup(fixture *f, const char *tag)
     snprintf(leaf, sizeof leaf, "nt_file_%lu_%s.tmp", UIN("kernel32.dll", GetCurrentProcessId)(), tag);
     t_tmpfile(path, sizeof path, leaf);
     if (!UIN("kernel32.dll", MultiByteToWideChar)(CP_ACP, 0, path, -1, f->dos, MAX_PATH) ||
-        !UN(RtlDosPathNameToNtPathName_U)(f->dos, &f->path, NULL, NULL)) { t_skip("scratch path conversion"); return; }
+        !UN(RtlDosPathNameToNtPathName_U)(f->dos, &f->path, NULL, NULL)) { t_skip("scratch path conversion"); finish(f); return; }
     InitializeObjectAttributes(&oa, &f->path, OBJ_CASE_INSENSITIVE, NULL, NULL);
     s = U(NtCreateFile)(&f->h, ACCESS, &oa, &io, NULL, FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_CREATE, SYNC, NULL, 0);
@@ -93,6 +93,8 @@ IO(byte,1,0) IO(two,2,0) IO(odd,17,0) IO(sector,512,0) IO(page,4096,0)
 IO(offset_one,23,1) IO(offset_odd,43,17) IO(offset_sector,127,512) IO(offset_page,513,4096) IO(offset_tail,31,60000)
 
 typedef struct { LARGE_INTEGER allocation, eof; ULONG links; BOOLEAN deleting, directory; } standard_info;
+_Static_assert(sizeof(IO_STATUS_BLOCK)==16 && offsetof(IO_STATUS_BLOCK,Information)==8, "x64 IO_STATUS_BLOCK");
+_Static_assert(sizeof(standard_info)==24 && offsetof(standard_info,directory)==21, "FILE_STANDARD_INFORMATION");
 static void information(const char *tag, FILE_INFORMATION_CLASS cls, ULONG size)
 {
     union { ULONGLONG align; BYTE bytes[1024]; } b; IO_STATUS_BLOCK io; NTSTATUS s;
@@ -102,8 +104,8 @@ static void information(const char *tag, FILE_INFORMATION_CLASS cls, ULONG size)
     EXPECT_EQ(s,0);
     if (OK(s)) {
         CHECK(io.Information>0); CHECK(io.Information<=size);
-        if (cls==FileStandardInformation) { standard_info *v=(void *)&b; EXPECT_EQ(v->eof.QuadPart,0); CHECK(!v->directory); CHECK(!v->deleting); }
-        if (cls==FilePositionInformation) EXPECT_EQ(((LARGE_INTEGER *)&b)->QuadPart,0);
+        if (cls==FileStandardInformation) { standard_info *v=(void *)&b; EXPECT_EQ(io.Information,sizeof *v); if (io.Information==sizeof *v) { EXPECT_EQ(v->eof.QuadPart,0); CHECK(!v->directory); CHECK(!v->deleting); } }
+        if (cls==FilePositionInformation) { EXPECT_EQ(io.Information,8); if (io.Information==8) EXPECT_EQ(((LARGE_INTEGER *)&b)->QuadPart,0); }
     }
     finish(&f);
 }
@@ -111,6 +113,26 @@ static void information(const char *tag, FILE_INFORMATION_CLASS cls, ULONG size)
 INFO(basic,FileBasicInformation,40) INFO(standard,FileStandardInformation,24)
 INFO(position,FilePositionInformation,8) INFO(internal,FileInternalInformation,8)
 INFO(name,FileNameInformation,1024) INFO(all,FileAllInformation,1024)
+
+static void position_buffer(const char *tag, ULONG size)
+{
+    union { ULONGLONG align; BYTE bytes[24]; } b; IO_STATUS_BLOCK io={0}; NTSTATUS s;
+    START(tag);
+    memset(&b,0xcc,sizeof b);
+    s=U(NtQueryInformationFile)(f.h,&io,&b,size,FilePositionInformation);
+    EXPECT_EQ(s,size<8?(NTSTATUS)0xc0000004:0);
+    if (s==0) { EXPECT_EQ(io.Status,0); EXPECT_EQ(io.Information,8); EXPECT_EQ(b.align,0); }
+    for (ULONG i=size;i<sizeof b;i++) EXPECT_EQ(b.bytes[i],0xcc);
+    finish(&f);
+}
+#define POSBUF(n,s) TEST(nt_file_position_buffer_##n) { position_buffer("position_" #n,s); }
+POSBUF(zero,0) POSBUF(one,1) POSBUF(short,7) POSBUF(exact,8) POSBUF(large,9)
+TEST(nt_file_invalid_information_class)
+{
+    ULONGLONG b=0; IO_STATUS_BLOCK io={0}; START("invalid_information_class");
+    EXPECT_EQ(U(NtQueryInformationFile)(f.h,&io,&b,sizeof b,(FILE_INFORMATION_CLASS)99),(NTSTATUS)0xc0000003);
+    finish(&f);
+}
 
 static void eof_case(const char *tag, LONGLONG length)
 {
@@ -143,20 +165,21 @@ VOL(attributes,FileFsAttributeInformation) VOL(volume,FileFsVolumeInformation)
 static void directory_case(const char *tag, FILE_INFORMATION_CLASS cls)
 {
     HANDLE dir=NULL; UNICODE_STRING p={0}, filter; WCHAR dos[MAX_PATH];
-    OBJECT_ATTRIBUTES oa; IO_STATUS_BLOCK io; NTSTATUS s; BYTE data[4096];
+    OBJECT_ATTRIBUTES oa; IO_STATUS_BLOCK io; NTSTATUS s; union { ULONGLONG align; BYTE bytes[4096]; } data;
     START(tag);
     if (!UIN("kernel32.dll", MultiByteToWideChar)(CP_ACP,0,t_tmpdir(),-1,dos,MAX_PATH) ||
-        !UN(RtlDosPathNameToNtPathName_U)(dos,&p,NULL,NULL)) { t_skip("directory conversion"); finish(&f); return; }
+        !UN(RtlDosPathNameToNtPathName_U)(dos,&p,NULL,NULL)) { t_skip("directory conversion"); if (p.Buffer) U(RtlFreeUnicodeString)(&p); finish(&f); return; }
     InitializeObjectAttributes(&oa,&p,OBJ_CASE_INSENSITIVE,NULL,NULL);
     s=U(NtOpenFile)(&dir,FILE_LIST_DIRECTORY|SYNCHRONIZE,&oa,&io,
         FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,FILE_DIRECTORY_FILE|FILE_SYNCHRONOUS_IO_NONALERT);
     if (!OK(s)) { t_skip("scratch directory open %08lx",s); goto done; }
     WCHAR *leaf=wcsrchr(f.dos,L'\\'); leaf=leaf?leaf+1:f.dos;
     filter.Buffer=leaf; filter.Length=(USHORT)(wcslen(leaf)*2); filter.MaximumLength=filter.Length;
-    s=UN(NtQueryDirectoryFile)(dir,NULL,NULL,NULL,&io,data,sizeof data,cls,TRUE,&filter,TRUE);
+    s=UN(NtQueryDirectoryFile)(dir,NULL,NULL,NULL,&io,&data,sizeof data,cls,TRUE,&filter,TRUE);
     EXPECT_EQ(s,0);
     if (OK(s)) { CHECK(io.Information>0); CHECK(io.Information<=sizeof data); }
-    s=UN(NtQueryDirectoryFile)(dir,NULL,NULL,NULL,&io,data,sizeof data,cls,TRUE,NULL,FALSE);
+    if (!OK(s)) goto done;
+    s=UN(NtQueryDirectoryFile)(dir,NULL,NULL,NULL,&io,&data,sizeof data,cls,TRUE,NULL,FALSE);
     EXPECT_EQ(s,(NTSTATUS)0x80000006);
 done:
     if (dir) U(NtClose)(dir);

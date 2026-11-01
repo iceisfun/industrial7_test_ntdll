@@ -91,3 +91,59 @@ Wine smoke only (not Windows evidence):
 `TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_file.exe >/tmp/opencode/ntdll_nt_file.log 2>&1`
 reported `tests=44 failed=0 skipped=0 checks_pass=218 checks_fail=0`.
 Native Windows execution remains unperformed.
+
+## Adversarial review (2026-10-31)
+
+Reviewed `common/t.h` and `common/t.c`, plus the test-pattern writing and safety
+rules. `CHECK` and `t_skip` are nonfatal: prerequisite exits and cleanup were
+checked explicitly. Scope remained this directory and `tests/nt_registry`.
+
+Findings/fixes:
+
+* Failed scratch-path conversion now frees any converted path allocation.
+  Cleanup checks NtClose as well as DeleteFileW, and clears fixture ownership.
+* File-standard/position parsing now requires the expected returned byte count.
+  Compile-time checks pin the x64 IO_STATUS_BLOCK size/Information offset to
+  16/8 and FILE_STANDARD_INFORMATION size/Directory offset to 24/21.
+* Directory buffers explicitly have eight-byte alignment; an unsuccessful
+  initial query no longer cascades into an exhaustion assertion.
+* Added five position-buffer vectors (0, 1, 7, 8, 9 bytes) and one invalid-class
+  case. These use valid aligned backing storage, check bytes beyond the passed
+  length, and never assume IOSB contents on rejected requests.
+
+Independent Windows authority re-checks, requested serially with 503 retries:
+
+* `/function/ntdll/NtQueryInformationFile/asm`: RVA 0x9d270 loads service 0x11
+  then executes syscall; it does not implement argument validation.
+* `/function/ntoskrnl/NtQueryInformationFile/decomp` and `/asm`: RVA 0x5fb1c0
+  calls IopValidateQueryInformationParameters; synchronous class 14 writes eight
+  position bytes and sets IOSB.Status/Information to 0/8.
+* `/function/ntoskrnl/IopValidateQueryInformationParameters/decomp` and `/asm`:
+  RVA 0x5fbb50 validates **nonzero PreviousMode**, so this is the user-mode
+  branch, not a Zw KernelMode assumption. At 0x5fbb63 the class is compared with
+  0x4c, using unsigned `jae` for rejection; invalid class returns 0xc0000003.
+  At 0x5fbb8a the supplied length is compared with the minimum, using unsigned
+  `jb` for 0xc0000004. `/bytes/ntoskrnl?rva=0x9874d0&len=76` gives class-14
+  minimum byte **8** at RVA 0x9874de. Thus 0/1/7 reject and 8/9 succeed.
+* `/types/ntoskrnl/_IO_STATUS_BLOCK` and `/_FILE_STANDARD_INFORMATION` confirm
+  the layout checks. `/function/ntoskrnl/NtQueryInformationFile/docs` and
+  `/NtQueryDirectoryFile/docs` were read with their linked DDI contracts; the
+  kernel/user Nt/Zw context caveat is retained.
+
+Validation: `make build/nt_file.exe build/nt_registry.exe` completed without
+compiler diagnostics. Only the permitted sandbox wrapper was used:
+
+```sh
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_file.exe > /tmp/opencode/ntdll_review_nt_file.log 2>&1
+```
+
+Log line 102: `SUMMARY tests=50 failed=0 skipped=0 checks_pass=383 checks_fail=0`.
+This supersedes the earlier 44-test smoke count, not Windows authority.
+
+Remaining gaps: no native Windows run, asynchronous coverage, or filesystem
+matrix. Synchronous I/O can block inside the kernel; the executable runner's
+120-second timeout bounds the run, not individual syscalls. Existing volume and
+directory expectations still require ordinary scratch-filesystem support.
+The shared harness creates/removes a PID-named temp directory without an
+ownership marker (`common/t.c:93-119`); that preexisting-directory/reparse-point
+safety limitation was identified but not changed outside the owned directories.
