@@ -10,8 +10,10 @@ static void copy_memory(int moving, size_t count, size_t dst_offset, size_t src_
     unsigned char src[512], out[512]; size_t i;
     __typeof__(&memcpy) f = moving ? UIN("ntdll.dll", memmove) : UIN("ntdll.dll", memcpy);
     REQUIRE(f);
-    CHECK(count + dst_offset < sizeof(out)); CHECK(count + src_offset < sizeof(src));
-    if (count + dst_offset >= sizeof(out) || count + src_offset >= sizeof(src)) return;
+    CHECK(dst_offset <= sizeof(out)); CHECK(src_offset <= sizeof(src));
+    if (dst_offset > sizeof(out) || src_offset > sizeof(src)) return;
+    CHECK(count <= sizeof(out) - dst_offset); CHECK(count <= sizeof(src) - src_offset);
+    if (count > sizeof(out) - dst_offset || count > sizeof(src) - src_offset) return;
     for (i = 0; i < sizeof(src); ++i) { src[i] = (unsigned char)(i * 37 + 11); out[i] = 0x5a; }
     CHECK(f(out + dst_offset, src + src_offset, count) == out + dst_offset);
     for (i = 0; i < sizeof(out); ++i) {
@@ -40,14 +42,17 @@ COPY(one_twenty_eight, 128)
 COPY(one_twenty_nine, 129)
 COPY(two_fifty_five, 255)
 TEST(crt_algorithms_memcpy_aligned) { copy_memory(0, 128, 16, 32); }
+TEST(crt_algorithms_memcpy_buffer_end) { copy_memory(0, 509, 3, 3); }
 TEST(crt_algorithms_memmove_disjoint) { copy_memory(1, 129, 7, 3); }
 
 static void overlap_move(size_t count, size_t dst_offset, size_t src_offset)
 {
     unsigned char out[512], original[512]; size_t i;
     LOAD(memmove);
-    CHECK(count + dst_offset < sizeof(out)); CHECK(count + src_offset < sizeof(out));
-    if (count + dst_offset >= sizeof(out) || count + src_offset >= sizeof(out)) return;
+    CHECK(dst_offset <= sizeof(out)); CHECK(src_offset <= sizeof(out));
+    if (dst_offset > sizeof(out) || src_offset > sizeof(out)) return;
+    CHECK(count <= sizeof(out) - dst_offset); CHECK(count <= sizeof(out) - src_offset);
+    if (count > sizeof(out) - dst_offset || count > sizeof(out) - src_offset) return;
     for (i = 0; i < sizeof(out); ++i) original[i] = out[i] = (unsigned char)(i * 29 + 7);
     CHECK(f(out + dst_offset, out + src_offset, count) == out + dst_offset);
     for (i = 0; i < sizeof(out); ++i)
@@ -69,12 +74,14 @@ MOVE(sixty_five, 65)
 MOVE(one_twenty_nine, 129)
 MOVE(two_fifty_five, 255)
 TEST(crt_algorithms_memmove_self) { overlap_move(129, 16, 16); }
+TEST(crt_algorithms_memmove_right_buffer_end) { overlap_move(496, 16, 0); }
+TEST(crt_algorithms_memmove_left_buffer_end) { overlap_move(496, 0, 16); }
 
 static void fill_memory(size_t count, int value)
 {
     unsigned char out[512]; size_t i;
     LOAD(memset);
-    CHECK(count + 3 < sizeof(out)); if (count + 3 >= sizeof(out)) return;
+    CHECK(count <= sizeof(out) - 3); if (count > sizeof(out) - 3) return;
     for (i = 0; i < sizeof(out); ++i) out[i] = 0x5a;
     CHECK(f(out + 3, value, count) == out + 3);
     for (i = 0; i < sizeof(out); ++i)
@@ -97,6 +104,7 @@ FILL(one_twenty_nine, 129, 0x81)
 FILL(two_fifty_five, 255, 0x81)
 FILL(low_byte, 33, 0x1234)
 FILL(negative, 65, -1)
+FILL(buffer_end, 509, 0x81)
 
 #define MEMCHR(id, value, count, offset) \
     TEST(crt_algorithms_memchr_##id) { \

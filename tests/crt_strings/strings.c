@@ -69,7 +69,7 @@
         T s[96] = Q(text), control[96] = Q(needle); \
         T *expected = (offset) < 0 ? NULL : s + (offset), *actual; \
         LOAD(fn); actual = f(s, control); \
-        CHECKF(actual == expected, "got %p want %p; haystack %p control %p", actual, expected, s, control); \
+        CHECKF(actual == expected, "got %p want %p; haystack %p control %p", (void *)actual, (void *)expected, (void *)s, (void *)control); \
     }
 #define SPAN_CASE(fn, T, Q, id, text, control, expected) \
     TEST(crt_strings_##fn##_##id) { \
@@ -148,6 +148,9 @@
     FIND_CASE(sub, T, Q, restart, "aaaab", "aab", 2) \
     FIND_CASE(sub, T, Q, too_long, "ab", "abc", -1) \
     FIND_CASE(sub, T, Q, case_sensitive, "ABC", "bc", -1) \
+    FIND_CASE(sub, T, Q, embedded_haystack_nul, "ab\0cd", "cd", -1) \
+    FIND_CASE(sub, T, Q, embedded_needle_nul, "abcde", "bc\0x", 1) \
+    FIND_CASE(sub, T, Q, partial_at_terminator, "ababa", "ababac", -1) \
     SPAN_CASE(span, T, Q, partial, "aabcz", "abc", 4) \
     SPAN_CASE(span, T, Q, all, "abca", "cba", 4) \
     SPAN_CASE(span, T, Q, empty_set, "abc", "", 0) \
