@@ -110,6 +110,23 @@ TEST(rtl_sync_cs_initialize_spin_zero) { cs_init_variant(0); }
 TEST(rtl_sync_cs_initialize_spin_nonzero) { cs_init_variant(1); }
 TEST(rtl_sync_cs_initialize_ex) { cs_init_variant(2); }
 TEST(rtl_sync_cs_initialize_ex_no_debug) { cs_init_variant(3); }
+TEST(rtl_sync_cs_ex_force_debug_info) {
+    RTL_CRITICAL_SECTION cs; REQUIRE(UN(RtlInitializeCriticalSectionEx)); REQUIRE(UN(RtlDeleteCriticalSection));
+    NTSTATUS s = UN(RtlInitializeCriticalSectionEx)(&cs, 0, 0x10000000); EXPECT_EQ(s, 0);
+    if (s < 0) return;
+    /* -1 is the deferred/no-debug sentinel, not a dereferenceable debug record. */
+    EXPECT_NE(cs.DebugInfo, NULL); EXPECT_NE(cs.DebugInfo, (PRTL_CRITICAL_SECTION_DEBUG)(LONG_PTR)-1);
+    if (cs.DebugInfo && cs.DebugInfo != (PRTL_CRITICAL_SECTION_DEBUG)(LONG_PTR)-1)
+        EXPECT_EQ(cs.DebugInfo->CriticalSection, &cs);
+    STATUS(UN(RtlDeleteCriticalSection)(&cs), 0);
+}
+TEST(rtl_sync_cs_ex_conflicting_debug_flags) {
+    RTL_CRITICAL_SECTION cs, before; memset(&cs, 0x55, sizeof(cs)); before = cs;
+    REQUIRE(UN(RtlInitializeCriticalSectionEx)); REQUIRE(UN(RtlDeleteCriticalSection));
+    NTSTATUS s = UN(RtlInitializeCriticalSectionEx)(&cs, 0, 0x11000000);
+    EXPECT_EQ(s, S(0xc00000f1)); EXPECT_EQ(memcmp(&cs, &before, sizeof(cs)), 0);
+    if (s >= 0) STATUS(UN(RtlDeleteCriticalSection)(&cs), 0);
+}
 TEST(rtl_sync_cs_ex_invalid_flags) {
     RTL_CRITICAL_SECTION cs, before; memset(&cs, 0x55, sizeof(cs)); before = cs;
     REQUIRE(UN(RtlInitializeCriticalSectionEx)); REQUIRE(UN(RtlDeleteCriticalSection));
@@ -180,11 +197,11 @@ static thread_data d;
 static DWORD WINAPI cs_probe(void *unused) {
     d.owned = UN(RtlIsCriticalSectionLockedByThread)(&d.cs);
     d.first = UN(RtlTryEnterCriticalSection)(&d.cs);
-    if (d.first) UN(RtlLeaveCriticalSection)(&d.cs);
-    K(SetEvent)(d.entered);
-    if (K(WaitForSingleObject)(d.gate, 5000) != WAIT_OBJECT_0) return 77;
+    if (d.first && UN(RtlLeaveCriticalSection)(&d.cs) != 0) return 1;
+    if (!K(SetEvent)(d.entered)) return 1;
+    if (K(WaitForSingleObject)(d.gate, 5000) != WAIT_OBJECT_0) return 1;
     d.second = UN(RtlTryEnterCriticalSection)(&d.cs);
-    if (d.second) { d.value = 42; UN(RtlLeaveCriticalSection)(&d.cs); }
+    if (d.second) { d.value = 42; if (UN(RtlLeaveCriticalSection)(&d.cs) != 0) return 1; }
     return 0;
 }
 CHILD(rtl_sync_cs_handoff) {
@@ -192,13 +209,15 @@ CHILD(rtl_sync_cs_handoff) {
     if (UN(RtlInitializeCriticalSection)(&d.cs) < 0) return 77;
     d.entered = K(CreateEventW)(NULL, TRUE, FALSE, NULL); d.gate = K(CreateEventW)(NULL, TRUE, FALSE, NULL);
     if (!d.entered || !d.gate) return 77;
-    if (!UN(RtlTryEnterCriticalSection)(&d.cs)) return 77;
+    if (!UN(RtlTryEnterCriticalSection)(&d.cs)) return 1;
     thread = K(CreateThread)(NULL, 0, cs_probe, NULL, 0, NULL); if (!thread) return 77;
-    if (K(WaitForSingleObject)(d.entered, 5000) != WAIT_OBJECT_0) return 77;
+    if (K(WaitForSingleObject)(d.entered, 5000) != WAIT_OBJECT_0) return 1;
     int bad = d.first || d.owned;
-    UN(RtlLeaveCriticalSection)(&d.cs); K(SetEvent)(d.gate);
-    if (K(WaitForSingleObject)(thread, 5000) != WAIT_OBJECT_0) return 77;
-    K(GetExitCodeThread)(thread, &code); if (code) return code;
+    if (UN(RtlLeaveCriticalSection)(&d.cs) != 0) return 1;
+    if (!K(SetEvent)(d.gate)) return 1;
+    if (K(WaitForSingleObject)(thread, 5000) != WAIT_OBJECT_0) return 1;
+    if (!K(GetExitCodeThread)(thread, &code)) return 1;
+    if (code) return code;
     bad |= !d.second || d.value != 42;
     UN(RtlDeleteCriticalSection)(&d.cs);
     K(CloseHandle)(thread); K(CloseHandle)(d.gate); K(CloseHandle)(d.entered); return bad ? 1 : 0;
@@ -211,12 +230,13 @@ static DWORD WINAPI srw_probe(void *unused) {
     return 0;
 }
 CHILD(rtl_sync_srw_probe) {
-    HANDLE thread; int bad; memset(&d, 0, sizeof(d)); d.mode = argc > 1 ? atoi(argv[1]) : 0;
+    HANDLE thread; DWORD code = 99; int bad; memset(&d, 0, sizeof(d)); d.mode = argc > 1 ? atoi(argv[1]) : 0;
     UN(RtlInitializeSRWLock)(&d.srw);
     if (d.mode) UN(RtlAcquireSRWLockShared)(&d.srw); else UN(RtlAcquireSRWLockExclusive)(&d.srw);
     thread = K(CreateThread)(NULL, 0, srw_probe, NULL, 0, NULL); if (!thread) return 77;
-    if (K(WaitForSingleObject)(thread, 5000) != WAIT_OBJECT_0) return 77;
-    bad = d.first || d.second != !!d.mode;
+    if (K(WaitForSingleObject)(thread, 5000) != WAIT_OBJECT_0) return 1;
+    if (!K(GetExitCodeThread)(thread, &code)) return 1;
+    bad = code != 0 || d.first || d.second != !!d.mode;
     if (d.mode) UN(RtlReleaseSRWLockShared)(&d.srw); else UN(RtlReleaseSRWLockExclusive)(&d.srw);
     BOOLEAN got = UN(RtlTryAcquireSRWLockExclusive)(&d.srw); bad |= !got;
     if (got) UN(RtlReleaseSRWLockExclusive)(&d.srw);
@@ -226,7 +246,7 @@ CHILD(rtl_sync_srw_probe) {
     REQUIRE(K(CreateThread)); REQUIRE(K(WaitForSingleObject)); REQUIRE(K(GetExitCodeThread)); \
     REQUIRE(K(CloseHandle)); REQUIRE(K(CreateEventW)); REQUIRE(K(SetEvent))
 static void child_result(const char *name, const char *args) {
-    DWORD code = t_run_child(name, args, 15000);
+    DWORD code = t_run_child(name, args, 30000);
     if (code == 77 || code == 0xdead0000) { t_skip("bounded child fixture prerequisite unavailable (%08lx)", code); return; }
     EXPECT_EQ(code, 0);
 }
@@ -277,18 +297,20 @@ TEST(rtl_sync_cv_srw_invalid_flags) {
     UN(RtlReleaseSRWLockExclusive)(&lock);
 }
 static DWORD WINAPI cv_producer(void *unused) {
-    if (d.mode < 2) UN(RtlEnterCriticalSection)(&d.cs); else UN(RtlAcquireSRWLockExclusive)(&d.srw);
+    if (d.mode < 2) { if (UN(RtlEnterCriticalSection)(&d.cs) != 0) return 1; }
+    else UN(RtlAcquireSRWLockExclusive)(&d.srw);
     d.predicate = 1; d.value = 42;
     if (d.mode & 1) UN(RtlWakeAllConditionVariable)(&d.cv); else UN(RtlWakeConditionVariable)(&d.cv);
-    if (d.mode < 2) UN(RtlLeaveCriticalSection)(&d.cs); else UN(RtlReleaseSRWLockExclusive)(&d.srw);
+    if (d.mode < 2) { if (UN(RtlLeaveCriticalSection)(&d.cs) != 0) return 1; }
+    else UN(RtlReleaseSRWLockExclusive)(&d.srw);
     return 0;
 }
 CHILD(rtl_sync_cv_handshake) {
-    HANDLE thread; int bad = 0; LARGE_INTEGER timeout; timeout.QuadPart = -50000000;
+    HANDLE thread; DWORD code = 99; int bad = 0; LARGE_INTEGER timeout; timeout.QuadPart = -50000000;
     memset(&d, 0, sizeof(d)); d.mode = argc > 1 ? atoi(argv[1]) : 0;
     UN(RtlInitializeConditionVariable)(&d.cv); UN(RtlInitializeSRWLock)(&d.srw);
     if (d.mode < 2) { if (UN(RtlInitializeCriticalSection)(&d.cs) < 0) return 77;
-        UN(RtlEnterCriticalSection)(&d.cs); }
+        if (UN(RtlEnterCriticalSection)(&d.cs) != 0) return 1; }
     else if (d.mode >= 4) UN(RtlAcquireSRWLockShared)(&d.srw);
     else UN(RtlAcquireSRWLockExclusive)(&d.srw);
     thread = K(CreateThread)(NULL, 0, cv_producer, NULL, 0, NULL); if (!thread) return 77;
@@ -300,11 +322,16 @@ CHILD(rtl_sync_cv_handshake) {
         if (d.status != 0 && d.status != S(0x102)) { bad = 1; break; }
     }
     int available = d.predicate; bad |= available && d.value != 42;
-    if (d.mode < 2) { bad |= !UN(RtlIsCriticalSectionLockedByThread)(&d.cs); UN(RtlLeaveCriticalSection)(&d.cs); }
+    if (d.mode < 2) {
+        if (!UN(RtlIsCriticalSectionLockedByThread)(&d.cs)) return 1;
+        if (UN(RtlLeaveCriticalSection)(&d.cs) != 0) return 1;
+    }
     else if (d.mode >= 4) UN(RtlReleaseSRWLockShared)(&d.srw); else UN(RtlReleaseSRWLockExclusive)(&d.srw);
-    if (K(WaitForSingleObject)(thread, 5000) != WAIT_OBJECT_0) return 77;
+    if (K(WaitForSingleObject)(thread, 5000) != WAIT_OBJECT_0) return 1;
+    if (!K(GetExitCodeThread)(thread, &code)) return 1;
+    bad |= code != 0;
     K(CloseHandle)(thread); if (d.mode < 2) UN(RtlDeleteCriticalSection)(&d.cs);
-    return bad ? 1 : available ? 0 : 77;
+    return bad || !available ? 1 : 0;
 }
 static void cv_child(const char *mode) {
     THREAD_EXPORTS; CV_EXPORTS; SRW_EXPORTS; CS_FIXTURE;
@@ -334,8 +361,10 @@ static void once_complete(PVOID value, ULONG flags) {
     ONCE_EXPORTS; RTL_RUN_ONCE once = RTL_RUN_ONCE_INIT; PVOID ctx = NULL;
     NTSTATUS s = UN(RtlRunOnceBeginInitialize)(&once, flags, &ctx); EXPECT_EQ(s, S(0x103));
     if (s != S(0x103)) { t_skip("begin prerequisite failed"); return; }
-    STATUS(UN(RtlRunOnceComplete)(&once, flags, value), 0);
-    ctx = NULL; STATUS(UN(RtlRunOnceBeginInitialize)(&once, 1, &ctx), 0); EXPECT_EQ(ctx, value);
+    s = UN(RtlRunOnceComplete)(&once, flags, value); EXPECT_EQ(s, 0);
+    if (s != 0) return;
+    ctx = NULL; s = UN(RtlRunOnceBeginInitialize)(&once, 1, &ctx); EXPECT_EQ(s, 0); EXPECT_EQ(ctx, value);
+    if (s != 0) return;
     ctx = NULL; STATUS(UN(RtlRunOnceBeginInitialize)(&once, 0, &ctx), 0); EXPECT_EQ(ctx, value);
 }
 TEST(rtl_sync_once_sync_complete_context) { once_complete(&context_value, 0); }
@@ -354,21 +383,26 @@ TEST(rtl_sync_once_failed_completion_retries) {
     ONCE_EXPORTS; RTL_RUN_ONCE once = RTL_RUN_ONCE_INIT;
     NTSTATUS s = UN(RtlRunOnceBeginInitialize)(&once, 0, NULL); EXPECT_EQ(s, S(0x103));
     if (s != S(0x103)) { t_skip("begin prerequisite failed"); return; }
-    STATUS(UN(RtlRunOnceComplete)(&once, 4, NULL), 0);
-    STATUS(UN(RtlRunOnceBeginInitialize)(&once, 1, NULL), S(0xc0000001));
+    s = UN(RtlRunOnceComplete)(&once, 4, NULL); EXPECT_EQ(s, 0);
+    if (s != 0) return;
+    s = UN(RtlRunOnceBeginInitialize)(&once, 1, NULL); EXPECT_EQ(s, S(0xc0000001));
+    if (s != S(0xc0000001)) return;
     s = UN(RtlRunOnceBeginInitialize)(&once, 0, NULL); EXPECT_EQ(s, S(0x103));
     if (s == S(0x103)) STATUS(UN(RtlRunOnceComplete)(&once, 0, NULL), 0);
 }
 TEST(rtl_sync_once_execute_callback_once) {
     ONCE_EXPORTS; RTL_RUN_ONCE once = RTL_RUN_ONCE_INIT; PVOID ctx = NULL; int calls = 0;
-    STATUS(UN(RtlRunOnceExecuteOnce)(&once, once_success, &calls, &ctx), 0);
+    NTSTATUS s = UN(RtlRunOnceExecuteOnce)(&once, once_success, &calls, &ctx); EXPECT_EQ(s, 0);
     EXPECT_EQ(calls, 1); EXPECT_EQ(ctx, &context_value);
+    if (s != 0) return;
     ctx = NULL; STATUS(UN(RtlRunOnceExecuteOnce)(&once, once_success, &calls, &ctx), 0);
     EXPECT_EQ(calls, 1); EXPECT_EQ(ctx, &context_value);
 }
 TEST(rtl_sync_once_execute_failure_retries) {
     ONCE_EXPORTS; RTL_RUN_ONCE once = RTL_RUN_ONCE_INIT; PVOID ctx = NULL; int calls = 0;
-    STATUS(UN(RtlRunOnceExecuteOnce)(&once, once_failure, &calls, &ctx), S(0xc0000001)); EXPECT_EQ(calls, 1);
+    NTSTATUS s = UN(RtlRunOnceExecuteOnce)(&once, once_failure, &calls, &ctx);
+    EXPECT_EQ(s, S(0xc0000001)); EXPECT_EQ(calls, 1);
+    if (s != S(0xc0000001)) return;
     STATUS(UN(RtlRunOnceExecuteOnce)(&once, once_success, &calls, &ctx), 0);
     EXPECT_EQ(calls, 2); EXPECT_EQ(ctx, &context_value);
 }
@@ -378,7 +412,7 @@ TEST(rtl_sync_once_execute_optional_context) {
     PVOID ctx = &context_value; STATUS(UN(RtlRunOnceBeginInitialize)(&once, 1, &ctx), 0); EXPECT_EQ(ctx, NULL);
 }
 static DWORD WINAPI once_blocking(PRTL_RUN_ONCE once, PVOID parameter, PVOID *context) {
-    ++d.count; K(SetEvent)(d.entered);
+    ++d.count; if (!K(SetEvent)(d.entered)) return FALSE;
     if (K(WaitForSingleObject)(d.gate, 5000) != WAIT_OBJECT_0) return FALSE;
     d.value = 42; *context = &context_value; return TRUE;
 }
@@ -387,16 +421,16 @@ static DWORD WINAPI once_worker(void *unused) {
     return d.status == 0 && ctx == &context_value ? 0 : 1;
 }
 CHILD(rtl_sync_once_handshake) {
-    HANDLE thread; DWORD code; PVOID ctx = NULL; int bad;
+    HANDLE thread; DWORD code = 99; PVOID ctx = NULL; int bad;
     memset(&d, 0, sizeof(d)); UN(RtlRunOnceInitialize)(&d.once);
     d.entered = K(CreateEventW)(NULL, TRUE, FALSE, NULL); d.gate = K(CreateEventW)(NULL, TRUE, FALSE, NULL);
     if (!d.entered || !d.gate) return 77;
     thread = K(CreateThread)(NULL, 0, once_worker, NULL, 0, NULL); if (!thread) return 77;
-    if (K(WaitForSingleObject)(d.entered, 5000) != WAIT_OBJECT_0) return 77;
+    if (K(WaitForSingleObject)(d.entered, 5000) != WAIT_OBJECT_0) return 1;
     bad = UN(RtlRunOnceBeginInitialize)(&d.once, 1, &ctx) != S(0xc0000001);
-    K(SetEvent)(d.gate);
-    if (K(WaitForSingleObject)(thread, 5000) != WAIT_OBJECT_0) return 77;
-    K(GetExitCodeThread)(thread, &code); bad |= code != 0;
+    if (!K(SetEvent)(d.gate)) return 1;
+    if (K(WaitForSingleObject)(thread, 5000) != WAIT_OBJECT_0) return 1;
+    if (!K(GetExitCodeThread)(thread, &code) || code != 0) return 1;
     NTSTATUS s = UN(RtlRunOnceExecuteOnce)(&d.once, once_blocking, NULL, &ctx);
     bad |= s != 0 || ctx != &context_value || d.count != 1 || d.value != 42;
     K(CloseHandle)(thread); K(CloseHandle)(d.entered); K(CloseHandle)(d.gate); return bad ? 1 : 0;
