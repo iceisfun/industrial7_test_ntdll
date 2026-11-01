@@ -65,6 +65,7 @@ static void rtl_path_convert(PCWSTR in, PCWSTR expected, PCWSTR leaf, int status
 {
     UNICODE_STRING out = {0};
     PWSTR part = NULL;
+    ULONG expected_bytes = lstrlenW(expected) * 2;
     int success;
     REQUIRE(U(RtlFreeUnicodeString));
     if (status) {
@@ -82,20 +83,21 @@ static void rtl_path_convert(PCWSTR in, PCWSTR expected, PCWSTR leaf, int status
         if (out.Buffer) U(RtlFreeUnicodeString)(&out);
         return;
     }
-    EXPECT_EQ(out.Length, lstrlenW(expected) * 2);
+    EXPECT_EQ(out.Length, expected_bytes);
     CHECK(out.MaximumLength >= out.Length + 2);
-    if (out.Length == lstrlenW(expected) * 2) {
+    if (out.Length == expected_bytes && out.MaximumLength >= out.Length + 2) {
         CHECK(!memcmp(out.Buffer, expected, out.Length));
         EXPECT_EQ(out.Buffer[out.Length / 2], 0);
     }
     if (leaf) {
         CHECK(part != NULL);
         if (part) {
-            EXPECT_EQ(part, out.Buffer + lstrlenW(expected) - lstrlenW(leaf));
+            ULONG_PTR expected_part = (ULONG_PTR)out.Buffer + expected_bytes - lstrlenW(leaf) * 2;
+            EXPECT_EQ(part, expected_part);
             /* Dereference only after proving this is inside the owned string. */
-            if ((ULONG_PTR)part >= (ULONG_PTR)out.Buffer &&
-                (ULONG_PTR)part <= (ULONG_PTR)out.Buffer + out.Length)
-                EXPECT_WSTR(part, leaf);
+            if ((ULONG_PTR)part == expected_part &&
+                out.Length == expected_bytes && out.MaximumLength >= out.Length + 2)
+                CHECK(!memcmp(part, leaf, (lstrlenW(leaf) + 1) * 2));
         }
     } else EXPECT_EQ(part, NULL);
     U(RtlFreeUnicodeString)(&out);
@@ -107,6 +109,8 @@ CONVERT_CASE(unc, L"\\\\server\\share\\file", L"\\??\\UNC\\server\\share\\file",
 CONVERT_CASE(unc_status, L"\\\\server\\share\\file", L"\\??\\UNC\\server\\share\\file", L"file", 1)
 CONVERT_CASE(extended, L"\\\\?\\C:\\alpha\\file", L"\\??\\C:\\alpha\\file", L"file", 0)
 CONVERT_CASE(extended_status, L"\\\\?\\C:\\alpha\\file", L"\\??\\C:\\alpha\\file", L"file", 1)
+CONVERT_CASE(extended_literal_dot, L"\\\\?\\C:\\alpha\\.\\file", L"\\??\\C:\\alpha\\.\\file", L"file", 0)
+CONVERT_CASE(extended_literal_parent, L"\\\\?\\C:\\alpha\\..\\file", L"\\??\\C:\\alpha\\..\\file", L"file", 1)
 CONVERT_CASE(dot, L"C:\\alpha\\.\\file", L"\\??\\C:\\alpha\\file", L"file", 0)
 CONVERT_CASE(parent, L"C:\\alpha\\..\\file", L"\\??\\C:\\file", L"file", 1)
 CONVERT_CASE(root, L"C:\\", L"\\??\\C:\\", NULL, 0)
@@ -118,11 +122,13 @@ static void rtl_path_full(PCWSTR in, PCWSTR expected, PCWSTR leaf)
     PWSTR part = NULL;
     ULONG n;
     REQUIRE(UN(RtlGetFullPathName_U));
+    memset(&b, 0x55, sizeof(b));
     b.before = b.after = 0x5555;
     n = UN(RtlGetFullPathName_U)(in, sizeof(b.text), b.text, &part);
     EXPECT_EQ(n, lstrlenW(expected) * 2);
     EXPECT_EQ(b.before, 0x5555); EXPECT_EQ(b.after, 0x5555);
-    if (n && n < sizeof(b.text)) EXPECT_WSTR(b.text, expected);
+    if (n == lstrlenW(expected) * 2)
+        CHECK(!memcmp(b.text, expected, n + 2));
     EXPECT_EQ(part, leaf ? b.text + lstrlenW(expected) - lstrlenW(leaf) : NULL);
 }
 #define FULL_CASE(n,p,e,l) TEST(rtl_path_full_##n) { rtl_path_full(p,e,l); }
@@ -143,7 +149,7 @@ static void rtl_path_full_buffer(ULONG bytes)
     n = UN(RtlGetFullPathName_U)(L"C:\\leaf", bytes, b, &part);
     EXPECT_EQ(n, bytes < 16 ? 16 : 14);
     EXPECT_EQ(b[bytes / 2], 0x5555);
-    if (bytes >= 16) { EXPECT_WSTR(b, L"C:\\leaf"); EXPECT_EQ(part, b + 3); }
+    if (bytes >= 16) { CHECK(!memcmp(b, L"C:\\leaf", 16)); EXPECT_EQ(part, b + 3); }
     else EXPECT_EQ(part, NULL);
 }
 TEST(rtl_path_full_buffer_zero) { rtl_path_full_buffer(0); }
@@ -153,17 +159,21 @@ TEST(rtl_path_full_buffer_exact) { rtl_path_full_buffer(16); }
 
 static void rtl_path_current(unsigned mode)
 {
-    WCHAR b[512], small[512]; ULONG n, required, capacity;
+    WCHAR b[32768], small[32769]; ULONG n, required, capacity;
     REQUIRE(UN(RtlGetCurrentDirectory_U));
+    memset(b, 0x55, sizeof(b));
     n = UN(RtlGetCurrentDirectory_U)(sizeof(b), b);
     CHECK(n > 0 && n < sizeof(b)); if (!n || n >= sizeof(b)) return;
+    CHECK(!(n & 1)); if (n & 1) return;
+    EXPECT_EQ(b[n / 2], 0);
+    if (b[n / 2]) return;
     EXPECT_EQ(n, lstrlenW(b) * 2);
     required = n + 2;
     capacity = mode == 0 ? 0 : mode == 1 ? 2 : mode == 2 ? n : required;
     memset(small, 0x55, sizeof(small));
     EXPECT_EQ(UN(RtlGetCurrentDirectory_U)(capacity, small), capacity < required ? required : n);
     if (capacity < required) EXPECT_EQ(small[0], 0x5555);
-    else EXPECT_WSTR(small, b);
+    else CHECK(!memcmp(small, b, required));
     EXPECT_EQ(small[capacity / 2], 0x5555);
 }
 TEST(rtl_path_current_query) { rtl_path_current(0); }

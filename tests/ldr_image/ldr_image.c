@@ -39,6 +39,7 @@ static void ldr_image_proc(const char *name, int missing, int counted)
     PVOID out = NULL;
     NTSTATUS s;
     REQUIRE(UN(LdrGetProcedureAddress));
+    memset(text, 0, sizeof(text));
     strcpy(text, name);
     a.Buffer = text; a.Length = strlen(name); a.MaximumLength = a.Length + 1;
     if (counted) { text[a.Length] = '!'; a.MaximumLength = a.Length; }
@@ -72,9 +73,9 @@ static void ldr_image_load(const WCHAR *name, unsigned count)
     for (i = 0; i < count; ++i) {
         NTSTATUS s = UN(LdrLoadDll)(NULL, NULL, &u, &h[i]);
         EXPECT_EQ(s, 0);
+        CHECK(h[i] != NULL);
         if (s < 0 || !h[i]) break;
         ++acquired;
-        CHECK(h[i] != NULL);
     }
     if (acquired == 2) EXPECT_EQ(h[0], h[1]);
     while (acquired) EXPECT_EQ(UN(LdrUnloadDll)(h[--acquired]), 0);
@@ -136,7 +137,7 @@ TEST(ldr_image_header_loaded) {
     EXPECT_EQ(UN(RtlImageNtHeader)(base), (BYTE *)base + ((PIMAGE_DOS_HEADER)base)->e_lfanew);
 }
 
-static void ldr_image_directory(ULONG rva, BOOLEAN mapped, USHORT index, ULONG count, LONG offset)
+static void ldr_image_directory(ULONG rva, BOOLEAN mapped, USHORT index, ULONG count, LONG offset, int tagged)
 {
     ldr_image_fixture f;
     PIMAGE_NT_HEADERS n = ldr_image_make(&f);
@@ -146,11 +147,11 @@ static void ldr_image_directory(ULONG rva, BOOLEAN mapped, USHORT index, ULONG c
     n->OptionalHeader.DataDirectory[0].VirtualAddress = rva;
     n->OptionalHeader.DataDirectory[0].Size = 0x31;
     n->OptionalHeader.NumberOfRvaAndSizes = count;
-    p = UN(RtlImageDirectoryEntryToData)(f.b, mapped, index, &size);
+    p = UN(RtlImageDirectoryEntryToData)((PVOID)((ULONG_PTR)f.b | tagged), mapped, index, &size);
     EXPECT_EQ(p, offset < 0 ? NULL : f.b + offset);
     EXPECT_EQ(size, index >= count || !rva ? 0xdeadbeef : 0x31);
 }
-#define DIR_CASE(n,r,m,i,c,o) TEST(ldr_image_dir_##n) { ldr_image_directory(r,m,i,c,o); }
+#define DIR_CASE(n,r,m,i,c,o) TEST(ldr_image_dir_##n) { ldr_image_directory(r,m,i,c,o,0); }
 DIR_CASE(mapped_section, 0x1020, TRUE, 0, 16, 0x1020)
 DIR_CASE(raw_section, 0x1020, FALSE, 0, 16, 0x420)
 DIR_CASE(mapped_header, 0x300, TRUE, 0, 16, 0x300)
@@ -159,12 +160,15 @@ DIR_CASE(absent, 0, TRUE, 0, 16, -1)
 DIR_CASE(out_of_count, 0x1020, TRUE, 0, 0, -1)
 DIR_CASE(invalid_index, 0x1020, TRUE, 16, 16, -1)
 DIR_CASE(raw_gap, 0x1800, FALSE, 0, 16, -1)
+TEST(ldr_image_dir_tagged_section) { ldr_image_directory(0x1020, TRUE, 0, 16, 0x420, 1); }
+TEST(ldr_image_dir_tagged_header) { ldr_image_directory(0x300, TRUE, 0, 16, 0x300, 1); }
 
 static void ldr_image_rva(ULONG rva, LONG offset, int cache)
 {
     ldr_image_fixture f;
     PIMAGE_NT_HEADERS n = ldr_image_make(&f);
-    PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(n), last = cache == 2 ? section + 1 : NULL;
+    PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(n);
+    PIMAGE_SECTION_HEADER last = cache == 2 ? section + 1 : cache == 3 ? section : NULL;
     PVOID p;
     REQUIRE(UN(RtlImageRvaToVa));
     p = UN(RtlImageRvaToVa)(n, f.b, rva, cache ? &last : NULL);
@@ -181,3 +185,5 @@ RVA_CASE(second, 0x2020, 0x620, 1)
 RVA_CASE(second_end, 0x2400, -1, 0)
 RVA_CASE(cache_empty, 0x1010, 0x410, 1)
 RVA_CASE(cache_miss, 0x1010, 0x410, 2)
+RVA_CASE(cache_hit, 0x1010, 0x410, 3)
+RVA_CASE(header_not_section, 0x300, -1, 0)
