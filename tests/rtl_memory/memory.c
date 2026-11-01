@@ -3,7 +3,6 @@
 UDECL(SIZE_T, RtlCompareMemory, (const void *, const void *, SIZE_T));
 UDECL(SIZE_T, RtlCompareMemoryUlong, (const void *, SIZE_T, ULONG));
 UDECL(void, RtlFillMemory, (void *, SIZE_T, UCHAR));
-UDECL(void, RtlFillMemoryUlong, (void *, SIZE_T, ULONG));
 UDECL(void, RtlMoveMemory, (void *, const void *, SIZE_T));
 UDECL(void, RtlZeroMemory, (void *, SIZE_T));
 UDECL(void *, RtlEncodePointer, (void *));
@@ -35,6 +34,23 @@ COMP(equal_255,255,255,0)
 COMP(unaligned_equal,127,127,1)
 COMP(unaligned_middle,127,65,1)
 
+TEST(rtl_memory_compare_alignment_and_limit)
+{
+    BYTE a[80], b[80]; unsigned left, right, mismatch, i;
+    REQUIRE(UN(RtlCompareMemory));
+    /* Different relative alignment selects a separate byte-only Windows path. */
+    for (left = 0; left < 8; ++left) for (right = 0; right < 8; ++right) {
+        for (i = 0; i < 65; ++i) a[left + i] = b[right + i] = (BYTE)(i * 37 + 19);
+        for (mismatch = 0; mismatch <= 65; ++mismatch) {
+            /* At 65 the difference is outside the exact comparison limit. */
+            a[left + 65] = 0; b[right + 65] = 1;
+            if (mismatch < 65) b[right + mismatch] ^= 0xff;
+            EXPECT_EQ(UN(RtlCompareMemory)(a + left,b + right,65),mismatch);
+            if (mismatch < 65) b[right + mismatch] ^= 0xff;
+        }
+    }
+}
+
 static void ulong_case(SIZE_T n, unsigned mismatch)
 {
     ULONG a[20]; unsigned i;
@@ -58,7 +74,7 @@ UC(all_equal,64,20)
 
 static void fill_case(SIZE_T n, BYTE value, unsigned offset, int zero)
 {
-    BYTE a[260]; SIZE_T i; int ok = 1;
+    BYTE a[4352]; SIZE_T i; int ok = 1;
     if (zero) { REQUIRE(UN(RtlZeroMemory)); }
     else { REQUIRE(UN(RtlFillMemory)); }
     memset(a,0xa5,sizeof a);
@@ -82,12 +98,16 @@ FILL(zero_one,1,0,1,1)
 FILL(zero_seven,7,0,3,1)
 FILL(zero_sixteen,16,0,16,1)
 FILL(zero_255,255,0,1,1)
+FILL(fill_page,4096,0x81,3,0)
+FILL(zero_page,4096,0,3,1)
 
 static void move_case(unsigned dst, unsigned src, unsigned n)
 {
-    BYTE a[260], original[260]; unsigned i; int ok = 1;
+    BYTE a[8448], original[8448]; unsigned i; int ok = 1;
     REQUIRE(UN(RtlMoveMemory));
-    for (i = 0; i < sizeof a; ++i) a[i] = original[i] = (BYTE)(i * 71 + 3);
+    /* Mix the byte index's high bits so page-distance moves are not no-ops. */
+    for (i = 0; i < sizeof a; ++i)
+        a[i] = original[i] = (BYTE)((i * 71 + 3) ^ ((i >> 8) * 29) ^ ((i >> 12) * 137));
     SET_ERR(0x12345678);
     UN(RtlMoveMemory)(a + dst,a + src,n);
     EXPECT_ERR(0x12345678);
@@ -107,20 +127,16 @@ MOVE(overlap_right_vector,17,1,127)
 MOVE(overlap_left_vector,1,17,127)
 MOVE(overlap_right_long,65,1,191)
 MOVE(overlap_left_long,1,65,191)
-
-TEST(rtl_memory_fill_ulong_pattern)
-{
-    ULONG a[18]; unsigned i;
-    REQUIRE(UN(RtlFillMemoryUlong));
-    for (i = 0; i < 18; ++i) a[i] = 0xaaaaaaaa;
-    UN(RtlFillMemoryUlong)(a + 1,64,0x12345678);
-    EXPECT_EQ(a[0],0xaaaaaaaa); EXPECT_EQ(a[17],0xaaaaaaaa);
-    for (i = 1; i < 17; ++i) EXPECT_EQ(a[i],0x12345678);
-}
+MOVE(disjoint_page,4097,1,4096)
+MOVE(overlap_right_page,2,1,4097)
+MOVE(overlap_left_page,1,2,4097)
+MOVE(overlap_right_page_distance,3073,1,4097)
+MOVE(overlap_left_page_distance,1,3073,4097)
 
 static void pointer_case(unsigned kind)
 {
-    BYTE a[32]; void *p, *encoded;
+    union { ULONGLONG alignment; BYTE bytes[32]; } storage;
+    BYTE *a = storage.bytes; void *p, *encoded;
     REQUIRE(UN(RtlEncodePointer)); REQUIRE(UN(RtlDecodePointer));
     p = kind == 0 ? NULL : kind == 1 ? a : kind == 2 ? a + 1 : a + 31;
     encoded = UN(RtlEncodePointer)(p);
