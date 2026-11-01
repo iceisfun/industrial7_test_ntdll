@@ -62,6 +62,11 @@ PARSE(octal, "377", 8, 255)
 PARSE(octal_stop, "1789", 8, 15)
 PARSE(binary, "11111111", 2, 255)
 PARSE(binary_stop, "1012", 2, 5)
+PARSE(single_hex, "F", 16, 15)
+PARSE(prefix_only, "0x", 0, 0)
+PARSE(sign_then_space, "- 42", 10, 0)
+PARSE(negative_wrap, "-4294967297", 10, 0xffffffff)
+PARSE(control_space, "\001\03742", 10, 42)
 
 TEST(rtl_numeric_invalid_bases)
 {
@@ -168,23 +173,33 @@ TEST(rtl_numeric_char_terminated_capacity) { char_capacity(4, 0); }
 
 TEST(rtl_numeric_format_invalid_base)
 {
-    char out[16]; WCHAR w[16]; UNICODE_STRING s = {8, sizeof(w), w};
+    char out[16], old[16]; WCHAR w[16], oldw[16]; UNICODE_STRING s = {8, sizeof(w), w};
     REQUIRE(UN(RtlIntegerToChar)); REQUIRE(UN(RtlIntegerToUnicodeString));
     memset(out, 0x5a, sizeof(out)); memset(w, 0x5a, sizeof(w));
+    memcpy(old, out, sizeof(out)); memcpy(oldw, w, sizeof(w));
     EXPECT_EQ(UN(RtlIntegerToChar)(123, 3, sizeof(out), out), (NTSTATUS)0xc000000d);
-    EXPECT_EQ(out[0], 0x5a);
+    CHECK(memcmp(out, old, sizeof(out)) == 0);
     EXPECT_EQ(UN(RtlIntegerToUnicodeString)(123, 3, &s), (NTSTATUS)0xc000000d);
-    EXPECT_EQ(s.Length, 8); EXPECT_EQ(w[0], 0x5a5a);
+    EXPECT_EQ(s.Length, 8); EXPECT_EQ(s.MaximumLength, sizeof(w)); CHECK(s.Buffer == w);
+    CHECK(memcmp(w, oldw, sizeof(w)) == 0);
 }
 
-TEST(rtl_numeric_unicode_short_capacity)
+static void unicode_capacity(USHORT capacity)
 {
-    WCHAR w[8]; UNICODE_STRING s = {0, 6, w};
+    WCHAR w[8]; UNICODE_STRING s = {0, capacity, w}; unsigned i;
     REQUIRE(UN(RtlIntegerToUnicodeString));
     memset(w, 0x5a, sizeof(w));
-    EXPECT_EQ(UN(RtlIntegerToUnicodeString)(123, 10, &s), (NTSTATUS)0x80000005);
-    EXPECT_EQ(s.Length, 6); EXPECT_EQ(w[0], 0x5a5a);
+    EXPECT_EQ(UN(RtlIntegerToUnicodeString)(123, 10, &s),
+              capacity < 8 ? (NTSTATUS)0x80000005 : (NTSTATUS)0);
+    EXPECT_EQ(s.Length, 6); EXPECT_EQ(s.MaximumLength, capacity); CHECK(s.Buffer == w);
+    for (i = 0; i < sizeof(w)/sizeof(w[0]); ++i)
+        EXPECT_EQ(w[i], capacity >= 8 && i < 4 ? L"123"[i] : 0x5a5a);
 }
+TEST(rtl_numeric_unicode_zero_capacity) { unicode_capacity(0); }
+TEST(rtl_numeric_unicode_odd_short_capacity) { unicode_capacity(5); }
+TEST(rtl_numeric_unicode_short_capacity) { unicode_capacity(6); }
+TEST(rtl_numeric_unicode_odd_exact_capacity) { unicode_capacity(7); }
+TEST(rtl_numeric_unicode_terminated_capacity) { unicode_capacity(8); }
 
 static void format64(ULONGLONG value, ULONG base, const char *expected)
 {
@@ -205,6 +220,8 @@ LARGE(hex, 0x123456789abcdef0ULL, 16, "123456789ABCDEF0")
 LARGE(hex_max, 0xffffffffffffffffULL, 16, "FFFFFFFFFFFFFFFF")
 LARGE(octal, 0x100000000ULL, 8, "40000000000")
 LARGE(binary, 0x100000000ULL, 2, "100000000000000000000000000000000")
+LARGE(binary_max, 0xffffffffffffffffULL, 2, "1111111111111111111111111111111111111111111111111111111111111111")
+LARGE(octal_max, 0xffffffffffffffffULL, 8, "1777777777777777777777")
 
 TEST(rtl_numeric_large_capacity)
 {
@@ -221,11 +238,12 @@ TEST(rtl_numeric_large_capacity)
 
 TEST(rtl_numeric_large_invalid_base)
 {
-    LARGE_INTEGER v; char out[16];
+    LARGE_INTEGER v; char out[16], old[16];
     REQUIRE(UN(RtlLargeIntegerToChar)); v.QuadPart = 123;
     memset(out, 0x5a, sizeof(out));
+    memcpy(old, out, sizeof(out));
     EXPECT_EQ(UN(RtlLargeIntegerToChar)(&v, 36, sizeof(out), out), (NTSTATUS)0xc000000d);
-    EXPECT_EQ(out[0], 0x5a);
+    CHECK(memcmp(out, old, sizeof(out)) == 0);
 }
 
 /* These are macros/intrinsics, not exports in the reference x64 image. */

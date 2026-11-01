@@ -17,10 +17,11 @@ static void calendar(SHORT year, SHORT month, SHORT day, SHORT hour,
                      LONGLONG exact)
 {
     rtl_time_fields in = {year, month, day, hour, minute, second, ms, -1}, out;
-    LARGE_INTEGER t; BOOLEAN ok;
+    LARGE_INTEGER t; BOOLEAN ok; rtl_time_fields saved = in;
     REQUIRE(UN(RtlTimeFieldsToTime)); REQUIRE(UN(RtlTimeToTimeFields));
     t.QuadPart = -1;
     ok = UN(RtlTimeFieldsToTime)(&in, &t);
+    CHECK(memcmp(&in, &saved, sizeof(in)) == 0);
     EXPECT_EQ(ok, TRUE);
     if (!ok) return;
     if (exact >= 0) EXPECT_EQ(t.QuadPart, exact);
@@ -61,10 +62,11 @@ static void invalid(SHORT year, SHORT month, SHORT day, SHORT hour,
                     SHORT minute, SHORT second, SHORT ms)
 {
     rtl_time_fields in = {year, month, day, hour, minute, second, ms, 0};
-    LARGE_INTEGER t; BOOLEAN ok;
+    LARGE_INTEGER t; BOOLEAN ok; rtl_time_fields saved = in;
     REQUIRE(UN(RtlTimeFieldsToTime));
     t.QuadPart = 0x123456789abcdefLL;
     ok = UN(RtlTimeFieldsToTime)(&in, &t);
+    CHECK(memcmp(&in, &saved, sizeof(in)) == 0);
     EXPECT_EQ(ok, FALSE);
     EXPECT_EQ(t.QuadPart, 0x123456789abcdefLL);
 }
@@ -73,6 +75,9 @@ static void invalid(SHORT year, SHORT month, SHORT day, SHORT hour,
 INVALID(before_epoch, 1600, 1, 1, 0, 0, 0, 0)
 INVALID(year_zero, 0, 1, 1, 0, 0, 0, 0)
 INVALID(negative_year, -1, 1, 1, 0, 0, 0, 0)
+/* The x64 helper bounds Year-1601 by 0x722a, even though Year is signed SHORT. */
+INVALID(above_maximum_year, 30828, 1, 1, 0, 0, 0, 0)
+INVALID(short_maximum_year, 32767, 1, 1, 0, 0, 0, 0)
 INVALID(month_zero, 2000, 0, 1, 0, 0, 0, 0)
 INVALID(month_thirteen, 2000, 13, 1, 0, 0, 0, 0)
 INVALID(month_negative, 2000, -1, 1, 0, 0, 0, 0)
@@ -108,6 +113,7 @@ static void seconds(BOOL since1980, ULONG value)
     LONGLONG epoch = since1980 ? 119600064000000000LL : 116444736000000000LL;
     REQUIRE(UN(RtlSecondsSince1970ToTime)); REQUIRE(UN(RtlSecondsSince1980ToTime));
     REQUIRE(UN(RtlTimeToSecondsSince1970)); REQUIRE(UN(RtlTimeToSecondsSince1980));
+    t.QuadPart = -1;
     if (since1980) UN(RtlSecondsSince1980ToTime)(value, &t);
     else UN(RtlSecondsSince1970ToTime)(value, &t);
     EXPECT_EQ(t.QuadPart, epoch + (ULONGLONG)value * 10000000);
@@ -152,6 +158,7 @@ TEST(rtl_time_submillisecond_truncation)
 {
     LARGE_INTEGER t; rtl_time_fields out;
     REQUIRE(UN(RtlTimeToTimeFields));
+    memset(&out, 0x5a, sizeof(out));
     t.QuadPart = 9999;
     UN(RtlTimeToTimeFields)(&t, &out);
     EXPECT_EQ(out.Year, 1601); EXPECT_EQ(out.Month, 1); EXPECT_EQ(out.Day, 1);
@@ -162,6 +169,25 @@ TEST(rtl_time_submillisecond_truncation)
     EXPECT_EQ(out.Milliseconds, 1);
 }
 
+TEST(rtl_time_output_extents)
+{
+    struct { ULONGLONG before; LARGE_INTEGER value; ULONGLONG after; } t;
+    struct { ULONGLONG before; rtl_time_fields value; ULONGLONG after; } f;
+    rtl_time_fields in = {1601, 1, 1, 0, 0, 0, 0, -1}; BOOLEAN ok;
+    REQUIRE(UN(RtlTimeFieldsToTime)); REQUIRE(UN(RtlTimeToTimeFields));
+    memset(&t, 0x5a, sizeof(t)); memset(&f, 0x5a, sizeof(f));
+    ok = UN(RtlTimeFieldsToTime)(&in, &t.value);
+    EXPECT_EQ(ok, TRUE); EXPECT_EQ(t.value.QuadPart, 0);
+    EXPECT_EQ(t.before, 0x5a5a5a5a5a5a5a5aULL); EXPECT_EQ(t.after, t.before);
+    if (!ok) return;
+    UN(RtlTimeToTimeFields)(&t.value, &f.value);
+    EXPECT_EQ(f.before, 0x5a5a5a5a5a5a5a5aULL); EXPECT_EQ(f.after, f.before);
+    EXPECT_EQ(f.value.Year, 1601); EXPECT_EQ(f.value.Month, 1); EXPECT_EQ(f.value.Day, 1);
+    EXPECT_EQ(f.value.Hour, 0); EXPECT_EQ(f.value.Minute, 0); EXPECT_EQ(f.value.Second, 0);
+    EXPECT_EQ(f.value.Milliseconds, 0); EXPECT_EQ(f.value.Weekday, 1);
+    EXPECT_EQ(t.value.QuadPart, 0);
+}
+
 TEST(rtl_time_local_timezone_observation)
 {
     LARGE_INTEGER utc, local, back; NTSTATUS a, b;
@@ -169,8 +195,9 @@ TEST(rtl_time_local_timezone_observation)
     utc.QuadPart = 116444736000000000LL; local.QuadPart = back.QuadPart = 0;
     a = UN(RtlSystemTimeToLocalTime)(&utc, &local);
     t_note("system-to-local status=%08lx", (ULONG)a);
-    if (a < 0) return;
+    if (a < 0) { EXPECT_EQ(local.QuadPart, 0); return; }
     b = UN(RtlLocalTimeToSystemTime)(&local, &back);
     t_note("local-to-system status=%08lx offset_ticks=%lld roundtrip=%lld; timezone/configuration observation only",
            (ULONG)b, local.QuadPart - utc.QuadPart, back.QuadPart);
+    if (b < 0) EXPECT_EQ(back.QuadPart, 0);
 }

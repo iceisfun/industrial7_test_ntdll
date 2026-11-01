@@ -54,7 +54,7 @@ no divide exports. Its decompilation was read, but it is not called by address.
 `fabs` decompilation was also read; floating-point control/exception branches
 are out of scope. Arithmetic coverage therefore uses exported `abs`/`labs`.
 
-## Build and smoke
+## Initial build and smoke (superseded by review below)
 
 `make build/rtl_numeric.exe` succeeds without warnings. Objdump import inspection
 shows only KERNEL32.dll and msvcrt.dll, no static ntdll imports. Every ntdll call
@@ -75,3 +75,58 @@ EXPECT_EQ; fixed by casting expected error constants to NTSTATUS and rerun.
 No Wine-specific suppression was added. Native Windows execution remains
 unperformed; malformed negative widths, non-ASCII locale behavior, and legacy
 nonexported arithmetic are intentionally not asserted.
+
+## Adversarial review, 2026-10-31
+
+Re-read the corpus instructions, both original smoke logs, the implementations
+listed above (assembly for `abs`), and the Unicode parser documentation. All
+review corpus requests were serial, retrying HTTP 503. No third-party test or
+implementation was copied. The following are Windows-image contracts, not
+expectations inferred from Wine:
+
+| Retained failed test | Exact classification evidence |
+| --- | --- |
+| `rtl_numeric_unicode_invalid_lengths` | [Parser assembly](http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/RtlUnicodeStringToInteger/asm): VA 0x1800755f4 compares Length with zero; 0x1800755fe tests oddness. Both branch to 0x1800c28f9, setting C000000D, then 0x1800756e0 writes the zero-initialized r10d to output. Wine returns success for both lengths and value 1 for Length=3 (review log lines 96–100). |
+| `rtl_numeric_invalid_bases` | Same assembly: 0x180075712–0x180075727 accepts only 2/8/16 after decimal/default dispatch; invalid bases reach the same error/output-zero path. Wine returns the correct status but preserves 0x12345678 for all nine bases (log lines 103–113). |
+| `rtl_numeric_unicode_odd_exact_capacity` (new) | [Formatter assembly](http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/RtlIntegerToUnicodeString/asm) calls the nonallocating ANSI converter at 0x180016503 and preserves its return status. [Converter assembly](http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/RtlAnsiStringToUnicodeString/asm): 0x1800195e8 sets Length=6, 0x1800195f8 adds 2, 0x180019601 compares against byte MaximumLength, and 0x180019604 branches `ja` to 80000005 without copying. Thus MaximumLength=7 fails unchanged. Wine succeeds and writes `123` plus a UTF-16 NUL (8 bytes, physically inside the test's 16-byte array but outside its declared capacity), log lines 47–53. |
+
+Added five parser vectors (single hex digit, prefix-only, whitespace after sign,
+negative wrap, control whitespace), maximum-width unsigned 64-bit binary/octal,
+and four Unicode byte-capacity cases. Unicode capacity tests now check every
+buffer element, Length, MaximumLength and Buffer; invalid-base formatters check
+the entire unchanged buffer. Signed error constants remain explicitly NTSTATUS;
+unsigned accumulation, negation modulo 2^32, high-bit formatting, and ULONG-sized
+`labs` match the x64 implementation. INT_MIN and signed/negative width extensions
+remain outside asserted scope.
+
+Reconfirmed `/api/modules/ntdll/exports?q=swap` and `?q=divide` both return total=0.
+The three optional byte-swap registrations are **availability observations only**,
+not x64 API/behavior coverage. Legacy multiply/divide routines are not claimed.
+The `?q=abs` query confirms `abs`/`labs` share RVA 0x8e410; its `cdq; xor; sub`
+assembly implements signed 32-bit absolute value for the representable inputs.
+
+Safety review: `common/modules.h` restricts UN resolution to ntdll.dll. All
+function dependencies use REQUIRE (which returns, unlike nonfatal CHECK).
+The parser length CHECK has an explicit return guard. Output comparisons use
+bounded local arrays, not a returned/possibly corrupted descriptor pointer or
+an unbounded string scan. Buffers are initialized before observation; failed
+checks do not feed lengths/pointers into later API calls. No test-owned handles,
+allocations, files or global mutations require cleanup.
+
+### Reviewed build and smoke
+
+Build: `TMPDIR=/tmp/opencode TP_TIMEOUT=120 make build/rtl_numeric.exe build/rtl_time.exe`
+completed without warnings. Import inspection again found only KERNEL32.dll and
+msvcrt.dll, with no static ntdll imports.
+
+`TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_numeric.exe > /tmp/opencode/ntdll_review_numeric.log 2>&1`
+
+Exit **1**, final line (186):
+`SUMMARY tests=82 failed=3 skipped=3 checks_pass=534 checks_fail=17`.
+That is 76 passing tests, 3 corpus-backed Wine divergences, 3 optional-export
+skips; 79 behavior-test registrations, not 82 covered x64 behaviors. Original
+failures were retained, with one new boundary divergence. No suppression.
+
+Log SHA-256: `be7c7e6c1aaa18f48f98ff671fa0c50429da45509566dbd64c10d0b0ef3dc7b0`.
+Native Windows execution remains unperformed; this is static Windows-corpus
+classification plus Wine smoke, not a native baseline claim.
