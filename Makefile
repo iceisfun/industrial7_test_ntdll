@@ -8,5 +8,5 @@ all: $(EXES)
 .SECONDEXPANSION:
 build/%.exe: $$(wildcard tests/$$*/*.c) common/t.c common/t.h common/modules.h
 	@mkdir -p build
-	$(CC) $(CFLAGS) -Icommon -o $@ $(wildcard tests/$*/*.c) common/t.c -static -lkernel32 -ladvapi32 -lntdll
+	$(CC) $(CFLAGS) -Icommon -o $@ $(wildcard tests/$*/*.c) common/t.c -static -lkernel32
 clean: ; rm -rf build

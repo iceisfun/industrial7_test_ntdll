@@ -8,9 +8,27 @@ static const char *g_cur;
 static jmp_buf g_jb;
 static volatile int g_in_test;
 
-HMODULE t_module(const char *dll) { return LoadLibraryA(dll); }   /* refcounted; modules stay loaded */
-FARPROC t_proc_in(const char *dll, const char *name) { HMODULE m = t_module(dll); return m ? GetProcAddress(m, name) : NULL; }
-FARPROC t_proc_ord(const char *dll, unsigned ord) { HMODULE m = t_module(dll); return m ? GetProcAddress(m, (LPCSTR)(ULONG_PTR)ord) : NULL; }
+HMODULE t_module(const char *dll) {
+    DWORD e = GetLastError();
+    HMODULE m = GetModuleHandleA(dll);
+    if (!m) m = LoadLibraryA(dll);
+    SetLastError(e);
+    return m;
+}
+FARPROC t_proc_in(const char *dll, const char *name) {
+    DWORD e = GetLastError();
+    HMODULE m = t_module(dll);
+    FARPROC p = m ? GetProcAddress(m, name) : NULL;
+    SetLastError(e);
+    return p;
+}
+FARPROC t_proc_ord(const char *dll, unsigned ord) {
+    DWORD e = GetLastError();
+    HMODULE m = t_module(dll);
+    FARPROC p = m ? GetProcAddress(m, (LPCSTR)(ULONG_PTR)ord) : NULL;
+    SetLastError(e);
+    return p;
+}
 FARPROC t_proc(const char *name) {
     for (int i = 0; g_mods[i]; i++) { FARPROC p = t_proc_in(g_mods[i], name); if (p) return p; }
     return NULL;
@@ -25,11 +43,13 @@ static int g_nc;
 void t_register_child(const char *n, t_child_fn f) { if (g_nc < 512) { g_c[g_nc].n = n; g_c[g_nc].f = f; g_nc++; } }
 
 void t_check(int ok, const char *file, int line, const char *expr, const char *fmt, ...) {
+    DWORD e = GetLastError();
     if (ok) { g_pass++; return; }
     g_fail++; g_cur_fail++;
     printf("  FAIL %s:%d: %s", file, line, expr);
     if (fmt) { va_list a; va_start(a, fmt); printf(" ("); vprintf(fmt, a); printf(")"); va_end(a); }
     printf("\n");
+    SetLastError(e);
 }
 void t_note(const char *fmt, ...) { va_list a; va_start(a, fmt); printf("  NOTE "); vprintf(fmt, a); printf("\n"); va_end(a); }
 void t_skip(const char *fmt, ...) { va_list a; va_start(a, fmt); printf("  SKIP "); vprintf(fmt, a); printf("\n"); va_end(a); g_cur_skip = 1; }
@@ -78,7 +98,9 @@ static void rmtree(const char *dir) {
             if (!strcmp(fd.cFileName, ".") || !strcmp(fd.cFileName, "..")) continue;
             snprintf(sub, sizeof sub, "%s\\%s", dir, fd.cFileName);
             SetFileAttributesA(sub, FILE_ATTRIBUTE_NORMAL);
-            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) rmtree(sub); else DeleteFileA(sub);
+            if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && !(fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) rmtree(sub);
+            else if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) RemoveDirectoryA(sub);
+            else DeleteFileA(sub);
         } while (FindNextFileA(h, &fd));
         FindClose(h);
     }
