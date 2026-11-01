@@ -13,6 +13,7 @@ def main():
     args = parser.parse_args()
     totals = [0] * 5
     incomplete = 0
+    valid_results = {}
     files = [p for p in sorted(args.results.glob('*.txt')) if not p.name.endswith('.stderr.txt')]
     for path in files:
         text = path.read_text(errors='replace')
@@ -27,6 +28,7 @@ def main():
             incomplete += 1
             continue
         totals = [a + b for a, b in zip(totals, values)]
+        valid_results[path.stem] = values
         print('%-32s tests=%d failed=%d skipped=%d checks_pass=%d checks_fail=%d' % (path.name, *values))
         if args.failures:
             current = ''
@@ -43,11 +45,15 @@ def main():
                 raise ValueError('expected a nonempty run array')
             for row in rows:
                 code = row.get('exit_code', row.get('exitCode'))
-                if (code != 0 or row.get('timeout') or row.get('completed') is False or
-                        row.get('ok') is False or
-                        row.get('area') not in {p.stem for p in files}):
-                    print('RUN INCOMPLETE/FAILED: %s' % row.get('area', '<unknown>'))
+                values = valid_results.get(row.get('area'))
+                failed_checks = values is not None and (values[1] > 0 or values[4] > 0)
+                if (code not in (0, 1) or row.get('timeout') or row.get('completed') is False or
+                        values is None or (code == 1 and not failed_checks) or
+                        (row.get('ok') is False and not failed_checks)):
+                    print('RUN INCOMPLETE: %s' % row.get('area', '<unknown>'))
                     incomplete += 1
+                elif failed_checks:
+                    print('RUN FAILED CHECKS (completed): %s' % row.get('area', '<unknown>'))
         except (ValueError, TypeError, AttributeError) as error:
             print('INVALID run.json: %s' % error)
             incomplete += 1

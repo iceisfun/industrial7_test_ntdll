@@ -5,6 +5,9 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
+import json
+import subprocess
+import sys
 
 spec = importlib.util.spec_from_file_location('corpus_coverage', Path(__file__).with_name('coverage.py'))
 coverage = importlib.util.module_from_spec(spec)
@@ -12,6 +15,16 @@ spec.loader.exec_module(coverage)
 
 
 class CoverageTests(unittest.TestCase):
+    def test_failed_checks_are_not_incomplete_execution(self):
+        with tempfile.TemporaryDirectory(dir='/tmp/opencode') as directory:
+            root = Path(directory)
+            (root / 'a.txt').write_text('SUMMARY tests=2 failed=1 skipped=0 checks_pass=3 checks_fail=1\n')
+            (root / 'run.json').write_text(json.dumps([dict(area='a', exit_code=1, completed=True, timeout=False)]))
+            result = subprocess.run([sys.executable, str(Path(__file__).with_name('summarize.py')), str(root)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('incomplete=0', result.stdout)
+            self.assertIn('RUN FAILED CHECKS (completed)', result.stdout)
+
     def test_preprocessed_casts_and_pointer_calls(self):
         with tempfile.TemporaryDirectory(dir='/tmp/opencode') as directory:
             root = Path(directory)

@@ -47,6 +47,8 @@ The default Wine is `~/work/wine/proton-ge-custom/build/dist/files/bin/wine`; ov
 
 Known Windows-supported Wine differences are retained as failures, not converted to permissive checks. Area `EVIDENCE.md` files explain contracts, uncertainty and smoke triage. See [VALIDATION.md](VALIDATION.md) for the integrated run and [HANDOFF.md](HANDOFF.md) for the authoritative Windows pass.
 
+[validation/OBSERVATIONS.md](validation/OBSERVATIONS.md) preserves an additional child-start prerequisite skip observed during integration; it is not classified as a semantic API divergence.
+
 ## Scope and evidence
 
 The reference is ntdll **10.0.19041.2788** from the Windows 10 22H2 corpus. `tools/reference_module.json` preserves module metadata; `tools/ntdll_exports.json` preserves 2,433 export records (2,432 named and one ordinal-only), with ordinals and RVAs. The reference API is read-only:
