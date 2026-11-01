@@ -69,8 +69,9 @@ The optional `tools/map_public_surface.py` regeneration tool also needs **libcla
 
 ## Safety
 
-- Files are private, bounded scratch fixtures under `%TEMP%\ntdllt_<pid>\`; registry fixtures are private current-user subkeys with unique names and cleanup.
+- Files are private, bounded scratch fixtures under newly created `%TEMP%\ntdllt_<pid>_<tick>_<attempt>\` directories; registry fixtures are private current-user subkeys with unique names and cleanup. Existing scratch directories are never reused.
 - No shutdown/reboot/logoff, raw disk access, system process termination, real account changes, security disabling, or deliberate resource exhaustion.
 - Own process/thread/heap/section/token objects are closed or freed. Waits and child processes are bounded; process-global irreversible changes belong in children.
 - State-changing system-wide tests, if added later, must live under `tests/dx_*` and be opt-in (`tools\run_all.bat /destructive`). A disposable prefix is not permission to mutate host state.
 - The exception handler reports main-thread faults as failures; it cannot safely recover worker-thread faults or guarantee cleanup after arbitrary memory corruption. Missing summaries are therefore failures, not skips.
+- `t_run_child` terminates its direct child on timeout, not an arbitrary descendant tree. Current children must not launch unbounded descendants; the outer runners provide separate executable-level process-tree/prefix cleanup. Path-based scratch cleanup avoids reparse traversal but is not hardened against a concurrent hostile filesystem race.

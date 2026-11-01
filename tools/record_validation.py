@@ -33,19 +33,20 @@ def main():
                 current = line[5:].strip()
             elif line.startswith('  FAIL'):
                 failures.append(dict(area=row['area'], test=current, detail=line.strip()))
-    sources = [root / 'Makefile'] + sorted(p for directory in ('common', 'tests') for p in (root / directory).rglob('*')
-                                          if p.suffix in ('.c', '.h', '.inc'))
+    sources = [root / 'Makefile'] + sorted(p for directory in ('common', 'tests', 'tools') for p in (root / directory).rglob('*')
+                                          if p.suffix in ('.c', '.h', '.inc', '.py', '.sh', '.bat', '.ps1'))
     source_hashes = {str(p.relative_to(root)): digest(p) for p in sources}
     totals = {key: sum(row.get(key, 0) for row in rows) for key in ('tests', 'failed', 'skipped', 'checks_pass', 'checks_fail')}
     audit_counts = {r['area']: r['tests'] for r in audit['areas']}
     counts_match = audit_counts == {r['area']: r.get('tests') for r in rows}
+    wine = os.environ.get('WINE', str(Path.home() / 'work/wine/proton-ge-custom/build/dist/files/bin/wine'))
     report = dict(
         generated_utc=datetime.now(timezone.utc).isoformat(),
         source_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
         authority='Wine smoke validation only; not native Windows conformance',
         command='python3 tools/smoke_all.py --timeout 120 --results results/wine',
         compiler=subprocess.check_output(['x86_64-w64-mingw32-gcc', '--version'], text=True).splitlines()[0],
-        wine_path=os.environ.get('WINE', str(Path.home() / 'work/wine/proton-ge-custom/build/dist/files/bin/wine')),
+        wine_path=wine, wine_version=subprocess.check_output([wine, '--version'], text=True).strip(),
         totals=totals, all_areas_completed=all(r['completed'] for r in rows),
         all_checks_pass=all(r['completed'] and r.get('failed') == 0 and r.get('checks_fail') == 0 for r in rows),
         compiled_runtime_test_counts_match=counts_match, build_audit=audit,

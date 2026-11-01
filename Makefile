@@ -12,5 +12,9 @@ build/%.exe: $$(wildcard tests/$$*/*.c tests/$$*/*.h tests/$$*/*.inc) common/t.c
 clean: ; rm -rf build
 # Validation under Wine in a headless sandbox (see tools/wine_run.sh). Windows is the authority.
 wine-run: all
-	@for e in $(EXES); do echo "== $$e"; tools/wine_run.sh $$e | grep -E '^(FAIL|SKIP|SUMMARY)|^  (FAIL|NOTE)'; done
-.PHONY: all clean wine-run
+	python3 tools/smoke_all.py --timeout 120 --results results/wine
+check-tools:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p 'test_*.py'
+audit: all
+	python3 tools/audit_build.py
+.PHONY: all clean wine-run check-tools audit

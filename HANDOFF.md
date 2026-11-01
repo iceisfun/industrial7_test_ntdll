@@ -44,7 +44,7 @@ Use `http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/<Name>/de
 
 ## Expected skips and known gaps
 
-Missing optional exports, emulation-only safety guards and missing fixture prerequisites are reported in each area's log. Locale-sensitive conversion data, privileged/kernel-only facilities, undocumented unknown signatures, real exception/unwind corner cases, ALPC, ETW, transactions, threadpool and exhaustive native system information remain depth/gap work, not claimed coverage. See `COVERAGE.md` for the concrete static gap lists.
+Missing optional exports, emulation-only safety guards and missing fixture prerequisites are reported in each area's log. Locale-sensitive conversion data, privileged/kernel-only facilities, undocumented unknown signatures, real exception/unwind corner cases, ALPC, ETW, transactions, advanced threadpool/I/O and exhaustive native system information remain depth/gap work, not claimed coverage. See `COVERAGE.md` for the concrete static gap lists.
 
 ## Cleanup
 
