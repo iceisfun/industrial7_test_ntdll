@@ -67,7 +67,7 @@ static void re_query(const WCHAR *name, const WCHAR *value, const WCHAR *lookup,
     s = re_set(&env, name, value); EXPECT_EQ(s, 0); if (s) goto done;
     memset(buffer, 0xa5, sizeof(buffer));
     s = UN(RtlQueryEnvironmentVariable_U)(env, &n, &v);
-    /* Win10 RtlpScanEnvironment requires space for the terminator too. */
+    /* The buffer must have room for the terminator as well as the value. */
     expected = !null_buffer && capacity / 2 > bytes / 2 ? 0 : RE_SMALL;
     EXPECT_EQ(s, expected);
     EXPECT_EQ(v.Length, bytes);
@@ -77,7 +77,7 @@ static void re_query(const WCHAR *name, const WCHAR *value, const WCHAR *lookup,
         CHECK(!memcmp(buffer, value, bytes));
         EXPECT_EQ(buffer[bytes / 2], 0);
     }
-    /* RtlpScanEnvironment clears the first WCHAR on a nonzero-capacity failure. */
+    /* On a nonzero-capacity failure the first WCHAR of the buffer is cleared. */
     if (s == RE_SMALL && !null_buffer && capacity >= 2) EXPECT_EQ(buffer[0], 0);
     if (!null_buffer) {
         EXPECT_EQ(((BYTE *)buffer)[capacity], 0xa5);
@@ -113,7 +113,7 @@ static void re_expand(const WCHAR *source, const WCHAR *expected, USHORT capacit
         EXPECT_EQ(dst.Length, bytes);
         CHECK(!memcmp(buffer, expected, bytes)); EXPECT_EQ(buffer[bytes / 2], 0);
     } else {
-        /* The _U wrapper only assigns Length on success. */
+        /* Length is only assigned on success. */
         EXPECT_EQ(dst.Length, 0xbeef);
     }
     EXPECT_EQ(((BYTE *)buffer)[capacity], 0xa5);
