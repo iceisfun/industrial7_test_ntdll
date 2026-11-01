@@ -1,0 +1,26 @@
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "deliberate-failure"
+title = "Exits 3 (expected: failure)"
+kind = "ns-failure"
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 30 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "fail"
+run = ["/bin/sh", "bbtest/ns/fail.sh"]
+
+[[job]]
+name = "failure-expected"
+title = "The failure was observed"
+kind = "ns-failure"
+needs = [{ job = "deliberate-failure", on = "failure" }]
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 30 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "triage"
+run = ["/bin/sh", "bbtest/ns/triage.sh"]

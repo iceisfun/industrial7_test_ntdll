@@ -1,0 +1,37 @@
+schema = "bbtest.recipe/1"
+
+# b does not start before a succeeds; c not before b.
+[[job]]
+name = "chain-a"
+kind = "ns-chain"
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 30 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "stamp"
+run = ["/bin/sh", "bbtest/ns/stamp.sh", "a"]
+
+[[job]]
+name = "chain-b"
+kind = "ns-chain"
+needs = [{ job = "chain-a" }]
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 30 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "stamp"
+run = ["/bin/sh", "bbtest/ns/stamp.sh", "b"]
+
+[[job]]
+name = "chain-c"
+kind = "ns-chain"
+needs = [{ job = "chain-b" }]
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 30 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "stamp"
+run = ["/bin/sh", "bbtest/ns/stamp.sh", "c"]

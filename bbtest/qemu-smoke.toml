@@ -1,0 +1,17 @@
+# Boots the 128 MiB UEFI smoke guest under KVM and judges the serial marker.
+#   bb test submit --repo ntdll --branch bbtl-lab --recipe bbtest/qemu-smoke.toml --wait
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "qemu-smoke"
+title = "QEMU smoke guest (UEFI, serial marker)"
+kind = "qemu-smoke"
+[job.requires]
+profile = "qemu-smoke"
+limits = { deadline_s = 120 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 60 }
+[job.required]
+artifacts = ["serial-0.log"]

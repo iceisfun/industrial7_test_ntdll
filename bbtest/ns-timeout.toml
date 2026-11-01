@@ -1,0 +1,27 @@
+schema = "bbtest.recipe/1"
+
+# Sleeps far past its 10 s deadline: outcome timeout, process tree killed.
+[[job]]
+name = "sleeper"
+title = "Sleeps past the deadline (expected: timeout)"
+kind = "ns-timeout"
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 10 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "sleep"
+run = ["/bin/sh", "-c", "sleep 600 & sleep 600"]
+
+[[job]]
+name = "timeout-expected"
+title = "The timeout was observed"
+kind = "ns-timeout"
+needs = [{ job = "sleeper", on = "failure" }]
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 30 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "triage"
+run = ["/bin/sh", "bbtest/ns/triage.sh"]

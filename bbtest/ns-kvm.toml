@@ -1,0 +1,16 @@
+schema = "bbtest.recipe/1"
+
+# Report-only by default; submit with EXPECT_KVM=closed edited in once the
+# Command runner's sandbox has been observed.
+[[job]]
+name = "ns-kvm"
+title = "KVM access from the Command runner"
+kind = "ns-kvm"
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 60 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "check"
+run = ["/bin/sh", "bbtest/ns/kvm.sh"]
+env = { EXPECT_KVM = "any" }

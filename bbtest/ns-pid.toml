@@ -1,0 +1,13 @@
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "ns-pid"
+title = "PID namespace"
+kind = "ns-pid"
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 60 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "check"
+run = ["/bin/sh", "bbtest/ns/pid.sh"]

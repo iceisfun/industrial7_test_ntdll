@@ -1,0 +1,17 @@
+schema = "bbtest.recipe/1"
+
+# Verifies collection (digest and size). Depot upload from the worker is
+# not implemented yet, so this does not prove bytes reach the depot.
+[[job]]
+name = "ns-artifact"
+title = "Scratch artifact collected"
+kind = "ns-artifact"
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 60 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "write"
+run = ["/bin/sh", "bbtest/ns/artifact.sh"]
+[job.required]
+artifacts = ["blob.bin", "blob.sha256"]

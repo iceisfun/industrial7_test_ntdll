@@ -1,0 +1,18 @@
+# Windows 10 oracle guest over the pinned base image, three corpus exes only.
+# The payload directory is committed on this branch (bbtest/payload-mini): the
+# oracle step reads its payload from the source tree.
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "oracle-mini"
+title = "ntdll corpus subset on the Windows 10 oracle (std user)"
+kind = "ntdll-oracle"
+[job.requires]
+profile = "win10-oracle"
+limits = { deadline_s = 1800 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "std"
+oracle = { payload = "bbtest/payload-mini", shutdown = true, timeout_s = 900 }
+[job.required]
+artifacts = ["serial-0.log", "pins-0.tsv"]

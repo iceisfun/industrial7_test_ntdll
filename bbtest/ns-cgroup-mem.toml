@@ -1,0 +1,28 @@
+schema = "bbtest.recipe/1"
+
+# The hog is expected to die (cgroup OOM, outcome error); the triage job
+# needs it with on = "failure" and is the pass condition of the recipe.
+[[job]]
+name = "mem-hog"
+title = "Allocate over the memory limit (expected: error/oom)"
+kind = "ns-cgroup-mem"
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 90 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "hog"
+run = ["/bin/sh", "bbtest/ns/mem-hog.sh"]
+
+[[job]]
+name = "mem-expected"
+title = "The hog did not survive"
+kind = "ns-cgroup-mem"
+needs = [{ job = "mem-hog", on = "failure" }]
+[job.requires]
+profile = "nstest"
+limits = { deadline_s = 30 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "triage"
+run = ["/bin/sh", "bbtest/ns/triage.sh"]
