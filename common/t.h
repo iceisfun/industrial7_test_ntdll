@@ -19,7 +19,7 @@
 #include <stddef.h>
 
 /* ---- module lookup ---------------------------------------------------- */
-HMODULE t_module(const char *dll);                 /* LoadLibrary (cached) */
+HMODULE t_module(const char *dll);                 /* existing handle, or LoadLibrary */
 FARPROC t_proc(const char *name);                  /* search modules.h list in order */
 FARPROC t_proc_in(const char *dll, const char *name); /* one specific module (forwarders resolve) */
 FARPROC t_proc_ord(const char *dll, unsigned ord);
