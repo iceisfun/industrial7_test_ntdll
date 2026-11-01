@@ -104,7 +104,7 @@ DESC(to_oem_zero,3,0,0,0) DESC(to_oem_exact_data,3,3,0,0) DESC(to_oem_exact_term
 DESC(ansi_empty_allocate,0,0,1,1) DESC(oem_empty_allocate,1,0,1,1)
 DESC(to_ansi_empty_allocate,2,0,1,1) DESC(to_oem_empty_allocate,3,0,1,1)
 
-/* UTF-8 arithmetic and surrogate assembly are explicit in the Windows bodies. */
+/* UTF-8 sequences and surrogate pairs are decoded and encoded exactly per RFC 3629. */
 static void utf_case(unsigned v, BOOL encode, BOOL query)
 {
     static const char *bytes[]={"A\0z","\xc2\xa2","\xe2\x82\xac","\xf0\x9f\x98\x80",""};
