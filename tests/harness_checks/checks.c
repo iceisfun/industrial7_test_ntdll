@@ -3,12 +3,22 @@
 
 CHILD(assertion_failure_probe) {
     DWORD expected = 0x12345677;
+    const char *strings[] = {"left", "right", "unused"};
+    const WCHAR *wide[] = {L"left", L"right", L"unused"};
+    unsigned a = 0, b = 1;
     freopen("NUL", "w", stdout);
     SET_ERR(0x12345678);
     CHECK(0);
     if (GetLastError() != 0x12345678) return 1;
     EXPECT_ERR(++expected);
     if (expected != 0x12345678 || GetLastError() != 0x12345678) return 2;
+    EXPECT_STR(strings[a++], strings[b++]);
+    if (a != 1 || b != 2 || GetLastError() != 0x12345678) return 3;
+    a = 0; b = 1;
+    EXPECT_WSTR(wide[a++], wide[b++]);
+    if (a != 1 || b != 2 || GetLastError() != 0x12345678) return 4;
+    EXPECT_ERR(++expected);
+    if (expected != 0x12345679 || GetLastError() != 0x12345678) return 5;
     return 0;
 }
 
