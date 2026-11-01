@@ -143,8 +143,8 @@ static void realloc_null_case(SIZE_T size)
     HEAP_REQUIRE(); REQUIRE(UN(RtlReAllocateHeap));
     h = UN(RtlCreateHeap)(HEAP_GROWABLE,NULL,0,0,NULL,NULL);
     CHECK(h != NULL); if (!h) return;
-    /* RtlpReAllocateHeapInternal rejects NULL before touching block metadata,
-       and explicitly maps status zero to LastError, unlike most heap paths. */
+    /* RtlReAllocateHeap rejects a NULL block pointer up front
+       and the last error is expected to be reported as success (observed behaviour). */
     SET_ERR(0x12345678);
     p = UN(RtlReAllocateHeap)(h,0,NULL,size);
     error = GetLastError();
