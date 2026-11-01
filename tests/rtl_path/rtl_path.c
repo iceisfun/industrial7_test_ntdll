@@ -94,7 +94,7 @@ static void rtl_path_convert(PCWSTR in, PCWSTR expected, PCWSTR leaf, int status
         if (part) {
             ULONG_PTR expected_part = (ULONG_PTR)out.Buffer + expected_bytes - lstrlenW(leaf) * 2;
             EXPECT_EQ(part, expected_part);
-            /* Dereference only after proving this is inside the owned string. */
+            /* Dereference only after proving this is inside the caller-supplied string. */
             if ((ULONG_PTR)part == expected_part &&
                 out.Length == expected_bytes && out.MaximumLength >= out.Length + 2)
                 CHECK(!memcmp(part, leaf, (lstrlenW(leaf) + 1) * 2));
