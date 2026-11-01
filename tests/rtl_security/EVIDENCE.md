@@ -92,3 +92,50 @@ huge allocation requests, count-11 special prefix SID, object-security mutation,
 or malformed relative offsets are tested. Helper wrapper return-type recovery
 is imperfect in Ghidra; API typedefs use NTSTATUS and BOOLEAN as appropriate,
 not guessed Ghidra `void`/64-bit return types.
+
+## Adversarial review (2026-10-31)
+
+Re-fetched every implementation and docs mapping above, serially. Also fetched
+assembly for all seven APIs responsible for the nine original failing tests.
+Local response snapshots: `/tmp/opencode/ntdll_review_refs/ntdll_<API>_<view>`.
+No original expectation was incorrect; all nine original failures remain.
+
+| Original failing test(s) | Independent assembly check (VA) |
+| --- | --- |
+| initialize_one / initialize_fifteen | `RtlInitializeSid` 0x1800400b6..0x1800400ca writes only bytes 0..7, then returns zero. No subauthority stores. |
+| copy_exact / copy_short | `RtlCopySid` 0x180067426..0x180067445 checks length before copy, returns EAX=0 or 0xc0000023. NTSTATUS typedef is intentional, not BOOL. |
+| create_round_down | `RtlCreateAcl` 0x18003a46e ANDs DX with 0xfffc before storing AclSize. 255 becomes 252. |
+| query_short / query_bad_class | `RtlQueryInformationAcl` 0x180078dc0..0x180078dca and 0x180078e15..0x180078e21 distinguish class/length failures: 0xc0000003 / 0xc0000023. |
+| dacl_absent | `RtlGetDaclSecurityDescriptor` 0x180070d6a jumps to success at 0x180070d96 when absent, bypassing pointer/defaulted stores. |
+| control_bits_outside_mask | `RtlSetControlSecurityDescriptor` 0x18007f99b..0x18007f9b2 rejects bits outside mask before control store. |
+
+Added four small validation-order/output-preservation tests: ACL creation checks
+short size before invalid revision; ACL query checks revision before class/size,
+then class before size; bad SD revision writes the revision output but preserves
+the control output. Existing short/bad-class ACL queries now check preservation
+of the whole output structure. The two new ACL size/class precedence cases fail
+on Wine with INVALID_PARAMETER instead of Windows BUFFER_TOO_SMALL /
+INVALID_INFO_CLASS; the other two new cases pass. These are retained differences.
+
+Layout audit: PDB `/api/types/ntdll/_SID` gives subauthority offset 8 (the SDK's
+one-element declaration has size 12, our 15-element backing fixture is 68).
+`_ACL` is 8 bytes; `_SECURITY_DESCRIPTOR` is 40, with pointer offsets 8/16/24/32.
+ACE SID offset 8 is verified by RtlpAddKnownAce's copy destination; relative SD
+header size 20 is verified by both conversion routines. PDB requests for
+`_ACCESS_ALLOWED_ACE` and `_SECURITY_DESCRIPTOR_RELATIVE` returned 404, not layout
+evidence. Compile-time assertions pin these layouts. ACL/relative backing unions
+have 8-byte alignment; generated ACE sizes are 20, so successive ACEs retain
+4-byte alignment. Fixture setup and returned ACE/relative pointers are gated
+before dependent reads. All fixtures stay local; allocated SIDs are freed.
+
+Review validation (both commands completed; runtime exit 1 is expected):
+
+```sh
+make build/rtl_security.exe build/nt_token.exe
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_security.exe > /tmp/opencode/ntdll_review_rtl_security.log 2>&1
+```
+
+`/tmp/opencode/ntdll_review_rtl_security.log:160`:
+`SUMMARY tests=73 failed=11 skipped=0 checks_pass=351 checks_fail=12`.
+Build emitted no warnings. No native Windows execution was performed; conclusions
+are image-backed contracts for this reference build, not cross-version claims.

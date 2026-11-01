@@ -132,3 +132,73 @@ the service's observed size branches, not the apparent decompiler return type.
 No linked-token query (it could create another handle), privilege adjustment,
 token impersonation/assignment, arbitrary invalid handles/pointers, or system
 security operations are included.
+
+## Adversarial review (2026-10-31)
+
+Serially re-fetched the four service implementations, both open-Ex helpers,
+their docs mappings, and the four documentation pages linked above. Re-fetched
+NtDuplicateToken assembly and NtQueryInformationToken decompilation; query
+assembly again returned HTTP 404. Response snapshots are under
+`/tmp/opencode/ntdll_review_refs/`. Kernel docs remain partial evidence for these
+user-mode calls; their buffer guidance is combined with actual PreviousMode
+branches, not substituted for them. In particular, the page's claim of zero
+ReturnLength for NULL default DACL is not imposed: the service initializes its
+required pointer-header length to 8.
+
+All five original failures were verified and retained:
+
+| Original failing test | Exact service evidence |
+| --- | --- |
+| duplicate_bad_type | NtDuplicateToken RVA 0x5e7d20, decomp lines 53..62: user PreviousMode checks unsigned `TokenType-1 > 1` before the writable output probe; type zero returns 0xc000000d. Lines 136..137 publish only after successful insertion. Unexpected successful Wine handles are closed. |
+| query_restricted_sids | NtQueryInformationToken RVA 0x61d520, case 0xb (lines 326..351): TOKEN_QUERY reference, length = 8 + count*16 + SID bytes; size check before data writes, including count zero. |
+| query_has_restrictions | Case 0x15 (lines 594..603): required length 1, zero length takes short path before one-byte boolean store. |
+| query_virtualization_allowed | Case 0x17 (lines 631..668): required length 4, short path before token flag extraction/output. |
+| query_mandatory_policy | Case 0x1b (lines 686..699): required length 4, only sufficient size invokes SeQueryMandatoryPolicyToken. |
+
+All four unsupported Wine queries still return STATUS_NOT_IMPLEMENTED. None is
+privilege-dependent in the checked service branches: each requires TOKEN_QUERY,
+not SeSecurityPrivilege/SeTcbPrivilege. Actual contents, elevation, session ID,
+integrity RID, optional groups and privileges remain environment-dependent.
+Policy-denied fixture opens/duplications still skip, with handles cleaned up.
+
+Added one precedence test: for TokenType with a real handle lacking TOKEN_QUERY,
+access denial precedes a zero-length-buffer check and preserves both data and
+ReturnLength. This follows the service's early TokenType branch (lines 125..134):
+SepReferenceTokenByHandle fails before `*ReturnLength=4`. Wine instead returns
+BUFFER_TOO_SMALL and sets length 4 (two assertions fail).
+
+Extended existing query tests to verify short-buffer data preservation and exact
+scalar widths (HasRestrictions is one byte, the selected DWORD outputs four).
+Boolean values are only constrained to 0/1; policy/session/elevation values are
+not fixed. New preservation assertions expose two failures in the existing
+privileges test: Wine writes into both short buffers. Windows case 3 (lines
+174..193) checks length before SepConvertTokenPrivileges; no output data is
+written on its short paths. These are two more retained Wine deviations, not
+reasons to weaken the tests. Buffer resets isolate the independent calls.
+
+Layout/prototype audit: compile-time assertions pin TOKEN_USER=16,
+TOKEN_GROUPS.Groups offset=8, TOKEN_PRIVILEGES.Privileges offset=4,
+LUID_AND_ATTRIBUTES=12, TOKEN_STATISTICS=56, QoS=12. Query service stores/copies
+and sizes support those offsets. PDB `_SECURITY_QUALITY_OF_SERVICE` independently
+confirms length/level/tracking/effective offsets 0/4/8/9 and size 12; the PDB
+TOKEN_STATISTICS lookup returned 404. malloc gives aligned query buffers; count
+and pointer ranges are checked before variable-size accesses. Nt* results are
+NTSTATUS; EffectiveOnly/OpenAsSelf are BOOLEAN, not pointer-sized integers.
+Successful query, allocation, open and duplicate prerequisites are explicitly
+gated because CHECK is nonfatal. Closed the worker handle on wait failure too;
+that path immediately exits the bounded child, letting process teardown end any
+outstanding worker. No impersonation, attachment, token setter or privilege
+adjustment was added.
+
+Review validation (build clean; runtime completed with exit 1):
+
+```sh
+make build/rtl_security.exe build/nt_token.exe
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_token.exe > /tmp/opencode/ntdll_review_nt_token.log 2>&1
+```
+
+`/tmp/opencode/ntdll_review_nt_token.log:76`:
+`SUMMARY tests=28 failed=7 skipped=0 checks_pass=518 checks_fail=14`.
+Native Windows runtime validation remains outstanding. Query-service assembly
+and unavailable PDB types remain limitations; no exact failing-service return
+status is inferred from Ghidra's apparent void return alone.

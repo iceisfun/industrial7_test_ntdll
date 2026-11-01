@@ -39,6 +39,9 @@ UDECL(NTSTATUS, RtlSelfRelativeToAbsoluteSD, (PSECURITY_DESCRIPTOR, PSECURITY_DE
 typedef struct { BYTE revision, count; SID_IDENTIFIER_AUTHORITY authority; ULONG sub[15]; } rs_sid;
 typedef union { ULONGLONG align; BYTE bytes[256]; ACL acl; } rs_acl;
 typedef union { ULONGLONG align; BYTE bytes[512]; SECURITY_DESCRIPTOR_RELATIVE sd; } rs_relative;
+_Static_assert(offsetof(rs_sid, sub) == 8 && sizeof(rs_sid) == 68, "SID layout");
+_Static_assert(sizeof(ACL) == 8 && offsetof(ACCESS_ALLOWED_ACE, SidStart) == 8, "ACL/ACE layout");
+_Static_assert(sizeof(SECURITY_DESCRIPTOR) == 40 && sizeof(SECURITY_DESCRIPTOR_RELATIVE) == 20, "x64 SD layout");
 static SID_IDENTIFIER_AUTHORITY rs_nt = SECURITY_NT_AUTHORITY;
 
 /* Fixtures are local structures, never installed on a process or object. */
@@ -180,13 +183,39 @@ TEST(rtlsec_acl_query_revision)
 }
 TEST(rtlsec_acl_query_short)
 {
-    ACL_SIZE_INFORMATION q; RS_ACL_FIX(); REQUIRE(UN(RtlQueryInformationAcl));
+    ACL_SIZE_INFORMATION q, before; RS_ACL_FIX(); REQUIRE(UN(RtlQueryInformationAcl));
+    memset(&q,0xa5,sizeof q); before = q;
     EXPECT_EQ(UN(RtlQueryInformationAcl)(&a.acl,&q,sizeof q-1,AclSizeInformation),S(0xc0000023));
+    CHECK(!memcmp(&q,&before,sizeof q));
 }
 TEST(rtlsec_acl_query_bad_class)
 {
-    ACL_SIZE_INFORMATION q; RS_ACL_FIX(); REQUIRE(UN(RtlQueryInformationAcl));
+    ACL_SIZE_INFORMATION q, before; RS_ACL_FIX(); REQUIRE(UN(RtlQueryInformationAcl));
+    memset(&q,0xa5,sizeof q); before = q;
     EXPECT_EQ(UN(RtlQueryInformationAcl)(&a.acl,&q,sizeof q,(ACL_INFORMATION_CLASS)0),S(0xc0000003));
+    CHECK(!memcmp(&q,&before,sizeof q));
+}
+
+TEST(rtlsec_acl_create_short_before_revision)
+{
+    rs_acl a, before; REQUIRE(UN(RtlCreateAcl));
+    memset(&a,0xa5,sizeof a); before = a;
+    EXPECT_EQ(UN(RtlCreateAcl)(&a.acl,7,1),S(0xc0000023));
+    CHECK(!memcmp(&a,&before,sizeof a));
+}
+TEST(rtlsec_acl_query_revision_before_class_and_size)
+{
+    ACL_SIZE_INFORMATION q, before; RS_ACL_FIX(); REQUIRE(UN(RtlQueryInformationAcl));
+    a.acl.AclRevision = 1; memset(&q,0xa5,sizeof q); before = q;
+    EXPECT_EQ(UN(RtlQueryInformationAcl)(&a.acl,&q,0,(ACL_INFORMATION_CLASS)0),S(0xc000000d));
+    CHECK(!memcmp(&q,&before,sizeof q));
+}
+TEST(rtlsec_acl_query_class_before_size)
+{
+    ACL_SIZE_INFORMATION q, before; RS_ACL_FIX(); REQUIRE(UN(RtlQueryInformationAcl));
+    memset(&q,0xa5,sizeof q); before = q;
+    EXPECT_EQ(UN(RtlQueryInformationAcl)(&a.acl,&q,0,(ACL_INFORMATION_CLASS)0),S(0xc0000003));
+    CHECK(!memcmp(&q,&before,sizeof q));
 }
 
 #define RS_ACE_TEST(name, api, type) TEST(rtlsec_acl_add_##name) { \
@@ -294,6 +323,14 @@ TEST(rtlsec_sd_control_bits_outside_mask)
 {
     RS_SD_FIX(); REQUIRE(UN(RtlSetControlSecurityDescriptor));
     EXPECT_EQ(UN(RtlSetControlSecurityDescriptor)(&sd,0,SE_DACL_PROTECTED),S(0xc000000d)); EXPECT_EQ(sd.Control,0);
+}
+
+TEST(rtlsec_sd_control_bad_revision_outputs)
+{
+    SECURITY_DESCRIPTOR_CONTROL control = 0x1234; ULONG revision = 0; RS_SD_FIX();
+    REQUIRE(UN(RtlGetControlSecurityDescriptor)); sd.Revision = 2;
+    EXPECT_EQ(UN(RtlGetControlSecurityDescriptor)(&sd,&control,&revision),S(0xc0000058));
+    EXPECT_EQ(revision,2); EXPECT_EQ(control,0x1234);
 }
 
 /* Relative conversion uses a compact owner/group/DACL/SACL fixture. */
