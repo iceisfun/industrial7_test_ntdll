@@ -133,14 +133,24 @@ static void event_wait(ULONG type, BOOLEAN initial) {
 TEST(nt_sync_event_notification_wait_retains) { event_wait(0, TRUE); }
 TEST(nt_sync_event_synchronization_wait_consumes) { event_wait(1, TRUE); }
 TEST(nt_sync_event_zero_wait_clear) { event_wait(0, FALSE); }
+CHILD(nt_sync_event_infinite) {
+    HANDLE h = NULL; event_info q = {-7,-7}; ULONG n = 0; DWORD error;
+    NTSTATUS s = UN(NtCreateEvent)(&h, ALL_SYNC, NULL, 0, TRUE);
+    if (s != SUCCESS || !h) return 77;
+    s = UN(NtQueryEvent)(h, 0, &q, sizeof(q), &n);
+    if (s != SUCCESS || n != sizeof(q) || q.state != 1) { UN(NtClose)(h); return 1; }
+    /* Even a false-positive query cannot hang the parent. */
+    SetLastError(0x1234abcd);
+    s = UN(NtWaitForSingleObject)(h, FALSE, NULL); error = GetLastError();
+    UN(NtClose)(h);
+    return s != SUCCESS || error != 0x1234abcd;
+}
 TEST(nt_sync_event_infinite_presignaled) {
-    REQUIRE(UN(NtWaitForSingleObject)); REQUIRE(UN(NtQueryEvent)); EVENT(0, TRUE, ALL_SYNC);
-    /* Never use an infinite timeout after a failed signal prerequisite. */
-    event_info q; ULONG n;
-    NTSTATUS s = UN(NtQueryEvent)(h, 0, &q, sizeof(q), &n);
-    if (s == SUCCESS && q.state == 1) STATUS(UN(NtWaitForSingleObject)(h, FALSE, NULL), SUCCESS);
-    else t_skip("pre-signaled prerequisite unavailable");
-    close_nt(h);
+    REQUIRE(UN(NtCreateEvent)); REQUIRE(UN(NtClose));
+    REQUIRE(UN(NtWaitForSingleObject)); REQUIRE(UN(NtQueryEvent));
+    DWORD code = t_run_child("nt_sync_event_infinite", NULL, 15000);
+    if (code == 77 || code == 0xdead0000) { t_skip("child fixture unavailable (%08lx)", code); return; }
+    EXPECT_EQ(code, 0);
 }
 
 static void query_bad(int kind, ULONG cls, ULONG size) {
@@ -171,6 +181,10 @@ TEST(nt_sync_mutant_query_short) { query_bad(2, 0, 7); }
 TEST(nt_sync_mutant_query_class) { query_bad(2, 9, 8); }
 TEST(nt_sync_timer_query_short) { query_bad(3, 0, 15); }
 TEST(nt_sync_timer_query_class) { query_bad(3, 9, 16); }
+TEST(nt_sync_event_query_class_before_length) { query_bad(0, 9, 7); }
+TEST(nt_sync_semaphore_query_class_before_length) { query_bad(1, 9, 7); }
+TEST(nt_sync_mutant_query_class_before_length) { query_bad(2, 9, 7); }
+TEST(nt_sync_timer_query_class_before_length) { query_bad(3, 9, 15); }
 
 TEST(nt_sync_event_query_only_denies_set) {
     LONG prev = 123; REQUIRE(UN(NtSetEvent)); REQUIRE(UN(NtQueryEvent)); EVENT(0, FALSE, 1);

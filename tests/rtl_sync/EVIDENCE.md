@@ -51,10 +51,10 @@ not assert GLE preservation across arbitrary RTL implementation internals.
 
 ## Thread safety and evidence limits
 
-48 focused TESTs, including ten child-isolated thread scenarios. Parents REQUIRE
+50 focused TESTs, including ten child-isolated thread scenarios. Parents REQUIRE
 all worker exports. Children use static fixture storage (not dangling stack arguments),
-5-second event/join waits, 15-second process watchdog, and no TerminateThread.
-Timeout/setup-unavailable return 77 is a skip; a child watchdog timeout is a failure.
+5-second event/join waits, 30-second process watchdog, and no TerminateThread.
+Setup-unavailable return 77 is a skip; event/join and child watchdog timeouts fail.
 All normal paths join workers before closing helper handles or deleting sections.
 An early fixture failure exits the isolated process instead of freeing live locks.
 All helper events are unnamed; no global state is changed.
@@ -91,3 +91,74 @@ Retained, evidence-backed Wine divergences:
 Initial helper-export skips were a fixture lookup issue: the shared module list
 contains ntdll only. Pinning kernel32 fixture helpers with UIN removed all ten skips.
 The final run above is after that correction; no native expectation was relaxed.
+
+## Adversarial review (2026-10-31)
+
+Read the shared harness, README writing/safety rules, this evidence and
+`/tmp/opencode/ntdll_rtl_sync.log` (original summary line 107). Re-fetched each
+failure's actual Windows decompilation serially, with 503 retry handling:
+
+| Failed test | Rechecked Windows branch/output | Verdict |
+| --- | --- | --- |
+| `once_begin_invalid_flags` | RtlRunOnceBeginInitialize requires only bits 0/1 and at most one set bit; flags 3 return `-0x3fffff10` = `0xc00000f0` without state/context writes. | Retain Wine `0xc000000d`. |
+| `cv_srw_invalid_flags` | RtlSleepConditionVariableSRW rejects `(flags & 0xfffffffe) != 0` with `0xc00000f0`, before releasing the lock or touching the CV. | Retain Wine timeout. |
+| `cv_wake_empty` | RtlWakeConditionVariable reads initial zero and returns before any CAS/write. | Retain Wine word=1. |
+| `cv_wake_all_empty` | RtlWakeAllConditionVariable likewise returns at initial zero. | Retain Wine word=1. |
+| `cs_ex_invalid_flags` | RtlInitializeCriticalSectionEx rejects `(flags & 0xe0000000) != 0` with `0xc00000f1` before structure writes. | Retain Wine success/mutation. |
+| `cs_ex_invalid_spin_high_bits` | Same function rejects `(spin & 0xff000000) != 0` with `0xc00000f0` before structure writes. | Retain Wine success/mutation. |
+
+Added two directly verified gaps:
+
+* `cs_ex_conflicting_debug_flags`: the initializer also rejects
+  `(flags & 0x11000000) == 0x11000000` with `0xc00000f1`, before writes.
+  **New retained Wine divergence:** success and structure mutation (two checks).
+* `cs_ex_force_debug_info`: flag `0x10000000` forces the debug-info helper;
+  successful initialization cannot leave NULL or the `-1` sentinel. Re-fetched
+  [RtlpAddDebugInfoToCriticalSection](http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/RtlpAddDebugInfoToCriticalSection/decomp):
+  debug record offset 8 points back to the section. Dereference is explicitly
+  guarded against both NULL and `-1`. This test passed Wine. Default/no-debug
+  initialization is **not** required to allocate debug info; the global force
+  setting can also affect allocation. Re-fetched RtlDeleteCriticalSection and
+  confirmed it excludes both NULL and `-1` before touching debug storage.
+
+Fixes: RunOnce completion/reset and first ExecuteOnce failures now return before
+dependent potentially blocking calls. A failed worker result no longer leads to
+another ExecuteOnce. Worker/event/join timeouts are failures, not availability
+skips. Thread exit-code retrieval is checked; SRW and CV children inspect worker
+exit codes too. CV producer/main check critical-section entry before using it;
+CS child paths check releases and event publication, and a failed CV ownership
+check exits the child without attempting an unowned release or live-lock delete.
+The child watchdog is 30 seconds, covering four 5-second CV attempts plus the
+5-second join (previous 15 seconds could preempt that declared budget).
+
+No workers/callbacks call CHECK/EXPECT/t_skip: workers return exit results, and
+the main thread observes shared results only through lock/event/join protocols.
+Thread data is static; early child exits never free live thread fixtures. SRW
+acquisition/release modes and threads match; no upgrade/recursive-shared test was
+introduced. No narrow elapsed-time assertions or shared-file edits were added.
+
+Re-fetched RtlRunOnceExecuteOnce and RtlRunOnceComplete. Callback signatures are
+already correct: DWORD/WINAPI is the 32-bit ULONG/NTAPI result with three pointer
+arguments, not BOOLEAN or NTSTATUS. The [callback ABI page](http://docker1.dev.moonlightcompanies.com:8765/api/docs/page/windows-driver-docs-ddi/ntddk/nc-ntddk-rtl_run_once_init_fn.md)
+documents `ULONG /* LOGICAL */ NTAPI (..., PVOID, PVOID *)` and optional context.
+Its driver context is used for ABI corroboration only; user implementation
+branches establish the expectations. Context is aligned static LONG storage.
+
+Assembly endpoint attempts for RtlInitializeCriticalSectionEx (default and
+capstone flavor) returned HTTP **404**; review used available decompilation and
+the callback documentation instead, not an invented assembly result.
+
+Build: `make build/nt_sync.exe build/rtl_sync.exe`, exit 0, no compiler warnings.
+Review smoke:
+
+```sh
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_sync.exe > /tmp/opencode/ntdll_review_rtl_sync.log 2>&1
+```
+
+Exit **1**; log line 113:
+`SUMMARY tests=50 failed=7 skipped=0 checks_pass=192 checks_fail=10`.
+All original six failures remain, plus conflicting debug flags; all ten thread
+children completed without skips/crashes/timeouts. Native Windows execution,
+fairness and simultaneous ExecuteOnce waiter queues remain unvalidated. Calls
+inside otherwise uncontended main-thread tests still rely on the executable's
+outer watchdog if an implementation falsely reports success but corrupts state.

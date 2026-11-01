@@ -57,7 +57,7 @@ not to infer user-mode probing or invalid-parameter status.
 
 ## Safety and uncertainty
 
-65 focused TESTs. Named fixtures use only `\\BaseNamedObjects\\ntdllt_<PID>_<serial>_roundtrip`.
+69 focused TESTs. Named fixtures use only `\\BaseNamedObjects\\ntdllt_<PID>_<serial>_roundtrip`.
 Every opened/duplicated/created handle is closed. Timers use a one-day relative due
 time and are canceled; no clock-precision assertion, expiration race, APC, wake-system
 request or timer-resolution change. Exact remaining time is intentionally untested.
@@ -87,3 +87,46 @@ Retained, evidence-backed Wine divergences:
 * Zero semaphore release succeeds/overwrites previous count rather than rejecting untouched.
 
 No crash, missing export, skip, or watchdog timeout in this smoke run.
+
+## Adversarial review (2026-10-31)
+
+Read `README.md` writing/safety rules, `common/t.h`, `common/t.c`, this evidence,
+and `/tmp/opencode/ntdll_nt_sync.log` (original summary at line 141). Only this
+directory and `tests/rtl_sync` were edited. Reference requests were serial, with
+503 retry handling; no Windows execution was available.
+
+Re-fetched the actual Windows service decompilations for **each** retained failure:
+
+| Failed test | Rechecked Windows branch/output | Verdict |
+| --- | --- | --- |
+| `wait_multiple_bad_type` | NtWaitForMultipleObjects: count validation first; `param_3 >= 2` returns `0xc00000f1` before handle traversal. | Retain Wine success mismatch. |
+| `timer_query_only_denies_set` | NtSetTimer -> ExpSetTimer: access-2 ObReferenceObjectByHandle failure returns without calling ExpSetTimerObject or writing the optional output. | Retain Wine output overwrite. |
+| `timer_negative_period` | NtSetTimer: signed `param_6 < 0` returns `0xc00000f4` before ExpSetTimer/output. Due-time input is valid storage. | Retain Wine success/output mismatch. |
+| `timer_invalid_type` | NtCreateTimer: type >=2 returns `-0x3fffff0e` = `0xc00000f2`; handle publication occurs only inside valid-type success path. | Retain Wine `0xc000000d`. |
+| `mutant_release_not_owned` | KeReleaseMutant: foreign/unowned and not abandoned raises `0xc0000046`; NtReleaseMutant's output assignment follows the call and is not reached. | Retain Wine previous-count overwrite. |
+| `semaphore_release_negative` | NtReleaseSemaphore: signed amount `<1` returns `-0x3ffffff3` = `0xc000000d`, before handle reference, count change or output. | Retain Wine `0xc0000047`. |
+| `semaphore_release_zero` | Same `<1` branch; optional output's user probe is a read/write of the same value, not previous-count publication. | Retain Wine success/output mismatch. |
+
+No expectation was relaxed. Added four combined bad-class/bad-length cases after
+re-fetching NtQueryEvent, NtQuerySemaphore, NtQueryMutant and NtQueryTimer:
+class rejection precedes length rejection for these valid aligned buffers.
+Semaphore's earlier buffer probe does not change that result. All four passed Wine.
+
+The sole NULL-timeout wait now runs in a **15-second child**; a false-positive
+pre-signaled query can no longer hang the parent. The child reports status/GLE
+through its exit result, not harness counters. Its handle remains process-owned
+on abnormal exit. Other waits are zero-time polls; there are no worker assertions,
+timer callbacks, narrow elapsed-time checks or shared edits.
+
+Review build: `make build/nt_sync.exe build/rtl_sync.exe`, exit 0, no compiler warnings.
+Review smoke command:
+
+```sh
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/nt_sync.exe > /tmp/opencode/ntdll_review_nt_sync.log 2>&1
+```
+
+Exit **1**; log line 149:
+`SUMMARY tests=69 failed=7 skipped=0 checks_pass=685 checks_fail=9`.
+Same seven divergences as before; no crash or watchdog timeout. This remains Wine
+smoke, not a native Windows pass. Child creation/setup availability can still skip;
+child timeout or a failed signal-query prerequisite fails.
