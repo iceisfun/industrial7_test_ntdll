@@ -458,6 +458,10 @@ TEST(nt_thread_critical_flag_clear)
     ULONG v = 99;
     REQUIRE(UN(RtlSetThreadIsCritical));
     s = UN(RtlSetThreadIsCritical)(FALSE, &old, FALSE);
+    if (s == S(0xC0000061)) { /* STATUS_PRIVILEGE_NOT_HELD: a standard user lacks SeDebugPrivilege */
+        t_skip("RtlSetThreadIsCritical needs SeDebugPrivilege (run elevated)");
+        return;
+    }
     EXPECT_EQ(s, 0);
     if (s == 0) EXPECT_EQ(old, 0);
     s = UN(RtlSetThreadIsCritical)(FALSE, NULL, FALSE); /* previous value is optional */

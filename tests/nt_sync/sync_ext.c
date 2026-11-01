@@ -308,9 +308,12 @@ TEST(nt_sync_delay_zero_returns)
 {
     LARGE_INTEGER t; DWORD t0, t1;
     REQUIRE(UN(NtDelayExecution));
+    NTSTATUS s;
     t.QuadPart = 0;
     t0 = GetTickCount();
-    EXPECT_EQ(UN(NtDelayExecution)(FALSE, &t), 0);
+    s = UN(NtDelayExecution)(FALSE, &t);
+    /* a zero delay is a yield: STATUS_SUCCESS if another thread ran, else STATUS_NO_YIELD_PERFORMED */
+    CHECK(s == 0 || s == S(0x40000024));
     t1 = GetTickCount();
     CHECK(t1 - t0 < 1000);
 }
