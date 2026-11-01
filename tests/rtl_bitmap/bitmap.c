@@ -3,6 +3,7 @@
 typedef struct { ULONG SizeOfBitMap; PULONG Buffer; } BM;
 typedef struct { ULONG StartingIndex, NumberOfBits; } RUN;
 _Static_assert(sizeof(BM)==16 && offsetof(BM,Buffer)==8, "Win10 x64 bitmap layout");
+_Static_assert(sizeof(RUN)==8 && offsetof(RUN,NumberOfBits)==4, "Win10 run layout");
 UDECL(void, RtlInitializeBitMap, (BM *, PULONG, ULONG));
 UDECL(void, RtlSetBits, (BM *, ULONG, ULONG));
 UDECL(void, RtlClearBits, (BM *, ULONG, ULONG));
@@ -23,7 +24,8 @@ UDECL(ULONG, RtlFindLongestRunClear, (BM *, PULONG));
 UDECL(ULONG, RtlFindClearRuns, (BM *, RUN *, ULONG, BOOLEAN));
 
 /* Extra words make the Windows implementation's rounded word reads safe. */
-typedef struct { ULONG before[2], words[12], after[2]; } STORAGE;
+typedef struct { _Alignas(8) ULONG before[2], words[12], after[2]; } STORAGE;
+_Static_assert(_Alignof(STORAGE)>=8 && offsetof(STORAGE,words)==8, "aligned rounded reads");
 static ULONG bit(const ULONG *p, ULONG i) { return (p[i / 32] >> (i % 32)) & 1; }
 static void put(ULONG *p, ULONG i, ULONG v) {
     ULONG m = 1u << (i % 32);
@@ -245,6 +247,16 @@ TEST(rtl_bitmap_clear_runs_capacity_order) {
         EXPECT_EQ(out.r[2].StartingIndex,120); EXPECT_EQ(out.r[2].NumberOfBits,9);
     }
     EXPECT_EQ(out.guard,0xcccccccc);
+    memset(&out,0xcc,sizeof(out));
+    n=UN(RtlFindClearRuns)(&b,out.r,1,FALSE); EXPECT_EQ(n,1);
+    if(n==1) { EXPECT_EQ(out.r[0].StartingIndex,3); EXPECT_EQ(out.r[0].NumberOfBits,5); }
+    for(unsigned i=1;i<4;++i) {
+        EXPECT_EQ(out.r[i].StartingIndex,0xcccccccc); EXPECT_EQ(out.r[i].NumberOfBits,0xcccccccc);
+    }
     n=UN(RtlFindClearRuns)(&b,out.r,1,TRUE); EXPECT_EQ(n,1);
     if(n==1) { EXPECT_EQ(out.r[0].StartingIndex,30); EXPECT_EQ(out.r[0].NumberOfBits,40); }
+    for(unsigned i=1;i<4;++i) {
+        EXPECT_EQ(out.r[i].StartingIndex,0xcccccccc); EXPECT_EQ(out.r[i].NumberOfBits,0xcccccccc);
+    }
+    EXPECT_EQ(out.guard,0xcccccccc); guards(&s);
 }

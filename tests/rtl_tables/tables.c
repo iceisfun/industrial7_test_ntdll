@@ -14,7 +14,7 @@ typedef ORDER (WINAPI *S_COMPARE)(S_TABLE *, void *, void *);
 typedef void *(WINAPI *S_ALLOC)(S_TABLE *, LONG);
 typedef void (WINAPI *S_FREE)(S_TABLE *, void *);
 typedef ORDER (WINAPI *A_COMPARE)(A_TABLE *, void *, void *);
-typedef void *(WINAPI *A_ALLOC)(A_TABLE *, LONG);
+typedef void *(WINAPI *A_ALLOC)(A_TABLE *, ULONG);
 typedef void (WINAPI *A_FREE)(A_TABLE *, void *);
 struct S_TABLE {
     SPLAY_LINKS *Root;
@@ -91,7 +91,7 @@ static void release(TABLE_CONTEXT *c, void *p) {
 static ORDER WINAPI s_compare(S_TABLE *t, void *a, void *b) { return compare(t->Context,a,b); }
 static ORDER WINAPI a_compare(A_TABLE *t, void *a, void *b) { return compare(t->Context,a,b); }
 static void *WINAPI s_allocate(S_TABLE *t, LONG n) { return allocate(t->Context,n); }
-static void *WINAPI a_allocate(A_TABLE *t, LONG n) { return allocate(t->Context,n); }
+static void *WINAPI a_allocate(A_TABLE *t, ULONG n) { return allocate(t->Context,n); }
 static void WINAPI s_release(S_TABLE *t, void *p) { release(t->Context,p); }
 static void WINAPI a_release(A_TABLE *t, void *p) { release(t->Context,p); }
 
@@ -101,18 +101,20 @@ static void setup(FIXTURE *f, int avl, int which, int *ready) {
 #define NEED(n) REQUIRE(UN(n))
 #define NEED_SET(suffix) \
     NEED(RtlInitializeGenericTable##suffix); NEED(RtlInsertElementGenericTable##suffix); \
-    NEED(RtlLookupElementGenericTable##suffix); NEED(RtlDeleteElementGenericTable##suffix); \
+    NEED(RtlLookupElementGenericTable##suffix); \
     NEED(RtlNumberGenericTableElements##suffix)
     if(avl) {
         NEED_SET(Avl);
-        if(which==0 || which==5 || which==9 || which==22) NEED(RtlIsGenericTableEmptyAvl);
+        if(which==2 || (which>=5 && which<=23)) NEED(RtlDeleteElementGenericTableAvl);
+        if(which==5 || which==9 || which==22 || which==24) NEED(RtlIsGenericTableEmptyAvl);
         if(which==4 || which==16 || which==17) NEED(RtlGetElementGenericTableAvl);
         if(which==3 || which==13 || which==14 || which==22) NEED(RtlEnumerateGenericTableAvl);
         if(which==3 || which==15 || which==23) NEED(RtlEnumerateGenericTableWithoutSplayingAvl);
         UN(RtlInitializeGenericTableAvl)(&f->table.a,a_compare,a_allocate,a_release,&f->ctx);
     } else {
         NEED_SET();
-        if(which==0 || which==5 || which==9 || which==22) NEED(RtlIsGenericTableEmpty);
+        if(which==2 || (which>=5 && which<=23)) NEED(RtlDeleteElementGenericTable);
+        if(which==5 || which==9 || which==22 || which==24) NEED(RtlIsGenericTableEmpty);
         if(which==4 || which==16 || which==17) NEED(RtlGetElementGenericTable);
         if(which==3 || which==13 || which==14 || which==22) NEED(RtlEnumerateGenericTable);
         if(which==3 || which==15 || which==23) NEED(RtlEnumerateGenericTableWithoutSplaying);
@@ -168,14 +170,15 @@ static void cleanup(FIXTURE *f) {
 
 static void table_case(int avl, int which) {
     FIXTURE f; ITEM x=item(40), *p, *q; BOOLEAN fresh=FALSE; void *key=NULL, *key2=NULL;
+        /* Empty read-only cases do not need deletion. Insertion is itself a
     }
      * Keep the valid Windows failure tests, without abandoning live nodes in smoke. */
     }
     int ready=0; setup(&f,avl,which,&ready); if(!ready) return;
-    if(which>=10 && !seed(&f)) goto done;
+    if(which>=10 && which<=23 && !seed(&f)) goto done;
     switch(which) {
     case 0:
-        EXPECT_EQ(count(&f),0); EXPECT_EQ(empty(&f),TRUE); EXPECT_EQ(f.ctx.calls,0);
+        EXPECT_EQ(count(&f),0); EXPECT_EQ(f.ctx.calls,0);
         if(avl) {
             EXPECT_EQ(f.table.a.Context,&f.ctx); EXPECT_EQ(f.table.a.Root.Parent,&f.table.a.Root);
             CHECK(f.table.a.Compare==a_compare); CHECK(f.table.a.Allocate==a_allocate); CHECK(f.table.a.Free==a_release);
@@ -270,6 +273,7 @@ static void table_case(int avl, int which) {
         check_item(cursor(&f,&key),10); EXPECT_EQ(remove_key(&f,30),TRUE); key=NULL;
         for(LONG k=10;k<=70;k+=10) if(k!=30) check_item(cursor(&f,&key),k);
         EXPECT_EQ(cursor(&f,&key),NULL); EXPECT_EQ(count(&f),6); break;
+    case 24: EXPECT_EQ(empty(&f),TRUE); EXPECT_EQ(count(&f),0); break;
     }
 done:
     cleanup(&f);
@@ -299,6 +303,7 @@ done:
     TEST(prefix##_delete_reinsert_new_payload) { table_case(avl,20); } \
     TEST(prefix##_allocation_failure_preserves_tree) { table_case(avl,21); } \
     TEST(prefix##_delete_all_callback_cleanup) { table_case(avl,22); } \
-    TEST(prefix##_enumerate_after_delete_fresh_cursor) { table_case(avl,23); }
+    TEST(prefix##_enumerate_after_delete_fresh_cursor) { table_case(avl,23); } \
+    TEST(prefix##_empty_predicate) { table_case(avl,24); }
 TABLE_TESTS(rtl_tables_splay,0)
 TABLE_TESTS(rtl_tables_avl,1)
