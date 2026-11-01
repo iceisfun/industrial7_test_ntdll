@@ -95,3 +95,73 @@ cleanup groups, callback disassociation, periodic overlap, IO/ALPC callbacks,
 pool exhaustion, or scheduler fairness assertions are included. Win32 last-error
 preservation is not asserted for NTSTATUS/VOID native APIs without a verified
 contract.
+
+## Adversarial review (2026-10-31)
+
+Reviewed writer commit `ecd788e`, all 26 original cases and
+`/tmp/opencode/ntdll_rtl_threadpool.log:54` (26/26 pass, zero skips/failures).
+No erroneous ABI, callback-lifetime or cancellation-order contract was found.
+Re-read phnt `nttp.h` and serialized Windows corpus `/decomp` requests for all
+tested exports, plus TppWorkWait and TpSetWaitEx. Re-read the V3 environment
+PDB and vendored user-mode callback-completion/work-drain/wait docs above.
+The TpIsTimerSet decompiler's `bool` is misleading as a prototype: `/asm`
+at `0x180012014` zeroes EDX, `0x180012021` uses SETNE DL, and
+`0x180012024` copies EDX to EAX. The existing ULONG/LOGICAL declaration is
+correct and is retained. No decompiler-guessed VOID return is asserted.
+
+Safety triage:
+
+- `calls`/`bad` updates are interlocked; no worker calls CHECK/t_check. Parent
+  checks run only after native drains, or after the simple callback's deferred
+  completion event. The wait result has one outstanding writer and is read
+  after completion/drain; it is not read on an early in-body event alone.
+- Work's object/context assignment precedes posting. Timers/waits assign the
+  expected object before arming. Simple callbacks keep state/events alive until
+  TpCallbackSetEventOnCompletion fires after callback return.
+- The private one-worker gate is entered before queued cancellation; gate wait
+  is bounded at five seconds. Cancellation drains before gate release and work
+  reuse. All native no-timeout drains/releases are CHILD-only, with 15-second
+  parent bounds (`common/t.c:84-91` also bounds termination and closes process
+  handles). Callback event waits are five seconds.
+- Success releases other/blocker work, main work and private pool in that order;
+  timers are disarmed/drained before release, waits disarmed/drained/released
+  before trigger-handle closure, and completion events closed last. Failure
+  paths deliberately ExitProcess rather than attempt an unsafe drain or return
+  live stack storage; child-owned pools/objects/handles die with the process.
+  Fixture failures use child code 77, mapped to explicit `t_skip; return`.
+  REQUIRE explicitly returns when an export is missing. UDECL/UN remains
+  dynamic lookup against `common/modules.h`'s ntdll-only module list.
+
+Added two verified wait gaps: already-expired absolute timeout returns
+WAIT_TIMEOUT (`wait_expired_absolute_timeout`), and a disarmed/drained wait can
+be registered and fired again (`wait_reuse_after_disarm`). The vendored
+SetThreadpoolWait page explicitly specifies positive absolute 100ns timeouts,
+NULL-handle disarm and re-registration. Existing two-round explicit-rearm
+coverage now resets, registers, **then signals** each round; the separate
+pre-signaled-event test is preserved. All added paths use the existing bounded
+child, callback result checks and disarm/drain/release cleanup.
+
+Review build: `make build/rtl_threadpool.exe build/rtl_context.exe`, no diagnostics.
+Review smoke:
+
+```
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_threadpool.exe
+```
+
+`/tmp/opencode/ntdll_review_threadpool.log:58` reports:
+`SUMMARY tests=28 failed=0 skipped=0 checks_pass=28 checks_fail=0` (exit **0**).
+All **28/28** pass. Checks inside children are deliberately represented only
+by the checked parent exit code. Import inspection again reports only
+KERNEL32.dll and msvcrt.dll. No native Windows execution or i7 run was done;
+the original broader cleanup-group/IO/periodic-overlap gaps remain.
+
+Do not hide the intervening failed smoke: preserved at
+`/tmp/opencode/ntdll_review_threadpool_spawn_failure.log:15`, the unchanged
+`wait_idle_drain` case returned harness sentinel **0xDEAD0000**; line 59 is
+`SUMMARY tests=28 failed=1 skipped=0 checks_pass=27 checks_fail=1` (exit **1**).
+`common/t.c:85-89` uses that value for failed child creation, or leaves it
+unchanged if exit-code retrieval fails. There was no child diagnostic and the
+other 27 cases passed. A full same-command retry produced the 28/28 final log
+above without code changes. This is an observed harness/Wine process-control
+failure, not evidence of a failing TpWaitForWait contract; the precise host
+cause is unverified. No skip or permissive native assertion was introduced.

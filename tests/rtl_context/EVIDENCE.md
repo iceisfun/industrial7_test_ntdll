@@ -108,3 +108,58 @@ restoration, modified instruction pointers, fabricated unwind tables,
 RtlVirtualUnwind, noncontinuable exceptions, guard-page faults, XSTATE/CET,
 cross-architecture contexts, debugger-dependent dispatch, or arbitrary-register
 values. No last-error expectations are invented for these native routines.
+
+## Adversarial review (2026-10-31)
+
+Reviewed writer commit `f7b566e` and the original 24-test log above. The only
+failure is a justified Wine difference, not a fixture error. Re-read the actual
+Windows `/asm` and `/decomp` for RtlCaptureStackBackTrace: `cmp ecx,0xfe` at
+`0x180051616`, unsigned `ja` at `0x18005161c`, and the zero-return path at
+`0x180051661` bypass the sole hash store at `0x1800ba646`. The skip=255 hash
+preservation assertion remains strict; there is no Wine alternative or skip.
+
+Review fixes and added coverage:
+
+- Guard the returned runtime-function pointer **before** dereferencing it. Its
+  full 12-byte span must be committed, accessible storage in the independently
+  known expected image; the returned base is checked, never used to read PE
+  headers. Validate ordered code endpoints and a nonzero readable four-byte
+  unwind header within that image before endpoint lookups. A failed CHECK is
+  retained, then `t_skip` plus explicit return prevents a secondary fault.
+- Add compile-time CONTEXT type and embedded-buffer alignment checks (at least
+  16-byte alignment and offset divisible by 16). Windows RtlCaptureContext
+  uses FXSAVE `[rcx+0x100]` at `0x1800a11b0`; the PDB size/offset assertions
+  alone did not explicitly enforce this prerequisite.
+- Add `rtl_context_backtrace_skip_matches_suffix`: compare skip=2 against the
+  suffix of a ten-frame capture from the same twelve-level recursive helper.
+  Unlike image membership alone, this detects an implementation ignoring skip.
+  Counts are checked before indexing. Built disassembly confirms the recursive
+  CALL at `0x140001cb7`, post-call use, and indirect export CALL at
+  `0x140001cec`; no tail-recursion or static Rtl import substitutes the fixture.
+
+Reconsulted Windows RtlCaptureContext `/asm`, RtlLookupFunctionEntry `/decomp`
+and `/docs`, RtlPcToFileHeader `/decomp`, RtlRaiseException `/decomp`, and PDB
+`_CONTEXT` and `_IMAGE_RUNTIME_FUNCTION_ENTRY` (size 12, offsets 0/4/8).
+The guessed `_RUNTIME_FUNCTION` and `_UNWIND_HISTORY_TABLE` type endpoints
+returned 404; no new history-layout assertion is based on those missing types.
+All corpus requests were serialized, with retry handling for HTTP 503.
+Raised exceptions remain CHILD-only with 10-second parent bounds, private-code
+VEH filtering and removal; callback counters never call the harness. Export
+prerequisites use REQUIRE (which explicitly returns), and nonfatal CHECK guards
+have explicit returns before dependent reads. Fixture allocation is released.
+
+Review build: `make build/rtl_threadpool.exe build/rtl_context.exe`, no diagnostics.
+Review smoke (exit **1**, expected retained difference):
+
+```
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_context.exe
+```
+
+`/tmp/opencode/ntdll_review_context.log:25` reports hash **0** versus
+**0xdeadbeef** in `rtl_context_backtrace_skip_limit`; line 53 reports:
+`SUMMARY tests=25 failed=1 skipped=0 checks_pass=230 checks_fail=1`.
+Thus **24/25 tests pass**, including the new suffix comparison, all five
+guarded image-entry cases and both exception children. `objdump -p` again
+reports only KERNEL32.dll and msvcrt.dll imports. No Windows execution or i7
+run was performed; the native-validation and broader unwind/XSTATE gaps above
+remain. Guard checks validate spans, not full unwind-code semantics.
