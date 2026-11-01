@@ -23,6 +23,12 @@ UDECL(NTSTATUS, RtlDuplicateUnicodeString, (ULONG, PCUNICODE_STRING, PUNICODE_ST
 #define INVALID ((NTSTATUS)0xc000000d)
 #define OVERFLOW ((NTSTATUS)0x80000005)
 
+static void untouched(const void *buffer, unsigned from, unsigned size)
+{
+    const unsigned char *p = buffer;
+    for (unsigned i = from; i < size; ++i) CHECKF(p[i] == 0x55,"byte %u got 0x%x want 0x55",i,p[i]);
+}
+
 static void init_case(unsigned n)
 {
     ANSI_STRING a; UNICODE_STRING w, x;
@@ -50,6 +56,10 @@ TEST(rtl_strings_init_large_boundaries)
     b[32766] = 0;
     EXPECT_EQ(UN(RtlInitUnicodeStringEx)(&s, b), 0); EXPECT_EQ(s.Length, 65532); EXPECT_EQ(s.MaximumLength, 65534);
     b[32766] = 'x';
+    b[32767] = 0;
+    EXPECT_EQ(UN(RtlInitUnicodeStringEx)(&s, b), (NTSTATUS)0xc0000106);
+    EXPECT_EQ(s.Length, 0); EXPECT_EQ(s.MaximumLength, 0); EXPECT_EQ(s.Buffer, b);
+    b[32767] = 'x';
     EXPECT_EQ(UN(RtlInitUnicodeStringEx)(&s, b), (NTSTATUS)0xc0000106);
     EXPECT_EQ(s.Length, 0); EXPECT_EQ(s.MaximumLength, 0); EXPECT_EQ(s.Buffer, b);
     U(RtlInitUnicodeString)(&s, b); EXPECT_EQ(s.Length, 65532); EXPECT_EQ(s.MaximumLength, 65534);
@@ -67,11 +77,13 @@ static void copy_case(unsigned cap, BOOL wide, BOOL null_source)
         EXPECT_EQ(wd.Length, n); EXPECT_EQ(wd.MaximumLength, cap); EXPECT_EQ(wd.Buffer, w);
         CHECK(!memcmp(w, ws.Buffer, n));
         EXPECT_EQ(w[n / 2], !null_source && n + 2 <= cap ? 0 : 0x5555);
+        untouched(w, n + (!null_source && n + 2 <= cap ? 2 : 0), sizeof w);
     } else {
         REQUIRE(UN(RtlCopyString)); UN(RtlCopyString)(&ad, null_source ? NULL : &as);
         unsigned n = null_source ? 0 : cap < 3 ? cap : 3;
         EXPECT_EQ(ad.Length, n); EXPECT_EQ(ad.MaximumLength, cap); EXPECT_EQ(ad.Buffer, a);
         CHECK(!memcmp(a, as.Buffer, n)); EXPECT_EQ(a[n], 0x55);
+        untouched(a, n, sizeof a);
     }
 }
 #define COPY(n,c,w,z) TEST(rtl_strings_copy_##n) { copy_case(c,w,z); }
@@ -92,6 +104,7 @@ static void append_case(unsigned kind, unsigned cap, BOOL empty)
         unsigned n = cap < want ? 1 : want;
         CHECK(!memcmp(a, cap < want || empty ? "a" : "abc", n)); EXPECT_EQ(a[n], 0x55);
         EXPECT_EQ(ad.MaximumLength, cap); EXPECT_EQ(ad.Buffer, a);
+        untouched(a, n, sizeof a);
     } else {
         if (kind == 1) { REQUIRE(UN(RtlAppendUnicodeStringToString)); st = UN(RtlAppendUnicodeStringToString)(&wd, &ws); }
         else { REQUIRE(UN(RtlAppendUnicodeToString)); st = UN(RtlAppendUnicodeToString)(&wd, empty ? L"" : L"bc"); }
@@ -101,6 +114,7 @@ static void append_case(unsigned kind, unsigned cap, BOOL empty)
         BOOL term = st == 0 && n * 2 + 2 <= cap && (!empty || kind == 2);
         EXPECT_EQ(w[n], term ? 0 : 0x5555);
         EXPECT_EQ(wd.MaximumLength, cap); EXPECT_EQ(wd.Buffer, w);
+        untouched(w, n * 2 + (term ? 2 : 0), sizeof w);
     }
 }
 #define APP(n,k,c,e) TEST(rtl_strings_append_##n) { append_case(k,c,e); }
@@ -149,6 +163,19 @@ TEST(rtl_strings_find_not) { find_case(2,L"a",0,4); }
 TEST(rtl_strings_find_case) { find_case(4,L"A",0,2); }
 TEST(rtl_strings_find_missing) { find_case(0,L"z",(NTSTATUS)0xc0000225,0); }
 TEST(rtl_strings_find_invalid_flags) { find_case(8,L"a",INVALID,0); }
+TEST(rtl_strings_find_empty_set) { find_case(0,L"",(NTSTATUS)0xc0000225,0); }
+TEST(rtl_strings_find_empty_complement) { find_case(2,L"",0,2); }
+TEST(rtl_strings_find_multiple) { find_case(0,L"bz",0,4); }
+
+TEST(rtl_strings_append_null_terminated_source)
+{
+    WCHAR b[4] = {'a',0x5555,0x5555,0x5555};
+    UNICODE_STRING d = {2,sizeof b,b};
+    REQUIRE(UN(RtlAppendUnicodeToString));
+    EXPECT_EQ(UN(RtlAppendUnicodeToString)(&d,NULL),0);
+    EXPECT_EQ(d.Length,2); EXPECT_EQ(d.MaximumLength,sizeof b); EXPECT_EQ(d.Buffer,b);
+    EXPECT_EQ(b[0],'a'); untouched(b,2,sizeof b);
+}
 
 TEST(rtl_strings_case_ascii)
 {
@@ -160,20 +187,36 @@ TEST(rtl_strings_case_ascii)
 }
 static void upcase_case(unsigned cap, BOOL allocate)
 {
-    WCHAR b[8] = {0x5555,0x5555,0x5555,0x5555};
+    WCHAR b[8];
     UNICODE_STRING s = {6,6,L"a\0z"}, d = {2,cap,b};
+    memset(b,0x55,sizeof b);
     REQUIRE(UN(RtlUpcaseUnicodeString)); REQUIRE(U(RtlFreeUnicodeString));
     NTSTATUS st = UN(RtlUpcaseUnicodeString)(&d,&s,allocate);
     EXPECT_EQ(st, !allocate && cap < 6 ? OVERFLOW : 0);
-    if (st == 0 && d.Buffer) { EXPECT_EQ(d.Length,6); CHECK(!memcmp(d.Buffer,L"A\0Z",6));
+    EXPECT_EQ(d.MaximumLength,allocate ? 6 : cap);
+    if (!allocate) EXPECT_EQ(d.Buffer,b);
+    else if (st == 0) EXPECT_NE(d.Buffer,b);
+    if (st == 0) CHECK(d.Buffer != NULL);
+    if (st == 0 && d.Buffer && d.MaximumLength >= 6) { EXPECT_EQ(d.Length,6); CHECK(!memcmp(d.Buffer,L"A\0Z",6));
         if (!allocate) EXPECT_EQ(b[3],0x5555);
     } else if (!allocate) { EXPECT_EQ(d.Length,2); EXPECT_EQ(b[0],0x5555); }
+    if (!allocate) untouched(b,st == 0 ? 6 : 0,sizeof b);
     if (allocate && d.Buffer && d.Buffer != b) { U(RtlFreeUnicodeString)(&d); EXPECT_EQ(d.Buffer,NULL); EXPECT_EQ(d.Length,0); EXPECT_EQ(d.MaximumLength,0); }
 }
 TEST(rtl_strings_upcase_short) { upcase_case(4,0); }
 TEST(rtl_strings_upcase_exact) { upcase_case(6,0); }
 TEST(rtl_strings_upcase_spare) { upcase_case(8,0); }
 TEST(rtl_strings_upcase_allocate) { upcase_case(0,1); }
+
+TEST(rtl_strings_upcase_in_place)
+{
+    WCHAR b[4] = {'a',0,'z',0x5555};
+    UNICODE_STRING s = {6,sizeof b,b};
+    REQUIRE(UN(RtlUpcaseUnicodeString));
+    EXPECT_EQ(UN(RtlUpcaseUnicodeString)(&s,&s,FALSE),0);
+    EXPECT_EQ(s.Length,6); EXPECT_EQ(s.MaximumLength,sizeof b); EXPECT_EQ(s.Buffer,b);
+    CHECK(!memcmp(b,L"A\0Z",6)); EXPECT_EQ(b[3],0x5555);
+}
 
 static void hash_case(ULONG algorithm, BOOL ci)
 {
@@ -197,10 +240,11 @@ static void duplicate_case(ULONG flags, BOOL empty)
     if (st==0) {
         unsigned cap=empty && flags!=3?0:s.Length+((flags&1)?2:0);
         EXPECT_EQ(d.Length,s.Length); EXPECT_EQ(d.MaximumLength,cap);
-        if (cap) { CHECK(d.Buffer!=NULL); if(d.Buffer) { CHECK(d.Buffer!=s.Buffer); CHECK(!memcmp(d.Buffer,s.Buffer,s.Length)); if(flags&1) EXPECT_EQ(d.Buffer[s.Length/2],0); } }
+        if (cap) { CHECK(d.Buffer!=NULL); if(d.Buffer) { CHECK(d.Buffer!=s.Buffer); if(d.MaximumLength>=cap) { CHECK(!memcmp(d.Buffer,s.Buffer,s.Length)); if(flags&1) EXPECT_EQ(d.Buffer[s.Length/2],0); } } }
         else EXPECT_EQ(d.Buffer,NULL);
     }
-    if(d.Buffer) { U(RtlFreeUnicodeString)(&d); EXPECT_EQ(d.Buffer,NULL); EXPECT_EQ(d.Length,0); EXPECT_EQ(d.MaximumLength,0); }
+    else { EXPECT_EQ(d.Length,0); EXPECT_EQ(d.MaximumLength,0); EXPECT_EQ(d.Buffer,NULL); }
+    if(d.Buffer && d.Buffer!=s.Buffer) { U(RtlFreeUnicodeString)(&d); EXPECT_EQ(d.Buffer,NULL); EXPECT_EQ(d.Length,0); EXPECT_EQ(d.MaximumLength,0); }
 }
 TEST(rtl_strings_duplicate_raw) { duplicate_case(0,0); }
 TEST(rtl_strings_duplicate_terminated) { duplicate_case(1,0); }
