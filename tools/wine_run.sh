@@ -16,8 +16,8 @@ TMO="${TP_TIMEOUT:-600}"
 [ -d "$BASE/drive_c" ] || "$(dirname "$0")/make_base_prefix.sh" >&2
 RUN="$(mktemp -d "${TMPDIR:-/tmp/opencode}/tp_prefix.XXXXXX")"
 cleanup() {
-  WINEPREFIX="$RUN" "$(dirname "$WINE")/wineserver" -k 2>/dev/null || true
-  WINEPREFIX="$RUN" timeout 10 "$(dirname "$WINE")/wineserver" -w 2>/dev/null || true
+  WINEPREFIX="$RUN" timeout --kill-after=2 5 "$(dirname "$WINE")/wineserver" -k 2>/dev/null || true
+  WINEPREFIX="$RUN" timeout --kill-after=2 10 "$(dirname "$WINE")/wineserver" -w 2>/dev/null || true
   rm -rf "$RUN"
   if [ -n "${XEPID:-}" ]; then kill "$XEPID" 2>/dev/null || true; fi
 }

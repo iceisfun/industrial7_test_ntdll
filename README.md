@@ -11,7 +11,7 @@ Requires Linux, `x86_64-w64-mingw32-gcc`, GNU make, and Python 3 for tooling. No
 ```sh
 make -j8                      # one build/<area>.exe per tests/<area>/
 make build/rtl_strings.exe    # one area
-python3 tools/test_tools.py   # source-inventory and log-parser regressions
+python3 -m unittest discover -s tools -p "test_*.py"  # tooling regressions
 python3 tools/audit_build.py  # compiled TEST/CHILD inventory, collisions, import audit
 ```
 
@@ -62,6 +62,8 @@ python3 tools/coverage.py
 ```
 
 This is **not** runtime coverage or proof of checked behavior. Resolution-only expressions do not count as invocations; macro-generated/indirect calls can require manual review. The export sweep inspects the host's PE export table, checks name/ordinal consistency and image-evidenced Nt/Zw aliases, and resolves baseline entries without invoking unknown signatures.
+
+The optional `tools/map_public_surface.py` regeneration tool also needs **libclang** and matching builtin headers (defaults: the already-installed libclang 15). This is not a build/test dependency; it uses Python `ctypes`, not an added Python package. Use `--libclang`/`--resource-dir` to override. Its 613 documented-name matches include partial kernel/variant evidence; only 158 are full user-context matches under the recorded mapping rules.
 
 `NTDLL_STRICT_EXPORTS=1` additionally requires the exact reference export/ordinal manifest. Enable it only with DLL version **10.0.19041.2788**; another Windows patch, Wine, or an independent implementation may legitimately assign different ordinals or export a different surface. An ordinal resolving on another build does not identify the function.
 

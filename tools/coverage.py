@@ -47,8 +47,14 @@ def inventory(root):
                     called.setdefault(name, set()).add(location)
     public_path = root / 'tools/public_surface.txt'
     public = set(public_path.read_text().splitlines()) & exports if public_path.exists() else set()
+    evidence_path = root / 'tools/public_surface_evidence.json'
+    evidence = json.loads(evidence_path.read_text()) if evidence_path.exists() else {}
+    full = {name for name, record in evidence.get('exports', {}).items()
+            if any(doc.get('contract') == 'full' for doc in record['docs'])} & exports
     return dict(total_named_exports=len(exports), static_invocation_candidates=len(called),
                 documented_surface=len(public), documented_invocation_candidates=len(public & called.keys()),
+                full_user_contract_surface=len(full), full_user_contract_invocation_candidates=len(full & called.keys()),
+                full_user_contract_not_invoked=sorted(full - called.keys()),
                 calls={name: sorted(locations) for name, locations in sorted(called.items())},
                 resolutions={name: sorted(locations) for name, locations in sorted(resolved.items())},
                 not_invoked=sorted(exports - called.keys()), documented_not_invoked=sorted(public - called.keys()),
@@ -62,7 +68,8 @@ def main():
     root = args.root.resolve()
     data = inventory(root)
     (root / 'tools/coverage.json').write_text(json.dumps(data, indent=2) + '\n')
-    for filename, names in [('uncovered.txt', data['not_invoked']), ('public_uncovered.txt', data['documented_not_invoked'])]:
+    for filename, names in [('uncovered.txt', data['not_invoked']), ('public_uncovered.txt', data['documented_not_invoked']),
+                            ('full_user_uncovered.txt', data['full_user_contract_not_invoked'])]:
         (root / 'tools' / filename).write_text('\n'.join(names) + ('\n' if names else ''))
     print('%d named exports; %d static invocation candidates; %d documented names, %d documented invocation candidates' %
           (data['total_named_exports'], data['static_invocation_candidates'], data['documented_surface'], data['documented_invocation_candidates']))
