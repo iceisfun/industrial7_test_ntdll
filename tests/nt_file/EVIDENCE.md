@@ -144,6 +144,7 @@ Remaining gaps: no native Windows run, asynchronous coverage, or filesystem
 matrix. Synchronous I/O can block inside the kernel; the executable runner's
 120-second timeout bounds the run, not individual syscalls. Existing volume and
 directory expectations still require ordinary scratch-filesystem support.
-The shared harness creates/removes a PID-named temp directory without an
-ownership marker (`common/t.c:93-119`); that preexisting-directory/reparse-point
-safety limitation was identified but not changed outside the owned directories.
+The later shared-harness review supersedes the earlier PID-only-directory warning:
+`common/t.c` now requires a newly created PID/tick/attempt directory and avoids
+reparse traversal, including at a replaced root. Path-based cleanup still has
+concurrent filesystem race exposure; it is not a hostile-filesystem sandbox.

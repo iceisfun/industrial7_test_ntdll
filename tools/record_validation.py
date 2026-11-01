@@ -45,6 +45,7 @@ def main():
         generated_utc=datetime.now(timezone.utc).isoformat(),
         source_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
         authority='Wine smoke validation only; not native Windows conformance',
+        provenance_caveat='Commit/source/binary/log hashes describe files at recording time. Use an unchanged clean-build/run/record sequence; the recorder alone cannot prove historical compiler or execution provenance.',
         command='python3 tools/smoke_all.py --timeout 120 --results results/wine',
         compiler=subprocess.check_output(['x86_64-w64-mingw32-gcc', '--version'], text=True).splitlines()[0],
         wine_path=wine, wine_version=subprocess.check_output([wine, '--version'], text=True).strip(),

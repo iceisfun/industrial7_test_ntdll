@@ -21,7 +21,7 @@ tools\run_all.ps1 -ResultsDir results\standard -TimeoutSeconds 120
 tools\run_all.ps1 -ResultsDir results\admin -TimeoutSeconds 120
 ```
 
-The default entry point `tools\run_all.bat` writes `build\results`. Use `build\<area>.exe <substring>` to isolate a test. Timeout kills the executable's process tree. Collect **all stdout/stderr `.txt` files plus `run.json`**, not just the summaries. Record the tested git commit. Missing/duplicate summaries, timeout, and abnormal exit codes mean incomplete execution.
+The default entry point `tools\run_all.bat` writes `build\results`. Use `build\<area>.exe <substring>` to isolate a test. On timeout the runner attempts process-tree termination with `taskkill` and checks the root process exits; it cannot prove all descendants were removed. Collect **all stdout/stderr `.txt` files plus `run.json`**, not just the summaries. Record the tested git commit. Missing/duplicate summaries, timeout, and abnormal exit codes mean incomplete execution.
 
 Optional strict export pass, **only with exact reference DLL version 10.0.19041.2788**:
 
@@ -46,9 +46,14 @@ Use `http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/<Name>/de
 
 Missing optional exports, emulation-only safety guards and missing fixture prerequisites are reported in each area's log. Locale-sensitive conversion data, privileged/kernel-only facilities, undocumented unknown signatures, real exception/unwind corner cases, ALPC, ETW, transactions, advanced threadpool/I/O and exhaustive native system information remain depth/gap work, not claimed coverage. See `COVERAGE.md` for the concrete static gap lists.
 
+- Reference x64 Windows: three optional byte-swap probes concern names absent from the reference export table; they are not behavioral coverage.
+- This Wine build: CRC32/CRC64, decompression Ex and `RtlTestBit` availability probes skip when exports are missing. Table tests also have explicit Wine safety guards around aborting AVL/allocator-rejection paths; these guards are not version-probed.
+- `harness_checks_exception_probe` skips in the parent and is exercised separately in controlled subprocesses. Symlink cleanup probes can be unavailable without the relevant privilege/platform support.
+- Own-token access and fixture/thread/event setup can be prerequisite-dependent. Watchdog timeouts remain failures, never skips.
+
 ## Cleanup
 
-Normal completion removes scratch fixtures and closes owned handles. After a crash, inspect the exact PID-tagged paths recorded by tests before deleting leftovers; never broadly delete `%TEMP%`, current-user registry branches or other corpora's artifacts. Reverting the disposable VM snapshot is the authoritative cleanup. No `/destructive` run is needed unless separately scoped `dx_*` areas are added.
+Tests attempt to remove scratch fixtures and close owned handles; cleanup failures are not comprehensively observable. A recovered main-thread fault can bypass test-local cleanup and contaminate subsequent tests even when the executable prints a final summary. After any fault or crash, inspect the exact PID-tagged paths recorded by tests before deleting leftovers; never broadly delete `%TEMP%`, current-user registry branches or other corpora's artifacts. Reverting the disposable VM snapshot is the authoritative cleanup. No `/destructive` run is needed unless separately scoped `dx_*` areas are added.
 
 ## Report back
 

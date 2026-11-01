@@ -2,7 +2,7 @@
 
 Black-box C tests for Windows 10 x64 `ntdll.dll`, intended as an executable behavioral specification for an independent implementation. **Windows is authoritative; Wine is only development smoke validation. Native Windows results are not yet available.**
 
-Each API under test is resolved at runtime through `LoadLibrary`/`GetProcAddress` and called through a typed function pointer. `U()` searches **only ntdll.dll**; `UIN()` pins a module explicitly. Undeclared APIs use locally verified typedefs and `UN()`. The executables do not statically import ntdll; ordinary CRT/kernel32 calls may construct fixtures and implement the harness.
+Each API under test is resolved at runtime through `GetModuleHandle`/`LoadLibrary` and `GetProcAddress`, then called through a typed function pointer. `U()` searches **only ntdll.dll**; `UIN()` pins a module explicitly. Undeclared APIs use locally verified typedefs and `UN()`. The executables do not statically import ntdll; ordinary CRT/kernel32 calls may construct fixtures and implement the harness.
 
 ## Build
 
@@ -27,7 +27,7 @@ build\rtl_strings.exe unicode
 python tools\summarize.py build\results --failures
 ```
 
-The batch entry point uses Windows PowerShell to apply a real per-executable timeout (120 seconds by default), kill timed-out process trees, and write `build\results\<area>.txt`, separate stderr logs, and `run.json`. PowerShell is part of Windows 10; Python is optional for aggregation, not execution.
+The batch entry point uses Windows PowerShell to apply a real per-executable timeout (120 seconds by default), attempt timed-out process-tree termination, and write `build\results\<area>.txt`, separate stderr logs, and `run.json`. PowerShell is part of Windows 10; Python is optional for aggregation, not execution.
 
 ```powershell
 tools\run_all.ps1 -TimeoutSeconds 300 -ResultsDir results\standard
@@ -71,7 +71,7 @@ The optional `tools/map_public_surface.py` regeneration tool also needs **libcla
 
 - Files are private, bounded scratch fixtures under newly created `%TEMP%\ntdllt_<pid>_<tick>_<attempt>\` directories; registry fixtures are private current-user subkeys with unique names and cleanup. Existing scratch directories are never reused.
 - No shutdown/reboot/logoff, raw disk access, system process termination, real account changes, security disabling, or deliberate resource exhaustion.
-- Own process/thread/heap/section/token objects are closed or freed. Waits and child processes are bounded; process-global irreversible changes belong in children.
+- Tests attempt to close/free owned process/thread/heap/section/token objects. Waits and child processes are bounded; process-global irreversible changes belong in children. Recovered faults can bypass local cleanup and contaminate later tests despite a final summary.
 - State-changing system-wide tests, if added later, must live under `tests/dx_*` and be opt-in (`tools\run_all.bat /destructive`). A disposable prefix is not permission to mutate host state.
 - The exception handler reports main-thread faults as failures; it cannot safely recover worker-thread faults or guarantee cleanup after arbitrary memory corruption. Missing summaries are therefore failures, not skips.
 - `t_run_child` terminates its direct child on timeout, not an arbitrary descendant tree. Current children must not launch unbounded descendants; the outer runners provide separate executable-level process-tree/prefix cleanup. Path-based scratch cleanup avoids reparse traversal but is not hardened against a concurrent hostile filesystem race.
