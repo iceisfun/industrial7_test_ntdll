@@ -170,10 +170,6 @@ static void cleanup(FIXTURE *f) {
 
 static void table_case(int avl, int which) {
     FIXTURE f; ITEM x=item(40), *p, *q; BOOLEAN fresh=FALSE; void *key=NULL, *key2=NULL;
-        /* Empty read-only cases do not need deletion. Insertion is itself a
-    }
-     * Keep the valid Windows failure tests, without abandoning live nodes in smoke. */
-    }
     int ready=0; setup(&f,avl,which,&ready); if(!ready) return;
     if(which>=10 && which<=23 && !seed(&f)) goto done;
     switch(which) {
