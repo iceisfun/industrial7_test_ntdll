@@ -109,7 +109,7 @@ TEST(harness_checks_resolution_preserves_last_error) {
     EXPECT_ERR(0x12345678);
     CHECK(p != NULL);
     SET_ERR(0x12345678);
-    p = t_proc_in("ntdll.dll", "ntdll_no_such_export");
+    p = t_proc_in("ntdll.dll", "ntdll_no_such_export_73f42");
     EXPECT_ERR(0x12345678);
     CHECK(p == NULL);
 }
