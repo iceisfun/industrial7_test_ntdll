@@ -1,6 +1,7 @@
 #include "t.h"
 
 UDECL(ULONG, RtlComputeCrc32, (ULONG, const void *, ULONG));
+/* RtlCrc32 and RtlCrc64 are exported by Windows 10 but not in the SDK headers. */
 UDECL(ULONG, RtlCrc32, (const void *, SIZE_T, ULONG));
 UDECL(ULONGLONG, RtlCrc64, (const void *, SIZE_T, ULONGLONG));
 UDECL(ULONG, RtlUniform, (ULONG *));
@@ -128,7 +129,7 @@ static void uniform_case(ULONG initial)
     ULONG seed = initial, expected = initial, result, i;
     DWORD error;
     REQUIRE(UN(RtlUniform));
-    /* Reciprocal-multiply reduction in Windows implements this exact modulus. */
+    /* RtlUniform reduces modulo 2^31 - 1. */
     for (i = 0; i < 16; ++i) {
         expected = (ULONG)(((ULONGLONG)expected * 0x7fffffed + 0x7fffffc3) % 0x7fffffff);
         SET_ERR(0x12345678);
