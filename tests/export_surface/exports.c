@@ -32,7 +32,7 @@ TEST(export_surface_pe_headers) {
     EXPECT_STR((char *)base + exports->Name, "ntdll.dll");
 }
 
-TEST(export_surface_host_name_ordinal_consistency) {
+TEST(export_surface_name_ordinal_consistency) {
     HMODULE module = t_module("ntdll.dll");
     REQUIRE(module);
     BYTE *base;
@@ -50,7 +50,7 @@ TEST(export_surface_host_name_ordinal_consistency) {
         EXPECT_EQ(named, ordinal);
         if (i) CHECK(strcmp((char *)base + names[i - 1], name) < 0);
     }
-    t_note("host table: %lu names, %lu slots, ordinal base %lu", exports->NumberOfNames,
+    t_note("module table: %lu names, %lu slots, ordinal base %lu", exports->NumberOfNames,
            exports->NumberOfFunctions, exports->Base);
 }
 
@@ -66,7 +66,7 @@ TEST(export_surface_reference_resolution) {
             CHECKF(p != NULL, "reference export %s ordinal %u", name ? name : "<ordinal-only>", reference_exports[i].ordinal);
             if (name && p) EXPECT_EQ(p, t_proc_ord("ntdll.dll", reference_exports[i].ordinal));
         } else if (!p) {
-            t_note("reference export absent on this host: %s ordinal %u", name ? name : "<ordinal-only>", reference_exports[i].ordinal);
+            t_note("reference export absent in this build: %s ordinal %u", name ? name : "<ordinal-only>", reference_exports[i].ordinal);
         }
     }
     CHECK(found > 0);
@@ -87,8 +87,8 @@ TEST(export_surface_nt_zw_reference_aliases) {
                 reference_exports[i].rva != reference_exports[j].rva) continue;
             FARPROC nt = t_proc_in("ntdll.dll", name), zw = t_proc_in("ntdll.dll", twin);
             if (!nt || !zw) { t_note("alias pair unavailable: %s/%s", name, twin); continue; }
-            if (strict) CHECKF(nt == zw, "%s/%s share an entry RVA in the Win10 reference", name, twin);
-            else if (nt != zw) t_note("host alias addresses differ: %s/%s", name, twin);
+            if (strict) CHECKF(nt == zw, "%s/%s share an entry RVA in the reference build", name, twin);
+            else if (nt != zw) t_note("alias addresses differ: %s/%s", name, twin);
             pairs++;
             break;
         }

@@ -1,3 +1,4 @@
+/* Export names and ordinals of the Windows 10 x64 ntdll.dll reference build. */
 static const struct { const char *name; unsigned ordinal; DWORD rva; } reference_exports[] = {
     {NULL, 8, 0x7f220},
     {"A_SHAFinal", 9, 0x40280},
