@@ -217,14 +217,23 @@ CHILD(rtl_tp_case)
             C(s.calls == 0);
         } else {
             int rounds = k == 3 ? 2 : 1;
+            int timeout = k == 2 || k == 5;
+            if (k == 6) {
+                UN(TpSetWait)(wait, trigger, NULL);
+                UN(TpSetWait)(wait, NULL, NULL);
+                UN(TpWaitForWait)(wait, TRUE);
+                C(s.calls == 0);
+            }
             for (int j = 0; j < rounds; j++) {
-                due.QuadPart = -10000;
-                if (k != 2) C(SetEvent(trigger));
-                UN(TpSetWait)(wait, trigger, k == 2 ? &due : NULL);
+                due.QuadPart = k == 5 ? 1 : -10000;
+                if (!timeout) C(ResetEvent(trigger));
+                if (k == 1) C(SetEvent(trigger));
+                UN(TpSetWait)(wait, trigger, timeout ? &due : NULL);
+                if (!timeout && k != 1) C(SetEvent(trigger));
                 C(WaitForSingleObject(s.done, 5000) == WAIT_OBJECT_0);
                 UN(TpWaitForWait)(wait, FALSE);
                 C(s.calls == j + 1 && s.bad == 0);
-                C(s.result == (k == 2 ? WAIT_TIMEOUT : WAIT_OBJECT_0));
+                C(s.result == (timeout ? WAIT_TIMEOUT : WAIT_OBJECT_0));
             }
         }
         UN(TpSetWait)(wait, NULL, NULL);
@@ -284,3 +293,5 @@ CASE(wait_signaled_event, 22)
 CASE(wait_timeout_result, 23)
 CASE(wait_explicit_rearm, 24)
 CASE(wait_disarm_unsignaled, 25)
+CASE(wait_expired_absolute_timeout, 26)
+CASE(wait_reuse_after_disarm, 27)

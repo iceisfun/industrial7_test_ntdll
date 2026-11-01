@@ -4,6 +4,7 @@
 
 UDECL(VOID, RtlRaiseException, (PEXCEPTION_RECORD));
 _Static_assert(sizeof(CONTEXT) == 1232, "Win10 x64 CONTEXT");
+_Static_assert(_Alignof(CONTEXT) >= 16, "FXSAVE alignment");
 _Static_assert(offsetof(CONTEXT, ContextFlags) == 48, "flags");
 _Static_assert(offsetof(CONTEXT, Rsp) == 152, "stack");
 _Static_assert(offsetof(CONTEXT, Rip) == 248, "pc");
@@ -16,6 +17,7 @@ static void capture_case(int kind)
     PVOID base = NULL;
     DWORD mxcsr = _mm_getcsr();
     REQUIRE(U(RtlCaptureContext));
+    _Static_assert(offsetof(__typeof__(box), c) % 16 == 0, "embedded CONTEXT alignment");
     memset(&box, 0xa5, sizeof(box));
     U(RtlCaptureContext)(&box.c);
     switch (kind) {
@@ -114,10 +116,40 @@ TEST(rtl_context_backtrace_optional_hash) { trace_case(3); }
 TEST(rtl_context_backtrace_skip_real_frames) { trace_case(4); }
 TEST(rtl_context_backtrace_skip_limit) { trace_case(5); }
 
+TEST(rtl_context_backtrace_skip_matches_suffix)
+{
+    PVOID full[10] = {0}, skipped[8] = {0};
+    USHORT n, m;
+    REQUIRE(U(RtlCaptureStackBackTrace));
+    n = trace_frames(12, 0, 10, full, NULL);
+    m = trace_frames(12, 2, 8, skipped, NULL);
+    EXPECT_EQ(n, 10); EXPECT_EQ(m, 8);
+    if (n != 10 || m != 8) { t_skip("incomplete recursive backtrace fixture"); return; }
+    for (unsigned i = 0; i < 8; i++) EXPECT_EQ(skipped[i], full[i + 2]);
+}
+
 static __attribute__((noinline)) DWORD lookup_probe(void)
 {
     volatile DWORD value = GetCurrentThreadId();
     return value + 1;
+}
+/* Inspect only the known loaded image, never headers at a DUT-returned base. */
+static int image_readable(HMODULE module, const void *p, SIZE_T bytes)
+{
+    const IMAGE_DOS_HEADER *dos = (const IMAGE_DOS_HEADER *)module;
+    const IMAGE_NT_HEADERS *nt;
+    MEMORY_BASIC_INFORMATION mbi;
+    ULONG_PTR offset;
+    if (!module || (ULONG_PTR)p < (ULONG_PTR)module) return 0;
+    nt = (const IMAGE_NT_HEADERS *)((const BYTE *)module + dos->e_lfanew);
+    offset = (ULONG_PTR)p - (ULONG_PTR)module;
+    if (offset > nt->OptionalHeader.SizeOfImage ||
+        bytes > nt->OptionalHeader.SizeOfImage - offset) return 0;
+    if (VirtualQuery(p, &mbi, sizeof(mbi)) != sizeof(mbi)) return 0;
+    return mbi.AllocationBase == module && mbi.State == MEM_COMMIT &&
+        !(mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS)) &&
+        (ULONG_PTR)p - (ULONG_PTR)mbi.BaseAddress <= mbi.RegionSize &&
+        bytes <= mbi.RegionSize - ((ULONG_PTR)p - (ULONG_PTR)mbi.BaseAddress);
 }
 static void lookup_case(int kind)
 {
@@ -125,6 +157,8 @@ static void lookup_case(int kind)
     DWORD64 pc;
     PRUNTIME_FUNCTION entry, again;
     UNWIND_HISTORY_TABLE history;
+    HMODULE expected = kind == 1 ? t_module("ntdll.dll") : GetModuleHandleW(NULL);
+    int valid;
     REQUIRE(U(RtlLookupFunctionEntry));
     pc = (DWORD64)(ULONG_PTR)(kind == 1 ? (PVOID)U(RtlLookupFunctionEntry) : (PVOID)lookup_probe);
     memset(&history, 0, sizeof(history));
@@ -140,8 +174,18 @@ static void lookup_case(int kind)
     entry = U(RtlLookupFunctionEntry)(pc, &image, kind == 2 ? &history : NULL);
     CHECK(entry != NULL);
     if (!entry) { t_skip("expected non-leaf function has no runtime entry"); return; }
-    EXPECT_EQ(image, kind == 1 ? t_module("ntdll.dll") : GetModuleHandleW(NULL));
+    EXPECT_EQ(image, expected);
+    valid = image == (DWORD64)(ULONG_PTR)expected && image_readable(expected, entry, sizeof(*entry));
+    CHECK(valid);
+    if (!valid) { t_skip("runtime entry is outside readable expected image"); return; }
     CHECK(entry->BeginAddress < entry->EndAddress);
+    valid = entry->BeginAddress < entry->EndAddress &&
+        image_readable(expected, (PVOID)(ULONG_PTR)(image + entry->BeginAddress), 1) &&
+        image_readable(expected, (PVOID)(ULONG_PTR)(image + entry->EndAddress - 1), 1) &&
+        entry->UnwindData != 0 &&
+        image_readable(expected, (PVOID)(ULONG_PTR)(image + entry->UnwindData), 4);
+    CHECK(valid);
+    if (!valid) { t_skip("runtime entry has invalid code/unwind ranges"); return; }
     CHECK(image + entry->BeginAddress <= pc && pc < image + entry->EndAddress);
     if (kind == 2) {
         again = U(RtlLookupFunctionEntry)(pc, &image2, &history);
