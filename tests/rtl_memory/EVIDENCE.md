@@ -42,7 +42,7 @@ The Compare/CompareUlong/Fill/Zero/Move implementations have no LastError stores
 or error-reporting calls on these bounded paths; sentinel LastError checks are
 confined to these APIs, not generalized to all ntdll routines.
 
-## Optional ULONG fill: explicit evidence gap
+## Excluded ULONG fill
 
 - http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/RtlFillMemoryUlong/decomp
   returned HTTP 404, as did its function docs endpoint.
@@ -52,9 +52,10 @@ confined to these APIs, not generalized to all ntdll routines.
 - http://docker1.dev.moonlightcompanies.com:8765/api/docs/page/windows-driver-docs-ddi/ntifs/nf-ntifs-rtlfillmemoryulong.md
   documents repeated ULONG pattern, ULONG-aligned destination and length a
   multiple of sizeof(ULONG). This is a **kernel** contract (NtosKrnl.exe), not
-  proof of an ntdll user-mode export. The optional test uses only those valid
-  arguments and REQUIRE skips when the export is absent. Wine exporting it does
-  not establish Windows export availability or a Windows user-mode contract.
+  proof of an ntdll user-mode export. Review removed the declaration and test:
+  Wine exporting it does not establish Windows export availability or a Windows
+  user-mode contract. It is not counted as ntdll coverage. Missing supported
+  exports elsewhere still use REQUIRE and report SKIP, not a crash or failure.
 
 ## Pointer transformations
 
@@ -67,7 +68,7 @@ confined to these APIs, not generalized to all ntdll routines.
   buffer addresses. Never dereference transformed values, assume encoded NULL
   is nonzero, assert a particular cookie, or assume cross-process equivalence.
 
-## Runtime validation
+## Writer runtime validation (before review)
 
 `make build/rtl_memory.exe` succeeded without warnings. Executed only:
 
@@ -79,5 +80,44 @@ Log `/tmp/opencode/ntdll_rtl_memory.log` ends with
 `tests=48 failed=0 skipped=0 checks_pass=129 checks_fail=0`.
 Wine exposed the optional ULONG fill export. No observed differences required
 triage changes. All tested memory fits in fixed stack arrays; no global settings
-or child isolation are needed. Native Windows runs and optional ULONG-fill
-user-mode implementation evidence remain gaps.
+  or child isolation are needed. Native Windows execution remained a gap.
+
+## Adversarial review of writer commit 1e948cf
+
+- Re-read the harness, WRITING_TESTS.md, and docs/SAFETY.md. Queries were made
+  one at a time with bounded retry on HTTP 503. Reference responses are saved
+  locally in `/tmp/opencode/ntdll_review_reference/`.
+- Rechecked `/api/function/ntdll/<name>/decomp` and `/docs` for CompareMemory,
+  CompareMemoryUlong, FillMemory, ZeroMemory, MoveMemory, EncodePointer, and
+  DecodePointer (all names prefixed Rtl). Reconfirmed both ULONG-fill endpoints
+  return 404 and the filtered exports endpoint lists only RtlFillMemory and
+  RtlFillMemoryNonTemporal. No reference implementation code was copied.
+- Added all 64 relative alignment pairs with a mismatch at every position of a
+  65-byte range, plus a mismatch just outside the limit. Windows CompareMemory
+  RVA 0xa19d0 selects its byte-only path when `(left ^ right) & 7` is nonzero;
+  the old tests used matching relative alignments only. Expected prefix lengths
+  come from constructed inputs, not a second API call.
+- Added page-sized fill/zero, disjoint move, and overlapping moves in both
+  directions at one-byte and 3072-byte distances. Entire destination backing
+  arrays are checked against independent expected bytes/snapshots, including
+  both untouched boundaries. Maximum move extent is 8193 bytes in an 8448-byte
+  array; no invalid-pointer or resource-exhaustion tests were introduced.
+  Move input bytes mix high index bits to avoid the old byte pattern's 256-byte
+  period making page-distance copies observationally indistinguishable from a
+  no-op. Checked all concrete COMP/FILL/MOVE vector extents against array sizes.
+- Made the pointer test's aligned input explicitly 8-byte aligned. Pointer
+  tests still check only stable inverse compositions: they do not independently
+  establish the process-cookie value or exact encoded representation. This is
+  a remaining coverage limitation, not proof of the Windows cookie algorithm.
+
+Review build: `make build/rtl_heap.exe build/rtl_memory.exe` succeeded with no
+warnings. Review smoke, exit 0:
+
+```
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_memory.exe
+SUMMARY tests=55 failed=0 skipped=0 checks_pass=4349 checks_fail=0
+```
+
+Log: `/tmp/opencode/ntdll_review_rtl_memory.log` (summary line 112).
+Net test change: 48 -> 55 (eight added, unexported ULONG fill removed).
+No native Windows execution was available; Wine is only a compatibility smoke.

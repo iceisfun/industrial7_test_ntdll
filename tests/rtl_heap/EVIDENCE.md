@@ -78,7 +78,7 @@ execution was available; the runtime results below are compatibility checks only
   two fields. Enumeration is bounded to 4096 calls with no concurrent heap
   users or mutations, and never dereferences returned free/region addresses.
 
-## Validation and limits
+## Writer validation and limits (before review)
 
 `make build/rtl_heap.exe` succeeded without warnings. Executed only:
 
@@ -100,3 +100,63 @@ tested contracts. Missing exact docs for Size/Validate/Walk/GetProcessHeaps are
 covered by the cited implementation branches, not by Wine behavior. Windows
 execution, alternate segment/debug heap configurations, and cross-thread heap
 serialization remain untested.
+
+## Adversarial review of writer commit 1e948cf
+
+- Re-read the harness, WRITING_TESTS.md, and docs/SAFETY.md. CHECK is nonfatal;
+  existing create/allocation guards already prevent dependent NULL dereferences
+  and resolve cleanup before acquisition. Initialized the inventory array so a
+  broken implementation that returns a count without filling entries cannot
+  cause reads of indeterminate pointer objects. Corrected the resize-failure
+  diagnostic to show actual flags instead of always claiming in-place failure.
+- Sequentially rechecked `/api/function/ntdll/<name>/decomp` and `/docs` for
+  RtlCreateHeap, RtlDestroyHeap, RtlAllocateHeap, RtlFreeHeap, RtlReAllocateHeap,
+  RtlSizeHeap, RtlValidateHeap, RtlWalkHeap, RtlpWalkHeap, RtlGetProcessHeaps,
+  RtlGetProcessHeapsCallback, RtlpReAllocateHeap, RtlpReAllocateHeapInternal,
+  RtlLockHeap, and RtlUnlockHeap. Responses, including missing exact docs, are
+  saved in `/tmp/opencode/ntdll_review_reference/`. Queries retry HTTP 503 one
+  at a time. No implementation code was copied.
+- Kept exact logical-size and heap-walk assertions: RtlpWalkHeap RVA 0xf4e3c
+  writes address at +0, SIZE_T at +8, and live-block flag at +0x12; the ordinary
+  busy-block branch computes logical bytes, and terminal status is 0x8000001a.
+  Oversized zeroed aligned storage is sufficient for the observed structure.
+- Added RtlLockHeap/RtlUnlockHeap owner allocation and two-level recursion on
+  serialized private heaps. RVAs 0x5e4a0/0x5e540 enter/leave the heap critical
+  section and return success in the low byte, supporting BOOLEAN declarations,
+  not the decompiler's apparent 64-bit return type. All acquired locks are
+  balanced before destruction. The supporting HeapLock/HeapUnlock docs at
+  `/api/docs/page/sdk-api/heapapi/nf-heapapi-heaplock.md` and `nf-heapapi-heapunlock.md`
+  explicitly exclude HEAP_NO_SERIALIZE; those heaps are not used for lock tests.
+- Added capacity-one inventory with two untouched suffix slots. RtlGetProcessHeaps
+  RVA 0xf24a0 passes capacity-derived end and current pointers to its callback.
+  Callback RVA 0xf2520 increments total count and stores while current < end.
+  Additionally checked RtlpEnumProcessHeaps `/decomp` and `/docs`: RVA 0x7429c
+  invokes the callback for each PEB heap without a capacity-based early exit.
+  Thus Windows fills the first slot even when the total exceeds capacity.
+- Added NULL-block realloc rejection at sizes zero and 33, checking both NULL
+  return and LastError zero. RtlpReAllocateHeapInternal `/asm` confirms the
+  `test r8,r8` at VA 0x18002376b branches to 0x1800b0e62; that branch calls
+  RtlNtStatusToDosError(0), stores EAX at TEB+0x68 (VA 0x1800b0e81), and returns
+  NULL. RtlNtStatusToDosError `/decomp` at RVA 0x50840 explicitly maps 0 to 0;
+  its `/docs` has an exact user-mode match. This is a narrow, implementation-
+  verified LastError assertion, not a general heap LastError guarantee.
+
+Review build: `make build/rtl_heap.exe build/rtl_memory.exe` succeeded without
+warnings. Only smoke execution was through the sandbox runner:
+
+```
+TMPDIR=/tmp/opencode TP_TIMEOUT=120 tools/wine_run.sh build/rtl_heap.exe
+SUMMARY tests=47 failed=3 skipped=0 checks_pass=340 checks_fail=3
+```
+
+Log `/tmp/opencode/ntdll_review_rtl_heap.log` (summary line 100), exit 1:
+
+- Line 11: capacity-one output slot remained NULL despite a positive total.
+- Lines 20/23: both NULL realloc calls left LastError at 0x12345678 instead of 0.
+- Line 44: in-place 17 -> 65536 unavailable; original block checks passed.
+
+All three failures are retained Windows-backed Wine differences; no assertions
+were weakened or Wine-gated. Net tests: 42 -> 47. Native Windows execution is
+still unavailable, so these require a native baseline before claiming runtime
+conformance. Cross-thread lock exclusion and segment/debug heaps remain gaps;
+the lock tests establish owner recursion only, not exclusion of other threads.

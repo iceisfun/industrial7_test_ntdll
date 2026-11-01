@@ -9,6 +9,8 @@ UDECL(SIZE_T, RtlSizeHeap, (void *, ULONG, const void *));
 UDECL(BOOLEAN, RtlValidateHeap, (void *, ULONG, const void *));
 UDECL(ULONG, RtlGetProcessHeaps, (ULONG, void **));
 UDECL(NTSTATUS, RtlWalkHeap, (void *, void *));
+UDECL(BOOLEAN, RtlLockHeap, (void *));
+UDECL(BOOLEAN, RtlUnlockHeap, (void *));
 
 /* Each helper resolves cleanup before acquiring any resource. */
 #define HEAP_REQUIRE() do { REQUIRE(UN(RtlCreateHeap)); REQUIRE(UN(RtlDestroyHeap)); \
@@ -83,7 +85,7 @@ static void reallocation_case(SIZE_T before, SIZE_T after, ULONG flags)
             EXPECT_EQ(UN(RtlSizeHeap)(h,0,p),before);
             for (i = 0; i < before; ++i) if (p[i] != (BYTE)(i * 29 + 1)) ok = 0;
             CHECK(ok);
-            t_note("in-place resize %llu -> %llu unavailable",(unsigned long long)before,(unsigned long long)after);
+            t_note("resize %llu -> %llu unavailable (flags %#lx)",(unsigned long long)before,(unsigned long long)after,flags);
         }
         CHECK(UN(RtlFreeHeap)(h,0,p));
     }
@@ -135,6 +137,25 @@ TEST(rtl_heap_free_null)
     EXPECT_EQ(UN(RtlDestroyHeap)(h),NULL);
 }
 
+static void realloc_null_case(SIZE_T size)
+{
+    void *h, *p; DWORD error;
+    HEAP_REQUIRE(); REQUIRE(UN(RtlReAllocateHeap));
+    h = UN(RtlCreateHeap)(HEAP_GROWABLE,NULL,0,0,NULL,NULL);
+    CHECK(h != NULL); if (!h) return;
+    /* RtlpReAllocateHeapInternal rejects NULL before touching block metadata,
+       and explicitly maps status zero to LastError, unlike most heap paths. */
+    SET_ERR(0x12345678);
+    p = UN(RtlReAllocateHeap)(h,0,NULL,size);
+    error = GetLastError();
+    EXPECT_EQ(p,NULL);
+    EXPECT_EQ(error,ERROR_SUCCESS);
+    if (p) CHECK(UN(RtlFreeHeap)(h,0,p));
+    EXPECT_EQ(UN(RtlDestroyHeap)(h),NULL);
+}
+TEST(rtl_heap_realloc_null_zero) { realloc_null_case(0); }
+TEST(rtl_heap_realloc_null_nonzero) { realloc_null_case(33); }
+
 TEST(rtl_heap_process_heaps_query)
 {
     REQUIRE(UN(RtlGetProcessHeaps));
@@ -155,6 +176,7 @@ TEST(rtl_heap_process_heaps_contains_private)
     HEAP_REQUIRE(); REQUIRE(UN(RtlGetProcessHeaps));
     h = UN(RtlCreateHeap)(HEAP_GROWABLE,NULL,0,0,NULL,NULL);
     CHECK(h != NULL); if (!h) return;
+    memset(heaps,0,sizeof heaps);
     heaps[1024] = (void *)(ULONG_PTR)0x1234;
     n = UN(RtlGetProcessHeaps)(1024,heaps);
     CHECK(n > 0); EXPECT_EQ(heaps[1024],(void *)(ULONG_PTR)0x1234);
@@ -164,6 +186,46 @@ TEST(rtl_heap_process_heaps_contains_private)
     } else t_note("heap inventory exceeds bounded buffer: %lu",n);
     EXPECT_EQ(UN(RtlDestroyHeap)(h),NULL);
 }
+
+TEST(rtl_heap_process_heaps_capacity_one)
+{
+    void *heaps[3] = { NULL, (void *)(ULONG_PTR)0x1234, (void *)(ULONG_PTR)0x5678 };
+    ULONG n;
+    REQUIRE(UN(RtlGetProcessHeaps));
+    n = UN(RtlGetProcessHeaps)(1,heaps);
+    CHECK(n > 0);
+    /* Windows fills the available slot even when the total exceeds capacity. */
+    CHECK(heaps[0] != NULL);
+    EXPECT_EQ(heaps[1],(void *)(ULONG_PTR)0x1234);
+    EXPECT_EQ(heaps[2],(void *)(ULONG_PTR)0x5678);
+}
+
+static void lock_case(unsigned depth)
+{
+    void *h; BYTE *p; unsigned locked = 0;
+    HEAP_REQUIRE(); REQUIRE(UN(RtlLockHeap)); REQUIRE(UN(RtlUnlockHeap));
+    h = UN(RtlCreateHeap)(HEAP_GROWABLE,NULL,0,0,NULL,NULL);
+    CHECK(h != NULL); if (!h) return;
+    /* The NT heap lock is recursive; only balance locks actually acquired. */
+    while (locked < depth) {
+        BOOLEAN ok = UN(RtlLockHeap)(h);
+        CHECK(ok);
+        if (!ok) break;
+        ++locked;
+    }
+    if (locked == depth) {
+        p = UN(RtlAllocateHeap)(h,HEAP_ZERO_MEMORY,33);
+        CHECK(p != NULL);
+        if (p) {
+            EXPECT_EQ(p[0],0); EXPECT_EQ(p[32],0);
+            CHECK(UN(RtlFreeHeap)(h,0,p));
+        }
+    }
+    while (locked) { CHECK(UN(RtlUnlockHeap)(h)); --locked; }
+    EXPECT_EQ(UN(RtlDestroyHeap)(h),NULL);
+}
+TEST(rtl_heap_lock_owner_allocation) { lock_case(1); }
+TEST(rtl_heap_lock_recursive) { lock_case(2); }
 
 static void walk_case(int allocated)
 {
