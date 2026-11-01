@@ -10,6 +10,7 @@ Every function under test is resolved at run time with `GetModuleHandle`/`LoadLi
 - `common/` - the small test harness (`t.c`, `t.h`, `modules.h`).
 - `Makefile` - cross build with mingw-w64. `run_all.bat` - runs every built area on Windows.
 - `COVERAGE.md` - which exports each area refers to.
+- `VALIDATION.md` - results of the corpus on Windows 10 22H2.
 
 ## Build
 
