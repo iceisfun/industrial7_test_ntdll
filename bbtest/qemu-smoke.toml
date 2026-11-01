@@ -1,5 +1,6 @@
 # Boots the 128 MiB UEFI smoke guest under KVM and judges the serial marker.
-#   bb test submit --repo ntdll --branch bbtl-lab --recipe bbtest/qemu-smoke.toml --wait
+#   bb test submit --repo ntdll --branch bbtl-lab-r2 --recipe bbtest/qemu-smoke.toml --wait
+# Retrieve: bb test logs JOB --stream serial | qmp ; bb test logs JOB --stream screen > f.png
 schema = "bbtest.recipe/1"
 
 [[job]]

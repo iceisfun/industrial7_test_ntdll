@@ -1,0 +1,99 @@
+# Eight independent 40 s guests. Each host offers 3 guest slots, so at most 3 run per host
+# at any time (6 over both workers) and the rest wait in the queue.
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "qemu-cap-1"
+title = "slow guest 1 of 8 (host cap is 3 guests)"
+kind = "qemu-cap"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 150 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 120 }
+
+[[job]]
+name = "qemu-cap-2"
+title = "slow guest 2 of 8 (host cap is 3 guests)"
+kind = "qemu-cap"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 150 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 120 }
+
+[[job]]
+name = "qemu-cap-3"
+title = "slow guest 3 of 8 (host cap is 3 guests)"
+kind = "qemu-cap"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 150 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 120 }
+
+[[job]]
+name = "qemu-cap-4"
+title = "slow guest 4 of 8 (host cap is 3 guests)"
+kind = "qemu-cap"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 150 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 120 }
+
+[[job]]
+name = "qemu-cap-5"
+title = "slow guest 5 of 8 (host cap is 3 guests)"
+kind = "qemu-cap"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 150 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 120 }
+
+[[job]]
+name = "qemu-cap-6"
+title = "slow guest 6 of 8 (host cap is 3 guests)"
+kind = "qemu-cap"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 150 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 120 }
+
+[[job]]
+name = "qemu-cap-7"
+title = "slow guest 7 of 8 (host cap is 3 guests)"
+kind = "qemu-cap"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 150 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 120 }
+
+[[job]]
+name = "qemu-cap-8"
+title = "slow guest 8 of 8 (host cap is 3 guests)"
+kind = "qemu-cap"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 150 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 120 }

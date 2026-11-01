@@ -1,0 +1,15 @@
+# The smoke guest prints "BBTEST-RESULT: pass"; this recipe declares that text the
+# FAIL marker, so the expected outcome is FAILURE (the fail-marker path).
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "qemu-fail-marker"
+title = "QEMU guest, fail marker seen (expect FAILURE)"
+kind = "qemu-smoke"
+[job.requires]
+profile = "qemu-smoke"
+limits = { deadline_s = 120 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "THIS-NEVER-APPEARS", fail_marker = "BBTEST-RESULT: pass", timeout_s = 60 }

@@ -1,0 +1,15 @@
+# qemu-slow idles 40 s before its marker; the step allows 8 s, so the runner must
+# stop the guest: expected outcome TIMEOUT and no qemu left on the host.
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "qemu-timeout"
+title = "QEMU guest killed by the step timeout (expect TIMEOUT)"
+kind = "qemu-timeout"
+[job.requires]
+profile = "qemu-slow"
+limits = { deadline_s = 120 }
+policy = { max_attempts = 1 }
+[[job.step]]
+name = "boot"
+qemu = { pass_marker = "BBTEST-RESULT: pass", fail_marker = "BBTEST-RESULT: fail", timeout_s = 8 }
