@@ -42,9 +42,12 @@ static void re_expect(PVOID env, const WCHAR *name, const WCHAR *expected)
     s = UN(RtlQueryEnvironmentVariable_U)(env, &n, &v);
     EXPECT_EQ(s, expected ? 0 : RE_MISSING);
     if (expected && !s) {
-        EXPECT_EQ(v.Length, wcslen(expected) * sizeof(WCHAR));
-        CHECK(!memcmp(buffer, expected, v.Length));
-        EXPECT_EQ(buffer[v.Length / 2], 0);
+        size_t bytes = wcslen(expected) * sizeof(WCHAR);
+        EXPECT_EQ(v.Length, bytes);
+        CHECK(bytes < sizeof(buffer));
+        if (bytes >= sizeof(buffer)) return;
+        CHECK(!memcmp(buffer, expected, bytes));
+        EXPECT_EQ(buffer[bytes / sizeof(WCHAR)], 0);
     }
 }
 
@@ -54,24 +57,32 @@ static void re_query(const WCHAR *name, const WCHAR *value, const WCHAR *lookup,
     PVOID env = NULL;
     WCHAR buffer[128];
     UNICODE_STRING n = re_string(lookup), v = {0xbeef, capacity, null_buffer ? NULL : buffer};
-    NTSTATUS s;
+    NTSTATUS s, expected;
     ULONG bytes = (ULONG)(wcslen(value) * 2);
     RE_REQUIRE();
+    CHECK(capacity + 1u < sizeof(buffer) && bytes < sizeof(buffer));
+    if (capacity + 1u >= sizeof(buffer) || bytes >= sizeof(buffer)) return;
     s = UN(RtlCreateEnvironment)(FALSE, &env);
     EXPECT_EQ(s, 0); CHECK(env != NULL); if (s || !env) return;
     s = re_set(&env, name, value); EXPECT_EQ(s, 0); if (s) goto done;
     memset(buffer, 0xa5, sizeof(buffer));
     s = UN(RtlQueryEnvironmentVariable_U)(env, &n, &v);
     /* Win10 RtlpScanEnvironment requires space for the terminator too. */
-    EXPECT_EQ(s, !null_buffer && capacity / 2 > bytes / 2 ? 0 : RE_SMALL);
+    expected = !null_buffer && capacity / 2 > bytes / 2 ? 0 : RE_SMALL;
+    EXPECT_EQ(s, expected);
     EXPECT_EQ(v.Length, bytes);
     EXPECT_EQ(v.MaximumLength, capacity);
     CHECK(v.Buffer == (null_buffer ? NULL : buffer));
-    if (!s && !null_buffer) {
+    if (!s && !expected && !null_buffer) {
         CHECK(!memcmp(buffer, value, bytes));
         EXPECT_EQ(buffer[bytes / 2], 0);
     }
-    if (!null_buffer) EXPECT_EQ(buffer[(capacity + 1) / 2], 0xa5a5);
+    /* RtlpScanEnvironment clears the first WCHAR on a nonzero-capacity failure. */
+    if (s == RE_SMALL && !null_buffer && capacity >= 2) EXPECT_EQ(buffer[0], 0);
+    if (!null_buffer) {
+        EXPECT_EQ(((BYTE *)buffer)[capacity], 0xa5);
+        EXPECT_EQ(((BYTE *)buffer)[capacity + 1], 0xa5);
+    }
 done:
     EXPECT_EQ(UN(RtlDestroyEnvironment)(env), 0);
 }
@@ -85,6 +96,8 @@ static void re_expand(const WCHAR *source, const WCHAR *expected, USHORT capacit
     ULONG required = 0xdeadbeef, bytes = (ULONG)(wcslen(expected) * 2);
     NTSTATUS s;
     RE_REQUIRE(); REQUIRE(UN(RtlExpandEnvironmentStrings_U));
+    CHECK(capacity + 1u < sizeof(buffer) && bytes < sizeof(buffer));
+    if (capacity + 1u >= sizeof(buffer) || bytes >= sizeof(buffer)) return;
     s = UN(RtlCreateEnvironment)(FALSE, &env);
     EXPECT_EQ(s, 0); CHECK(env != NULL); if (s || !env) return;
     s = re_set(&env, L"rtl_environment_A", L"Alpha"); EXPECT_EQ(s, 0); if (s) goto done;
@@ -103,7 +116,8 @@ static void re_expand(const WCHAR *source, const WCHAR *expected, USHORT capacit
         /* The _U wrapper only assigns Length on success. */
         EXPECT_EQ(dst.Length, 0xbeef);
     }
-    EXPECT_EQ(buffer[(capacity + 1) / 2], 0xa5a5);
+    EXPECT_EQ(((BYTE *)buffer)[capacity], 0xa5);
+    EXPECT_EQ(((BYTE *)buffer)[capacity + 1], 0xa5);
 done:
     EXPECT_EQ(UN(RtlDestroyEnvironment)(env), 0);
 }
@@ -159,8 +173,8 @@ TEST(rtl_environment_independent_blocks)
     PVOID a = NULL, b = NULL;
     NTSTATUS s;
     RE_REQUIRE();
-    s = UN(RtlCreateEnvironment)(FALSE, &a); EXPECT_EQ(s, 0); if (s || !a) return;
-    s = UN(RtlCreateEnvironment)(FALSE, &b); EXPECT_EQ(s, 0);
+    s = UN(RtlCreateEnvironment)(FALSE, &a); EXPECT_EQ(s, 0); CHECK(a != NULL); if (s || !a) return;
+    s = UN(RtlCreateEnvironment)(FALSE, &b); EXPECT_EQ(s, 0); CHECK(b != NULL);
     if (!s && b) {
         CHECK(a != b);
         s = re_set(&a, L"rtl_environment_Isolated", L"one"); EXPECT_EQ(s, 0);
@@ -172,6 +186,25 @@ TEST(rtl_environment_independent_blocks)
         EXPECT_EQ(UN(RtlDestroyEnvironment)(b), 0);
     }
     EXPECT_EQ(UN(RtlDestroyEnvironment)(a), 0);
+}
+
+TEST(rtl_environment_query_name_boundary)
+{
+    PVOID env = NULL;
+    NTSTATUS s;
+    RE_REQUIRE();
+    s = UN(RtlCreateEnvironment)(FALSE, &env);
+    EXPECT_EQ(s, 0); CHECK(env != NULL); if (s || !env) return;
+    s = re_set(&env, L"rtl_environment_PrefixSuffix", L"long name");
+    EXPECT_EQ(s, 0);
+    if (!s) {
+        re_expect(env, L"rtl_environment_Prefix", NULL);
+        s = re_set(&env, L"rtl_environment_Prefix", L"short name");
+        EXPECT_EQ(s, 0);
+        if (!s) re_expect(env, L"rtl_environment_Prefix", L"short name");
+        re_expect(env, L"rtl_environment_PrefixSuffix", L"long name");
+    }
+    EXPECT_EQ(UN(RtlDestroyEnvironment)(env), 0);
 }
 
 TEST(rtl_environment_query_zero) { re_query(L"rtl_environment_Q", L"Alpha", L"rtl_environment_Q", 0, FALSE); }

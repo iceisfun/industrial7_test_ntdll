@@ -20,6 +20,7 @@ static void rc_workspace(USHORT format, NTSTATUS expected)
     REQUIRE(UN(RtlGetCompressionWorkSpaceSize));
     s = UN(RtlGetCompressionWorkSpaceSize)(format, &c, &f);
     EXPECT_EQ(s, expected);
+    if (s != expected) return;
     if (!s) {
         EXPECT_EQ(c, format == 0x102 ? 0x20 : 0x10020);
         EXPECT_EQ(f, 4096);
@@ -119,7 +120,9 @@ static void rc_compress_boundary(unsigned mode)
     REQUIRE(UN(RtlCompressBuffer));
     s = UN(RtlGetCompressionWorkSpaceSize)(2, &cw, &fw);
     EXPECT_EQ(s, 0);
-    if (s || !cw || cw > 1024 * 1024) return;
+    if (s) return;
+    CHECK(cw && cw <= 1024 * 1024);
+    if (!cw || cw > 1024 * 1024) return;
     work = calloc(1, cw); CHECK(work != NULL); if (!work) return;
     rc_fill(input, sizeof(input), 2);
     s = UN(RtlCompressBuffer)(2, input, sizeof(input), packed, sizeof(packed), 4096, &size, work);
@@ -175,6 +178,8 @@ TEST(rtl_compression_fragment_cross_chunk) { rc_roundtrip(8192, 2, 0, 2, 4000, 2
 TEST(rtl_compression_fragment_second_chunk) { rc_roundtrip(8192, 2, 0, 2, 4096, 4096, 4096); }
 TEST(rtl_compression_fragment_last_byte) { rc_roundtrip(8192, 2, 0, 2, 8191, 1, 4096); }
 TEST(rtl_compression_fragment_maximum) { rc_roundtrip(8192, 2, 0x100, 2, 4097, 127, 4096); }
+TEST(rtl_compression_fragment_zero_capacity) { rc_roundtrip(8192, 2, 0, 2, 123, 0, 4096); }
+TEST(rtl_compression_fragment_end) { rc_roundtrip(8192, 2, 0, 2, 8192, 128, 4096); }
 TEST(rtl_compression_compress_zero_capacity) { rc_compress_boundary(0); }
 TEST(rtl_compression_compress_short_capacity) { rc_compress_boundary(1); }
 TEST(rtl_compression_compress_exact_capacity) { rc_compress_boundary(2); }
