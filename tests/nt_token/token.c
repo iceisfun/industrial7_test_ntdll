@@ -8,6 +8,15 @@ UDECL(NTSTATUS, NtDuplicateToken, (HANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, BOOL
 
 #define TS(x) ((NTSTATUS)(x))
 #define NTK_APIS() REQUIRE(UN(NtOpenProcessToken)); REQUIRE(UN(NtQueryInformationToken))
+_Static_assert(sizeof(TOKEN_USER) == 16 && offsetof(TOKEN_GROUPS,Groups) == 8, "x64 token SID layouts");
+_Static_assert(offsetof(TOKEN_PRIVILEGES,Privileges) == 4 && sizeof(LUID_AND_ATTRIBUTES) == 12, "privilege layout");
+_Static_assert(sizeof(TOKEN_STATISTICS) == 56 && sizeof(SECURITY_QUALITY_OF_SERVICE) == 12, "token/QoS layout");
+
+static BOOL ntk_untouched(const BYTE *p, SIZE_T n)
+{
+    for (SIZE_T i = 0; i < n; i++) if (p[i] != 0xa5) return FALSE;
+    return TRUE;
+}
 
 static BOOL ntk_open(ACCESS_MASK access, HANDLE *h)
 {
@@ -54,9 +63,13 @@ static void ntk_query(TOKEN_INFORMATION_CLASS cls)
     if (n > 1) {
         st = UN(NtQueryInformationToken)(h,cls,buffer,1,&got);
         EXPECT_EQ(st,TS(0xc0000023)); EXPECT_EQ(got,n);
+        CHECK(ntk_untouched(buffer,n+16));
+        memset(buffer,0xa5,n+16);
         st = UN(NtQueryInformationToken)(h,cls,buffer,n-1,&got);
         EXPECT_EQ(st,TS(0xc0000023)); EXPECT_EQ(got,n);
+        CHECK(ntk_untouched(buffer,n+16));
     }
+    memset(buffer,0xa5,n+16);
     st = UN(NtQueryInformationToken)(h,cls,buffer,n,&got);
     EXPECT_EQ(st,0); if (st != 0) goto done;
     EXPECT_EQ(got,n);
@@ -105,6 +118,21 @@ static void ntk_query(TOKEN_INFORMATION_CLASS cls)
     case TokenStatistics:
         EXPECT_EQ(n,sizeof(TOKEN_STATISTICS));
         if (n >= sizeof(TOKEN_STATISTICS)) EXPECT_EQ(((TOKEN_STATISTICS *)buffer)->TokenType,TokenPrimary);
+        break;
+    case TokenHasRestrictions:
+        EXPECT_EQ(n,1); CHECK(buffer[0] <= 1);
+        break;
+    case TokenVirtualizationAllowed:
+    case TokenVirtualizationEnabled:
+    case TokenUIAccess:
+        EXPECT_EQ(n,sizeof(DWORD));
+        if (n >= sizeof(DWORD)) CHECK(*(DWORD *)buffer <= 1);
+        break;
+    case TokenSessionId:
+    case TokenElevationType:
+    case TokenMandatoryPolicy:
+        EXPECT_EQ(n,sizeof(DWORD));
+        t_note("class %u size %lu value byte 0x%02x",cls,n,buffer[0]);
         break;
     default:
         t_note("class %u size %lu value byte 0x%02x",cls,n,buffer[0]);
@@ -155,7 +183,7 @@ CHILD(nttoken_fresh_thread)
     HANDLE thread = CreateThread(NULL,0,ntk_thread,&r,0,&id);
     if (!thread) return 3;
     DWORD wait = WaitForSingleObject(thread,30000);
-    if (wait != WAIT_OBJECT_0) return 4;
+    if (wait != WAIT_OBJECT_0) { CloseHandle(thread); return 4; }
     t_note("fresh thread self=%u status=0x%08lx token=%p",r.self,r.status,r.token);
     BOOL ok = r.status == TS(0xc000007c) && r.token == NULL;
     if (r.status == 0 && r.token) CloseHandle(r.token);
@@ -226,5 +254,14 @@ TEST(nttoken_query_without_query_right)
     HANDLE h = NULL; TOKEN_TYPE type = 0; ULONG n = 0; NTK_APIS();
     if (!ntk_open(TOKEN_DUPLICATE,&h)) return;
     EXPECT_EQ(UN(NtQueryInformationToken)(h,TokenType,&type,sizeof type,&n),TS(0xc0000022));
+    CloseHandle(h);
+}
+
+TEST(nttoken_query_access_before_size)
+{
+    HANDLE h = NULL; TOKEN_TYPE type = (TOKEN_TYPE)0x1234; ULONG n = 0xa5a5a5a5; NTK_APIS();
+    if (!ntk_open(TOKEN_DUPLICATE,&h)) return;
+    EXPECT_EQ(UN(NtQueryInformationToken)(h,TokenType,&type,0,&n),TS(0xc0000022));
+    EXPECT_EQ(type,0x1234); EXPECT_EQ(n,0xa5a5a5a5);
     CloseHandle(h);
 }
