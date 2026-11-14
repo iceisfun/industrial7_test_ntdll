@@ -25,3 +25,12 @@ handle is closed.
 
 Skips: private namespace creation is skipped when the account gets ACCESS_DENIED/PRIVILEGE_NOT_HELD
 (not seen on the administrator account). The ALPC/LPC depth is covered by other areas.
+
+## Standard-user namespace note
+
+Observed on Windows 10 22H2 as a standard user (medium integrity): creating a section (NtCreateSectionEx) or a
+symbolic link object (NtCreateSymbolicLinkObject) with a name under the global `\BaseNamedObjects` returns
+STATUS_ACCESS_DENIED (0xC0000022); events, directories and keyed events there succeed. The same calls under the
+caller's own `\Sessions\<N>\BaseNamedObjects` (N from ProcessIdToSessionId) succeed, as do unnamed sections. The
+section and symbolic link tests therefore use that session directory (`sess_bno_name`), which keeps the create,
+name-collision, open, map, query and temporary-object-lifetime checks real for both elevated and standard tokens.

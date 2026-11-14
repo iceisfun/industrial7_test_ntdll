@@ -69,6 +69,14 @@ static void bno_name(WCHAR *out, const WCHAR *leaf)
 {
     wsprintfW(out, L"\\BaseNamedObjects\\%s_%lu_%u", leaf, GetCurrentProcessId(), ++g_serial);
 }
+/* "\Sessions\<N>\BaseNamedObjects\<leaf>_<pid>_<n>" for the caller's session. As a standard user the global
+ * \BaseNamedObjects directory refuses creation of sections and symbolic links (STATUS_ACCESS_DENIED, observed on
+ * Windows 10 22H2 at medium integrity), while the caller's own session directory accepts them. */
+static void sess_bno_name(WCHAR *out, const WCHAR *leaf)
+{
+    DWORD sid = 0; ProcessIdToSessionId(GetCurrentProcessId(), &sid);
+    wsprintfW(out, L"\\Sessions\\%lu\\BaseNamedObjects\\%s_%lu_%u", sid, leaf, GetCurrentProcessId(), ++g_serial);
+}
 /* Object type name of a handle via NtQueryObject(ObjectTypeInformation); false if unavailable. */
 static BOOL type_name(HANDLE h, WCHAR *out, size_t cap)
 {

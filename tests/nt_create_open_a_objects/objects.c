@@ -116,7 +116,7 @@ TEST(symlink_create_open_query)
 {
     HANDLE l = NULL, l2 = NULL; WCHAR nm[96], tgt[] = L"\\BaseNamedObjects"; OBJECT_ATTRIBUTES oa; UNICODE_STRING t; WCHAR out[128]; UNICODE_STRING q; ULONG need = 0;
     REQUIRE(UN(NtCreateSymbolicLinkObject)); REQUIRE(UN(NtOpenSymbolicLinkObject)); REQUIRE(UN(NtQuerySymbolicLinkObject)); REQUIRE(UN(NtClose));
-    bno_name(nm, L"oa_sym"); oa_init(&oa, nm, OBJ_CI);
+    sess_bno_name(nm, L"oa_sym"); oa_init(&oa, nm, OBJ_CI);
     t.Buffer = tgt; t.Length = sizeof tgt - 2; t.MaximumLength = sizeof tgt;
     EXPECT_EQ(UN(NtCreateSymbolicLinkObject)(&l, 0x20001 /* READ_CONTROL|QUERY */, &oa, &t), ST_SUCCESS);
     CHECK(l != NULL);
@@ -143,7 +143,7 @@ TEST(symlink_invalid_arguments)
 {
     HANDLE l = NULL; WCHAR nm[96], tgt[] = L"\\BaseNamedObjects"; OBJECT_ATTRIBUTES oa; UNICODE_STRING t;
     REQUIRE(UN(NtCreateSymbolicLinkObject)); REQUIRE(UN(NtOpenSymbolicLinkObject)); REQUIRE(UN(NtClose));
-    bno_name(nm, L"oa_sym2"); oa_init(&oa, nm, OBJ_CI);
+    sess_bno_name(nm, L"oa_sym2"); oa_init(&oa, nm, OBJ_CI);
     t.Buffer = tgt; t.Length = sizeof tgt - 2; t.MaximumLength = sizeof tgt;
     EXPECT_EQ(UN(NtCreateSymbolicLinkObject)(&l, 0x20001, &oa, NULL), ST_ACCESS_VIOLATION);
     CHECK(l == NULL);
@@ -228,7 +228,7 @@ TEST(section_ex_create_open_map)
 {
     HANDLE s = NULL, s2 = NULL; WCHAR nm[96]; OBJECT_ATTRIBUTES oa; LARGE_INTEGER sz; BYTE *v1, *v2;
     REQUIRE(UN(NtCreateSectionEx)); REQUIRE(UN(NtOpenSection)); REQUIRE(UN(NtClose));
-    bno_name(nm, L"oa_sec"); oa_init(&oa, nm, OBJ_CI);
+    sess_bno_name(nm, L"oa_sec"); oa_init(&oa, nm, OBJ_CI);
     sz.QuadPart = 0x2000;
     EXPECT_EQ(UN(NtCreateSectionEx)(&s, SECTION_ALL_ACCESS, &oa, &sz, PAGE_READWRITE, SEC_COMMIT, NULL, NULL, 0), ST_SUCCESS);
     CHECK(s != NULL);
