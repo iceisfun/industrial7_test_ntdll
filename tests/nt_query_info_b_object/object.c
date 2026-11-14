@@ -424,12 +424,12 @@ TEST(query_directory_object)
     UN(NtClose)(dir);
 }
 
-TEST(query_directory_object_types)
+TEST(query_directory_object_known_dlls)
 {
-    HANDLE dir = NULL; OBJECT_ATTRIBUTES oa; UNICODE_STRING nm; BYTE buf[8192]; ULONG ctx = 0, ret; int ev = 0, mut = 0;
-    NTSTATUS st;
+    HANDLE dir = NULL; OBJECT_ATTRIBUTES oa; UNICODE_STRING nm; BYTE buf[16384]; ULONG ctx = 0, ret; int found = 0, n = 0;
+    NTSTATUS st; static WCHAR kd[] = L"\\KnownDlls";
     REQUIRE(UN(NtQueryDirectoryObject)); REQUIRE(UN(NtOpenDirectoryObject));
-    { static WCHAR ot[] = L"\\ObjectTypes"; nm.Buffer = ot; nm.Length = sizeof ot - 2; nm.MaximumLength = sizeof ot; }
+    nm.Buffer = kd; nm.Length = sizeof kd - 2; nm.MaximumLength = sizeof kd;
     InitializeObjectAttributes(&oa, &nm, OBJ_CASE_INSENSITIVE, NULL, NULL);
     EXPECT_EQ(UN(NtOpenDirectoryObject)(&dir, DIRECTORY_QUERY, &oa), 0);
     if (!dir) return;
@@ -437,13 +437,16 @@ TEST(query_directory_object_types)
     CHECK(st == 0 || st == S(0x00000105) /* STATUS_MORE_ENTRIES */);
     {
         DIR_INFO *d = (DIR_INFO *)buf;
-        for (; d->name.Length; d++) {
-            if (d->name.Length == 10 && !memcmp(d->name.Buffer, L"Event", 10)) ev++;
-            if (d->name.Length == 12 && !memcmp(d->name.Buffer, L"Mutant", 12)) mut++;
-            CHECK(d->type.Length == 8 && !memcmp(d->type.Buffer, L"Type", 8));
+        for (; d->name.Length && n < 200; d++, n++) {
+            if (d->name.Length == 18 && !_wcsnicmp(d->name.Buffer, L"ntdll.dll", 9)) {
+                found++;
+                EXPECT_EQ(d->type.Length, 14); CHECK(!memcmp(d->type.Buffer, L"Section", 14));
+            }
         }
+        CHECK(n >= 3);
     }
-    CHECK(ev + mut >= 1);
+    EXPECT_EQ(found, 1);
+    EXPECT_EQ(ctx, (ULONG)n);
     UN(NtClose)(dir);
 }
 
