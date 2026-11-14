@@ -246,21 +246,22 @@ TEST(rtl_numeric_large_invalid_base)
     CHECK(memcmp(out, old, sizeof(out)) == 0);
 }
 
-/* These are macros/intrinsics, not exports in the reference x64 image. */
+/* On x64 the byte-swap helpers are compiler intrinsics and are not exported
+   from ntdll.dll. If an export is present it must swap bytes. */
 TEST(rtl_numeric_byteswap16_optional)
 {
-    REQUIRE(UN(RtlUshortByteSwap));
-    t_note("unexpected optional export; no user-mode x64 contract in reference corpus");
+    if (!UN(RtlUshortByteSwap)) { t_note("not exported (intrinsic on x64)"); return; }
+    EXPECT_EQ(UN(RtlUshortByteSwap)(0x1234), 0x3412);
 }
 TEST(rtl_numeric_byteswap32_optional)
 {
-    REQUIRE(UN(RtlUlongByteSwap));
-    t_note("unexpected optional export; no user-mode x64 contract in reference corpus");
+    if (!UN(RtlUlongByteSwap)) { t_note("not exported (intrinsic on x64)"); return; }
+    EXPECT_EQ(UN(RtlUlongByteSwap)(0x12345678u), 0x78563412u);
 }
 TEST(rtl_numeric_byteswap64_optional)
 {
-    REQUIRE(UN(RtlUlonglongByteSwap));
-    t_note("unexpected optional export; no user-mode x64 contract in reference corpus");
+    if (!UN(RtlUlonglongByteSwap)) { t_note("not exported (intrinsic on x64)"); return; }
+    EXPECT_EQ(UN(RtlUlonglongByteSwap)(0x0102030405060708ULL), 0x0807060504030201ULL);
 }
 
 #define ABSCASE(name, input, expected) \

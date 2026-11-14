@@ -1,0 +1,116 @@
+# Full ntdll corpus pipeline:
+#
+#   build --> oracle (Windows 10 reference VM) --+
+#         \-> i7     (i7 Win10 personality)    --+--> report
+#
+# STATUS
+#   build, report : command runner; runnable once artifacts move between jobs
+#                   (depot upload and from_job input staging are not in bbtestd yet).
+#   oracle, i7    : need the qemu/oracle runner, which bbtestd does not have yet;
+#                   the profiles win10-oracle@1 and i7-boot@1 must also be published.
+#                   The `oracle` and `qemu` step tables below are the intended
+#                   schema (UNVERIFIED: no runner validates them), and parse =
+#                   "ntdll-i7res" is the built-in parser to be ported from
+#                   bbtest/ntdll_result.py (the reference implementation).
+#   Until then run the oracle by hand: bbtest/oracle_local.sh.
+#
+# Recipes read from the tested commit are submitter-defined; never gate a merge on this.
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "build"
+title = "ntdll corpus: build 34 exes"
+kind = "ntdll-build"
+[job.requires]
+profile = "xtest"
+limits = { deadline_s = 600 }
+policy = { max_attempts = 1 }
+[job.inputs]
+src = { git = true }
+[[job.step]]
+name = "make"
+run = ["make", "-j8", "CFLAGS=-O1 -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-format -Wl,--no-insert-timestamp"]
+[[job.step]]
+name = "pack"
+run = ["python3", "bbtest/pack_payload.py", "artifact", "--build-dir", "build"]
+[job.required]
+artifacts = ["ntdll-build.tar", "build-manifest.txt"]
+
+[[job]]
+name = "oracle"
+title = "ntdll corpus on the Windows 10 oracle (std user, then admin)"
+kind = "ntdll-oracle"
+needs = [{ job = "build" }]
+[job.requires]
+profile = "win10-oracle"
+tags = { all = ["kvm"] }
+limits = { deadline_s = 2400 }
+policy = { max_attempts = 1 }
+[job.inputs]
+src = { git = true }
+build = { from_job = "build", artifact = "ntdll-build.tar" }
+[[job.step]]
+name = "std"
+parse = "ntdll-i7res"
+oracle = { mode = "std", payload_tool = "bbtest/pack_payload.py", payload_from = "build", timeout_s = 900, shutdown = true, serial_artifact = "oracle-std.serial.log" }
+[[job.step]]
+name = "adm"
+parse = "ntdll-i7res"
+oracle = { mode = "admin", payload_tool = "bbtest/pack_payload.py", payload_from = "build", timeout_s = 900, shutdown = true, serial_artifact = "oracle-adm.serial.log" }
+[job.required]
+artifacts = ["oracle-std.serial.log", "oracle-adm.serial.log"]
+assertions = [
+  { id = "i7res.done", source = "serial", match = "I7RES done" },
+  { id = "ntdll.areas.complete", source = "serial" },
+  { id = "payload.exit0", source = "serial", match = "I7VM: payload exit 0" },
+]
+min_cases = 2000
+areas = ["core_smoke", "crt_algorithms", "crt_strings", "export_surface", "harness_checks", "ldr_image", "nt_file", "nt_process", "nt_registry", "nt_sync", "nt_thread", "nt_token", "nt_vm", "rtl_bitmap", "rtl_compression", "rtl_context", "rtl_conversion", "rtl_environment", "rtl_hash", "rtl_heap", "rtl_memory", "rtl_netaddr", "rtl_numeric", "rtl_path", "rtl_path_ext", "rtl_security", "rtl_slist", "rtl_status", "rtl_strings", "rtl_strings_ext", "rtl_sync", "rtl_tables", "rtl_threadpool", "rtl_time"]
+
+[[job]]
+name = "i7"
+title = "ntdll corpus on i7 (one exe per boot)"
+kind = "ntdll-i7"
+needs = [{ job = "build" }]
+[job.requires]
+profile = "i7-boot"
+tags = { all = ["kvm"] }
+limits = { deadline_s = 5400 }
+policy = { max_attempts = 1 }
+[job.inputs]
+src = { git = true }
+build = { from_job = "build", artifact = "ntdll-build.tar" }
+[[job.step]]
+name = "run"
+parse = "ntdll-i7res"
+qemu = { per_area = true, boot_budget_s = 60, payload_from = "build", serial_artifact = "i7.serial.log" }
+[job.required]
+artifacts = ["i7.serial.log"]
+assertions = [{ id = "i7res.done", source = "serial", match = "I7RES done" }]
+areas = ["core_smoke", "crt_algorithms", "crt_strings", "export_surface", "harness_checks", "ldr_image", "nt_file", "nt_process", "nt_registry", "nt_sync", "nt_thread", "nt_token", "nt_vm", "rtl_bitmap", "rtl_compression", "rtl_context", "rtl_conversion", "rtl_environment", "rtl_hash", "rtl_heap", "rtl_memory", "rtl_netaddr", "rtl_numeric", "rtl_path", "rtl_path_ext", "rtl_security", "rtl_slist", "rtl_status", "rtl_strings", "rtl_strings_ext", "rtl_sync", "rtl_tables", "rtl_threadpool", "rtl_time"]
+
+[[job]]
+name = "report"
+title = "ntdll corpus: oracle vs i7"
+kind = "ntdll-report"
+needs = [{ job = "oracle", on = "finished" }, { job = "i7", on = "finished" }]
+[job.requires]
+profile = "xtest"
+limits = { deadline_s = 300 }
+policy = { max_attempts = 1 }
+[job.inputs]
+src = { git = true }
+oracle = { from_job = "oracle", artifact = "oracle-std.serial.log" }
+i7 = { from_job = "i7", artifact = "i7.serial.log" }
+# input locations below are UNVERIFIED: bbtestd stages only git inputs today
+[[job.step]]
+name = "convert-oracle"
+run = ["python3", "bbtest/ntdll_result.py", "convert", "--serial", "$BBTEST_IN_DIR/oracle/oracle-std.serial.log", "--prefix", "oracle-std.", "--require-payload-exit", "--exit-zero"]
+[[job.step]]
+name = "convert-i7"
+run = ["python3", "bbtest/ntdll_result.py", "convert", "--serial", "$BBTEST_IN_DIR/i7/i7.serial.log", "--prefix", "i7.", "--exit-zero"]
+[[job.step]]
+name = "compare"
+run = ["python3", "bbtest/ntdll_result.py", "compare", "--oracle", "$BBTEST_OUT_DIR/oracle-std.cases.jsonl", "--i7", "$BBTEST_OUT_DIR/i7.cases.jsonl", "--baseline", "bbtest/known-diffs.tsv"]
+[job.required]
+artifacts = ["oracle-std.cases.jsonl", "oracle-std.result.json", "i7.cases.jsonl", "i7.result.json", "compare.tsv", "compare.json"]

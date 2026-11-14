@@ -1,0 +1,32 @@
+# Build the corpus and publish the build as one artifact. Runs on the
+# command runner (profile xtest), so it works with what bbtestd does today.
+#
+#   bb test submit --repo ntdll --branch master --recipe bbtest/ntdll-build.toml --wait
+#
+# -Wl,--no-insert-timestamp makes two builds byte-identical (the default PE
+# timestamp changes every exe on every build), so artifact digests are stable.
+schema = "bbtest.recipe/1"
+
+[[job]]
+name = "build"
+title = "ntdll corpus: build 34 exes"
+kind = "ntdll-build"
+
+[job.requires]
+profile = "xtest"
+limits = { deadline_s = 600 }
+policy = { max_attempts = 1 }
+
+[job.inputs]
+src = { git = true }
+
+[[job.step]]
+name = "make"
+run = ["make", "-j8", "CFLAGS=-O1 -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-format -Wl,--no-insert-timestamp"]
+
+[[job.step]]
+name = "pack"
+run = ["python3", "bbtest/pack_payload.py", "artifact", "--build-dir", "build"]
+
+[job.required]
+artifacts = ["ntdll-build.tar", "build-manifest.txt"]

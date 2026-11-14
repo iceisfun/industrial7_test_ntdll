@@ -30,7 +30,7 @@ static void rc_workspace(USHORT format, NTSTATUS expected)
     }
 }
 
-/* Dispatch rejects the low-byte format before touching any output or workspace. */
+/* The format is rejected on its low byte format before touching any output or workspace. */
 static void rc_invalid(unsigned api, USHORT format)
 {
     BYTE input[32] = {0}, output[64], work[64] = {0};

@@ -23,7 +23,7 @@ UDECL(ULONG, RtlFindLastBackwardRunClear, (BM *, ULONG, PULONG));
 UDECL(ULONG, RtlFindLongestRunClear, (BM *, PULONG));
 UDECL(ULONG, RtlFindClearRuns, (BM *, RUN *, ULONG, BOOLEAN));
 
-/* Extra words make the Windows implementation's rounded word reads safe. */
+/* Extra words keep word-granular reads inside the buffer. */
 typedef struct { _Alignas(8) ULONG before[2], words[12], after[2]; } STORAGE;
 _Static_assert(_Alignof(STORAGE)>=8 && offsetof(STORAGE,words)==8, "aligned rounded reads");
 static ULONG bit(const ULONG *p, ULONG i) { return (p[i / 32] >> (i % 32)) & 1; }

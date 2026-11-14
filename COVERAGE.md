@@ -1,67 +1,179 @@
 # Coverage
 
-**Initial broad corpus, not complete ntdll conformance.** Counts below come from compiled test symbols and the integrated smoke summaries, including macro-generated cases.
+Which `ntdll.dll` exports the tests refer to, per area. The list is name-based: an export is listed under an area when the area's sources call it (directly, through a typed pointer, or through a table of names). It says nothing about how deeply the behaviour is verified. `export_surface` additionally checks the whole export table (names, ordinals, forwarders) of Windows 10 22H2 build 19045 without calling each function.
 
-- Reference: ntdll 10.0.19041.2788, 2,433 exports (2,432 named, one ordinal-only).
-- 29 executables, 1640 compiled/runtime tests in this smoke pass.
-- 337 named exports have static invocation candidates; 2095 do not.
-- 613 names in the documentation-derived surface; 189 have static invocation candidates.
+Reference: ntdll.dll 10.0.19041.2788, 2433 exports (2432 named). Exports referenced by at least one area: 552.
 
-- Of those, 158 names have full user-context documentation matches; 52 have static invocation candidates. The remaining documentation matches are partial/variant/kernel-context evidence, not full user-mode contracts.
+| Area | Exports referenced |
+|---|---:|
+| `core_smoke` | 1 |
+| `crt_algorithms` | 22 |
+| `crt_strings` | 34 |
+| `export_surface` | 0 |
+| `harness_checks` | 5 |
+| `ldr_image` | 26 |
+| `nt_cancel_io` | 4 |
+| `nt_file` | 29 |
+| `nt_process` | 14 |
+| `nt_registry` | 28 |
+| `nt_sync` | 42 |
+| `nt_thread` | 22 |
+| `nt_token` | 25 |
+| `nt_vm` | 17 |
+| `rtl_bitmap` | 27 |
+| `rtl_compression` | 8 |
+| `rtl_context` | 29 |
+| `rtl_conversion` | 17 |
+| `rtl_environment` | 8 |
+| `rtl_hash` | 8 |
+| `rtl_heap` | 18 |
+| `rtl_memory` | 14 |
+| `rtl_netaddr` | 20 |
+| `rtl_numeric` | 11 |
+| `rtl_path` | 9 |
+| `rtl_path_ext` | 20 |
+| `rtl_security` | 51 |
+| `rtl_slist` | 9 |
+| `rtl_status` | 7 |
+| `rtl_strings` | 24 |
+| `rtl_strings_ext` | 22 |
+| `rtl_sync` | 41 |
+| `rtl_tables` | 42 |
+| `rtl_threadpool` | 20 |
+| `rtl_time` | 23 |
 
-These are **source-level candidates**, not proof of executed, asserted, deep, or Windows-correct behavior. Resolution-only checks do not count as calls. This inventory also uses compiler preprocessing to expand test macros; indirect helpers/aliases may still require manual review. Expanded locations are explicitly not original source line numbers. See `tools/coverage.json` for detected source locations, `tools/uncovered.txt` for all static gaps, `tools/public_uncovered.txt` for documentation-surface gaps, and `tools/full_user_uncovered.txt` for full-user-context gaps.
+## core_smoke
 
-The documented surface is derived reproducibly by `tools/map_public_surface.py`; its evidence distinguishes user-mode contracts from partial/kernel-context documentation. Header presence alone is not a behavioral contract. Consult `tools/public_surface_evidence.json` and `tools/public_surface_gaps.txt` before interpreting a denominator.
+`atoi`
 
-## Areas and integrated Wine smoke
+## crt_algorithms
 
-| Area | Tests | Failed | Skipped | Checks pass/fail | Completed |
-|---|---:|---:|---:|---:|---|
-| [core_smoke](tests/core_smoke/) | 3 | 0 | 0 | 4 / 0 | yes |
-| [crt_algorithms](tests/crt_algorithms/) | 159 | 0 | 0 | 45166 / 0 | yes |
-| [crt_strings](tests/crt_strings/) | 181 | 2 | 0 | 741 / 2 | yes |
-| [export_surface](tests/export_surface/) | 5 | 0 | 0 | 5905 / 0 | yes |
-| [harness_checks](tests/harness_checks/) | 11 | 0 | 1 | 39 / 0 | yes |
-| [ldr_image](tests/ldr_image/) | 44 | 2 | 0 | 95 / 6 | yes |
-| [nt_file](tests/nt_file/) | 50 | 0 | 0 | 383 / 0 | yes |
-| [nt_process](tests/nt_process/) | 47 | 12 | 0 | 258 / 21 | yes |
-| [nt_registry](tests/nt_registry/) | 42 | 0 | 0 | 449 / 0 | yes |
-| [nt_sync](tests/nt_sync/) | 69 | 7 | 0 | 685 / 9 | yes |
-| [nt_token](tests/nt_token/) | 28 | 7 | 0 | 518 / 14 | yes |
-| [nt_vm](tests/nt_vm/) | 52 | 5 | 0 | 489 / 5 | yes |
-| [rtl_bitmap](tests/rtl_bitmap/) | 41 | 2 | 1 | 1768 / 12 | yes |
-| [rtl_compression](tests/rtl_compression/) | 45 | 4 | 7 | 829 / 4 | yes |
-| [rtl_context](tests/rtl_context/) | 25 | 1 | 0 | 230 / 1 | yes |
-| [rtl_conversion](tests/rtl_conversion/) | 81 | 8 | 0 | 1282 / 11 | yes |
-| [rtl_environment](tests/rtl_environment/) | 46 | 5 | 0 | 711 / 5 | yes |
-| [rtl_hash](tests/rtl_hash/) | 59 | 0 | 34 | 2808 / 0 | yes |
-| [rtl_heap](tests/rtl_heap/) | 47 | 3 | 0 | 340 / 3 | yes |
-| [rtl_memory](tests/rtl_memory/) | 55 | 0 | 0 | 4349 / 0 | yes |
-| [rtl_numeric](tests/rtl_numeric/) | 82 | 3 | 3 | 534 / 17 | yes |
-| [rtl_path](tests/rtl_path/) | 68 | 0 | 0 | 215 / 0 | yes |
-| [rtl_security](tests/rtl_security/) | 73 | 11 | 0 | 351 / 12 | yes |
-| [rtl_status](tests/rtl_status/) | 55 | 1 | 0 | 406 / 3 | yes |
-| [rtl_strings](tests/rtl_strings/) | 65 | 4 | 0 | 984 / 9 | yes |
-| [rtl_sync](tests/rtl_sync/) | 50 | 7 | 0 | 192 / 10 | yes |
-| [rtl_tables](tests/rtl_tables/) | 50 | 1 | 25 | 1537 / 5 | yes |
-| [rtl_threadpool](tests/rtl_threadpool/) | 28 | 0 | 0 | 28 / 0 | yes |
-| [rtl_time](tests/rtl_time/) | 79 | 5 | 0 | 354 / 10 | yes |
+`bsearch`, `bsearch_s`, `isalnum`, `isalpha`, `iscntrl`, `isdigit`, `isgraph`, `islower`, `isprint`, `ispunct`, `isspace`, `isupper`, `isxdigit`, `memchr`, `memcmp`, `memcpy`, `memmove`, `memset`, `qsort`, `qsort_s`, `tolower`, `toupper`
 
-Most behavioral areas include `tests/<area>/EVIDENCE.md` with actual contract branches/URLs, reviewer changes, failure classifications and gaps. `core_smoke` and `harness_checks` test infrastructure; `export_surface` is export/alias integrity, **not behavioral API coverage**. Their checks are included in totals but must not inflate behavioral coverage claims.
+## crt_strings
 
-## Explicit limits and next depth pass
+`_stricmp`, `_wcsicmp`, `strcat`, `strcat_s`, `strchr`, `strcmp`, `strcpy`, `strcpy_s`, `strcspn`, `strlen`, `strncat`, `strncmp`, `strncpy`, `strnlen`, `strpbrk`, `strrchr`, `strspn`, `strstr`, `wcscat`, `wcscat_s`, `wcschr`, `wcscmp`, `wcscpy`, `wcscpy_s`, `wcscspn`, `wcslen`, `wcsncat`, `wcsncmp`, `wcsncpy`, `wcsnlen`, `wcspbrk`, `wcsrchr`, `wcsspn`, `wcsstr`
 
-- Native Windows results remain outstanding; current failure triage is static Windows evidence plus Wine smoke, not runtime confirmation.
-- Resolve-only handling of unknown signatures and ordinal 8 is deliberate; they are never invoked.
-- Exhaustive syscall validation/ordering, ALPC/LPC, ETW, transactions, loader internals, WNF, activation contexts, exception/unwind edge cases, advanced threadpool/I/O and undocumented internal RTL families remain gap/depth work.
-- Locale/NLS/DBCS, alternate architecture, privilege/elevation, hardware/SKU, alternate heap modes, real-world filesystem and cross-process races need dedicated passes.
-- No shutdown, account/security disabling, raw-disk or system-process destructive tests are included.
+## harness_checks
 
-Regenerate after a clean build/run:
+`NtClose`, `atoi`, `strcmp`, `strlen`, `strncmp`
 
-```sh
-python3 tools/coverage.py --preprocess
-python3 tools/audit_build.py > results/build_audit.json
-python3 tools/record_validation.py
-python3 tools/write_reports.py
-```
+## ldr_image
+
+`LdrAddRefDll`, `LdrEnumerateLoadedModules`, `LdrFindEntryForAddress`, `LdrGetDllHandle`, `LdrGetDllHandleEx`, `LdrGetProcedureAddress`, `LdrGetProcedureAddressEx`, `LdrLoadDll`, `LdrLockLoaderLock`, `LdrUnloadDll`, `LdrUnlockLoaderLock`, `NtClose`, `RtlAllocateHeap`, `RtlImageDirectoryEntryToData`, `RtlImageNtHeader`, `RtlImageNtHeaderEx`, `RtlImageRvaToSection`, `RtlImageRvaToVa`, `RtlInitUnicodeString`, `RtlPcToFileHeader`, `_wcsnicmp`, `memmove`, `memset`, `strcmp`, `strcpy`, `strlen`
+
+## nt_cancel_io
+
+`NtCancelIoFile`, `NtCancelIoFileEx`, `NtCancelSynchronousIoFile`, `NtReadFile`
+
+## nt_file
+
+`NtCancelIoFile`, `NtClose`, `NtCreateFile`, `NtDeleteFile`, `NtDeviceIoControlFile`, `NtFlushBuffersFile`, `NtFsControlFile`, `NtLockFile`, `NtOpenFile`, `NtQueryAttributesFile`, `NtQueryDirectoryFile`, `NtQueryFullAttributesFile`, `NtQueryInformationFile`, `NtQueryVolumeInformationFile`, `NtReadFile`, `NtSetInformationFile`, `NtSetVolumeInformationFile`, `NtUnlockFile`, `NtWriteFile`, `RtlDosPathNameToNtPathName_U`, `RtlFreeUnicodeString`, `memcmp`, `memcpy`, `memset`, `strchr`, `strcpy`, `strlen`, `wcslen`, `wcsrchr`
+
+## nt_process
+
+`NtDuplicateObject`, `NtOpenProcess`, `NtOpenThread`, `NtQueryInformationProcess`, `NtQueryInformationThread`, `NtQueryObject`, `NtQuerySystemInformation`, `NtQuerySystemTime`, `_wcsnicmp`, `memcmp`, `memcpy`, `memset`, `strrchr`, `wcslen`
+
+## nt_registry
+
+`NtClose`, `NtCreateKey`, `NtDeleteKey`, `NtDeleteValueKey`, `NtEnumerateKey`, `NtEnumerateValueKey`, `NtFlushKey`, `NtNotifyChangeKey`, `NtOpenKey`, `NtQueryKey`, `NtQueryMultipleValueKey`, `NtQueryValueKey`, `NtSetValueKey`, `RtlCheckRegistryKey`, `RtlCreateRegistryKey`, `RtlDeleteRegistryValue`, `RtlFormatCurrentUserKeyPath`, `RtlFreeUnicodeString`, `RtlOpenCurrentUser`, `RtlQueryRegistryValues`, `RtlWriteRegistryValue`, `_wcsnicmp`, `memcmp`, `memcpy`, `memset`, `strlen`, `swprintf`, `wcslen`
+
+## nt_sync
+
+`NtAlertThread`, `NtCancelTimer`, `NtClearEvent`, `NtClose`, `NtCreateEvent`, `NtCreateKeyedEvent`, `NtCreateMutant`, `NtCreateSemaphore`, `NtCreateTimer`, `NtDelayExecution`, `NtDuplicateObject`, `NtOpenEvent`, `NtOpenMutant`, `NtOpenProcessToken`, `NtOpenSemaphore`, `NtOpenTimer`, `NtPulseEvent`, `NtQueryEvent`, `NtQueryInformationProcess`, `NtQueryMutant`, `NtQueryObject`, `NtQuerySemaphore`, `NtQueryTimer`, `NtQueueApcThread`, `NtReleaseKeyedEvent`, `NtReleaseMutant`, `NtReleaseSemaphore`, `NtResetEvent`, `NtSetEvent`, `NtSetInformationObject`, `NtSetTimer`, `NtSignalAndWaitForSingleObject`, `NtTestAlert`, `NtWaitForKeyedEvent`, `NtWaitForMultipleObjects`, `NtWaitForSingleObject`, `NtYieldExecution`, `_wcsnicmp`, `memcmp`, `memset`, `swprintf`, `wcslen`
+
+## nt_thread
+
+`NtClose`, `NtCreateThreadEx`, `NtGetContextThread`, `NtQueryInformationProcess`, `NtQueryInformationThread`, `NtResumeThread`, `NtSetContextThread`, `NtSetInformationThread`, `NtSuspendThread`, `NtTerminateThread`, `NtWaitForSingleObject`, `NtYieldExecution`, `RtlAcquirePebLock`, `RtlCreateUserThread`, `RtlExitUserThread`, `RtlGetCurrentProcessorNumber`, `RtlGetCurrentProcessorNumberEx`, `RtlGetNtGlobalFlags`, `RtlReleasePebLock`, `RtlSetThreadIsCritical`, `memcmp`, `memset`
+
+## nt_token
+
+`NtAccessCheck`, `NtAdjustPrivilegesToken`, `NtClose`, `NtDuplicateToken`, `NtFilterToken`, `NtOpenProcessToken`, `NtOpenThreadToken`, `NtQueryInformationToken`, `NtQuerySecurityObject`, `NtSetInformationToken`, `NtSetSecurityObject`, `RtlAddAccessAllowedAceEx`, `RtlAddAccessDeniedAceEx`, `RtlAdjustPrivilege`, `RtlCreateAcl`, `RtlCreateSecurityDescriptor`, `RtlGetDaclSecurityDescriptor`, `RtlGetOwnerSecurityDescriptor`, `RtlSetDaclSecurityDescriptor`, `RtlSetGroupSecurityDescriptor`, `RtlSetOwnerSecurityDescriptor`, `RtlValidSecurityDescriptor`, `memcmp`, `memcpy`, `memset`
+
+## nt_vm
+
+`NtAllocateVirtualMemory`, `NtClose`, `NtCreateSection`, `NtFlushVirtualMemory`, `NtFreeVirtualMemory`, `NtLockVirtualMemory`, `NtMapViewOfSection`, `NtProtectVirtualMemory`, `NtQuerySection`, `NtQueryVirtualMemory`, `NtReadVirtualMemory`, `NtUnlockVirtualMemory`, `NtUnmapViewOfSection`, `NtWriteVirtualMemory`, `memcmp`, `memcpy`, `memset`
+
+## rtl_bitmap
+
+`RtlAreBitsClear`, `RtlAreBitsSet`, `RtlClearAllBits`, `RtlClearBit`, `RtlClearBitEx`, `RtlClearBits`, `RtlFindClearBits`, `RtlFindClearBitsAndSet`, `RtlFindClearRuns`, `RtlFindLastBackwardRunClear`, `RtlFindLongestRunClear`, `RtlFindNextForwardRunClear`, `RtlFindSetBits`, `RtlFindSetBitsAndClear`, `RtlInitializeBitMap`, `RtlNumberOfClearBits`, `RtlNumberOfSetBits`, `RtlNumberOfSetBitsUlongPtr`, `RtlSetAllBits`, `RtlSetBit`, `RtlSetBitEx`, `RtlSetBits`, `RtlTestBit`, `RtlTestBitEx`, `memcmp`, `memcpy`, `memset`
+
+## rtl_compression
+
+`RtlCompressBuffer`, `RtlDecompressBuffer`, `RtlDecompressBufferEx`, `RtlDecompressFragment`, `RtlGetCompressionWorkSpaceSize`, `memcmp`, `memcpy`, `memset`
+
+## rtl_context
+
+`NtContinue`, `NtRaiseException`, `RtlAddFunctionTable`, `RtlAddVectoredContinueHandler`, `RtlAddVectoredExceptionHandler`, `RtlCaptureContext`, `RtlCaptureStackBackTrace`, `RtlDeleteFunctionTable`, `RtlGetEnabledExtendedFeatures`, `RtlGetExtendedContextLength`, `RtlGetExtendedFeaturesMask`, `RtlGetFunctionTableListHead`, `RtlInitializeExtendedContext`, `RtlInstallFunctionTableCallback`, `RtlLocateExtendedFeature`, `RtlLocateLegacyContext`, `RtlLookupFunctionEntry`, `RtlPcToFileHeader`, `RtlRaiseException`, `RtlRaiseStatus`, `RtlRemoveVectoredContinueHandler`, `RtlRemoveVectoredExceptionHandler`, `RtlRestoreContext`, `RtlSetExtendedFeaturesMask`, `RtlUnwindEx`, `RtlVirtualUnwind`, `atoi`, `memset`, `strcmp`
+
+## rtl_conversion
+
+`RtlAnsiStringToUnicodeString`, `RtlFreeAnsiString`, `RtlFreeOemString`, `RtlFreeUnicodeString`, `RtlMultiByteToUnicodeN`, `RtlMultiByteToUnicodeSize`, `RtlOemStringToUnicodeString`, `RtlOemToUnicodeN`, `RtlUTF8ToUnicodeN`, `RtlUnicodeStringToAnsiString`, `RtlUnicodeStringToOemString`, `RtlUnicodeToMultiByteN`, `RtlUnicodeToMultiByteSize`, `RtlUnicodeToOemN`, `RtlUnicodeToUTF8N`, `memcmp`, `memset`
+
+## rtl_environment
+
+`RtlCreateEnvironment`, `RtlDestroyEnvironment`, `RtlExpandEnvironmentStrings_U`, `RtlQueryEnvironmentVariable_U`, `RtlSetEnvironmentVariable`, `memcmp`, `memset`, `wcslen`
+
+## rtl_hash
+
+`RtlComputeCrc32`, `RtlCrc32`, `RtlCrc64`, `RtlRandom`, `RtlRandomEx`, `RtlUniform`, `memcmp`, `memcpy`
+
+## rtl_heap
+
+`RtlAllocateHeap`, `RtlCompactHeap`, `RtlCreateHeap`, `RtlDestroyHeap`, `RtlFreeHeap`, `RtlGetNtGlobalFlags`, `RtlGetProcessHeaps`, `RtlLockHeap`, `RtlQueryHeapInformation`, `RtlReAllocateHeap`, `RtlSetHeapInformation`, `RtlSizeHeap`, `RtlUnlockHeap`, `RtlValidateHeap`, `RtlValidateProcessHeaps`, `RtlWalkHeap`, `memcpy`, `memset`
+
+## rtl_memory
+
+`RtlCompareMemory`, `RtlCompareMemoryUlong`, `RtlCopyMemoryNonTemporal`, `RtlDecodePointer`, `RtlEncodePointer`, `RtlFillMemory`, `RtlMoveMemory`, `RtlRunDecodeUnicodeString`, `RtlRunEncodeUnicodeString`, `RtlZeroMemory`, `memcmp`, `memcpy`, `memmove`, `memset`
+
+## rtl_netaddr
+
+`RtlIpv4AddressToStringA`, `RtlIpv4AddressToStringExA`, `RtlIpv4AddressToStringExW`, `RtlIpv4AddressToStringW`, `RtlIpv4StringToAddressA`, `RtlIpv4StringToAddressExA`, `RtlIpv4StringToAddressExW`, `RtlIpv4StringToAddressW`, `RtlIpv6AddressToStringA`, `RtlIpv6AddressToStringExA`, `RtlIpv6AddressToStringExW`, `RtlIpv6AddressToStringW`, `RtlIpv6StringToAddressA`, `RtlIpv6StringToAddressExA`, `RtlIpv6StringToAddressExW`, `RtlIpv6StringToAddressW`, `memcmp`, `memset`, `strcmp`, `strlen`
+
+## rtl_numeric
+
+`RtlCharToInteger`, `RtlIntegerToChar`, `RtlIntegerToUnicodeString`, `RtlLargeIntegerToChar`, `RtlUnicodeStringToInteger`, `abs`, `labs`, `memcmp`, `memcpy`, `memset`, `strlen`
+
+## rtl_path
+
+`RtlDetermineDosPathNameType_U`, `RtlDosPathNameToNtPathName_U`, `RtlDosPathNameToNtPathName_U_WithStatus`, `RtlFreeUnicodeString`, `RtlGetCurrentDirectory_U`, `RtlGetFullPathName_U`, `RtlIsDosDeviceName_U`, `memcmp`, `memset`
+
+## rtl_path_ext
+
+`RtlDoesFileExists_U`, `RtlDosPathNameToNtPathName_U`, `RtlDosPathNameToRelativeNtPathName_U`, `RtlDosPathNameToRelativeNtPathName_U_WithStatus`, `RtlDosSearchPath_U`, `RtlFreeUnicodeString`, `RtlGenerate8dot3Name`, `RtlGetCurrentDirectory_U`, `RtlGetFullPathName_U`, `RtlGetFullPathName_UEx`, `RtlGetLongestNtPathLength`, `RtlIsNameLegalDOS8Dot3`, `RtlReleaseRelativeName`, `RtlSetCurrentDirectory_U`, `_wcsnicmp`, `abs`, `memcmp`, `memcpy`, `memset`, `wcschr`
+
+## rtl_security
+
+`RtlAbsoluteToSelfRelativeSD`, `RtlAddAccessAllowedAce`, `RtlAddAccessAllowedAceEx`, `RtlAddAccessDeniedAce`, `RtlAddAccessDeniedAceEx`, `RtlAddAce`, `RtlAddAuditAccessAce`, `RtlAllocateAndInitializeSid`, `RtlAreAllAccessesGranted`, `RtlAreAnyAccessesGranted`, `RtlConvertSidToUnicodeString`, `RtlCopyLuid`, `RtlCopySid`, `RtlCreateAcl`, `RtlCreateSecurityDescriptor`, `RtlCreateServiceSid`, `RtlDeleteAce`, `RtlEqualPrefixSid`, `RtlEqualSid`, `RtlFirstFreeAce`, `RtlFreeSid`, `RtlFreeUnicodeString`, `RtlGetAce`, `RtlGetControlSecurityDescriptor`, `RtlGetDaclSecurityDescriptor`, `RtlGetGroupSecurityDescriptor`, `RtlGetOwnerSecurityDescriptor`, `RtlGetSaclSecurityDescriptor`, `RtlIdentifierAuthoritySid`, `RtlInitializeSid`, `RtlLengthRequiredSid`, `RtlLengthSecurityDescriptor`, `RtlLengthSid`, `RtlMapGenericMask`, `RtlQueryInformationAcl`, `RtlSelfRelativeToAbsoluteSD`, `RtlSetControlSecurityDescriptor`, `RtlSetDaclSecurityDescriptor`, `RtlSetGroupSecurityDescriptor`, `RtlSetInformationAcl`, `RtlSetOwnerSecurityDescriptor`, `RtlSetSaclSecurityDescriptor`, `RtlSubAuthorityCountSid`, `RtlSubAuthoritySid`, `RtlValidAcl`, `RtlValidSecurityDescriptor`, `RtlValidSid`, `abs`, `memcmp`, `memcpy`, `memset`
+
+## rtl_slist
+
+`RtlFirstEntrySList`, `RtlInitializeSListHead`, `RtlInterlockedFlushSList`, `RtlInterlockedPopEntrySList`, `RtlInterlockedPushEntrySList`, `RtlInterlockedPushListSList`, `RtlInterlockedPushListSListEx`, `RtlQueryDepthSList`, `memset`
+
+## rtl_status
+
+`RtlGetLastNtStatus`, `RtlGetLastWin32Error`, `RtlNtStatusToDosError`, `RtlNtStatusToDosErrorNoTeb`, `RtlRestoreLastWin32Error`, `RtlSetLastWin32Error`, `RtlSetLastWin32ErrorAndNtStatusFromNtStatus`
+
+## rtl_strings
+
+`RtlAppendStringToString`, `RtlAppendUnicodeStringToString`, `RtlAppendUnicodeToString`, `RtlCompareString`, `RtlCompareUnicodeString`, `RtlCopyString`, `RtlCopyUnicodeString`, `RtlDowncaseUnicodeChar`, `RtlDuplicateUnicodeString`, `RtlEqualString`, `RtlEqualUnicodeString`, `RtlFindCharInUnicodeString`, `RtlFreeUnicodeString`, `RtlHashUnicodeString`, `RtlInitAnsiString`, `RtlInitUnicodeString`, `RtlInitUnicodeStringEx`, `RtlPrefixString`, `RtlPrefixUnicodeString`, `RtlUpcaseUnicodeChar`, `RtlUpcaseUnicodeString`, `memcmp`, `memset`, `wcslen`
+
+## rtl_strings_ext
+
+`RtlAppendAsciizToString`, `RtlCompareUnicodeStrings`, `RtlCreateUnicodeString`, `RtlCreateUnicodeStringFromAsciiz`, `RtlDowncaseUnicodeString`, `RtlFreeAnsiString`, `RtlFreeUnicodeString`, `RtlGUIDFromString`, `RtlInitAnsiStringEx`, `RtlInt64ToUnicodeString`, `RtlIsNormalizedString`, `RtlIsTextUnicode`, `RtlNormalizeString`, `RtlStringFromGUID`, `RtlUpcaseUnicodeStringToAnsiString`, `RtlUpcaseUnicodeToMultiByteN`, `RtlUpperString`, `RtlValidateUnicodeString`, `RtlxAnsiStringToUnicodeSize`, `RtlxUnicodeStringToAnsiSize`, `memcmp`, `memset`
+
+## rtl_sync
+
+`RtlAcquireSRWLockExclusive`, `RtlAcquireSRWLockShared`, `RtlCreateTimer`, `RtlCreateTimerQueue`, `RtlDeleteCriticalSection`, `RtlDeleteTimer`, `RtlDeleteTimerQueueEx`, `RtlDeregisterWait`, `RtlDeregisterWaitEx`, `RtlEnterCriticalSection`, `RtlInitializeConditionVariable`, `RtlInitializeCriticalSection`, `RtlInitializeCriticalSectionAndSpinCount`, `RtlInitializeCriticalSectionEx`, `RtlInitializeSRWLock`, `RtlIsCriticalSectionLocked`, `RtlIsCriticalSectionLockedByThread`, `RtlLeaveCriticalSection`, `RtlQueueWorkItem`, `RtlRegisterWait`, `RtlReleaseSRWLockExclusive`, `RtlReleaseSRWLockShared`, `RtlRunOnceBeginInitialize`, `RtlRunOnceComplete`, `RtlRunOnceExecuteOnce`, `RtlRunOnceInitialize`, `RtlSetCriticalSectionSpinCount`, `RtlSleepConditionVariableCS`, `RtlSleepConditionVariableSRW`, `RtlTryAcquireSRWLockExclusive`, `RtlTryAcquireSRWLockShared`, `RtlTryEnterCriticalSection`, `RtlUpdateTimer`, `RtlWaitOnAddress`, `RtlWakeAddressAll`, `RtlWakeAddressSingle`, `RtlWakeAllConditionVariable`, `RtlWakeConditionVariable`, `atoi`, `memcmp`, `memset`
+
+## rtl_tables
+
+`NtAddAtom`, `NtDeleteAtom`, `NtFindAtom`, `NtQueryInformationAtom`, `RtlAddAtomToAtomTable`, `RtlCreateAtomTable`, `RtlDelete`, `RtlDeleteAtomFromAtomTable`, `RtlDeleteElementGenericTable`, `RtlDeleteElementGenericTableAvl`, `RtlDeleteNoSplay`, `RtlDestroyAtomTable`, `RtlEmptyAtomTable`, `RtlEnumerateGenericTable`, `RtlEnumerateGenericTableAvl`, `RtlEnumerateGenericTableWithoutSplaying`, `RtlEnumerateGenericTableWithoutSplayingAvl`, `RtlGetElementGenericTable`, `RtlGetElementGenericTableAvl`, `RtlInitializeGenericTable`, `RtlInitializeGenericTableAvl`, `RtlInsertElementGenericTable`, `RtlInsertElementGenericTableFull`, `RtlInsertElementGenericTableFullAvl`, `RtlIsGenericTableEmpty`, `RtlIsGenericTableEmptyAvl`, `RtlLookupAtomInAtomTable`, `RtlLookupElementGenericTable`, `RtlLookupElementGenericTableFull`, `RtlLookupElementGenericTableFullAvl`, `RtlNumberGenericTableElements`, `RtlNumberGenericTableElementsAvl`, `RtlPinAtomInAtomTable`, `RtlQueryAtomInAtomTable`, `RtlRealPredecessor`, `RtlRealSuccessor`, `RtlSplay`, `RtlSubtreePredecessor`, `RtlSubtreeSuccessor`, `memcmp`, `memcpy`, `memset`
+
+## rtl_threadpool
+
+`TpAllocPool`, `TpAllocTimer`, `TpAllocWait`, `TpAllocWork`, `TpCallbackSetEventOnCompletion`, `TpIsTimerSet`, `TpPostWork`, `TpReleasePool`, `TpReleaseTimer`, `TpReleaseWait`, `TpReleaseWork`, `TpSetPoolMaxThreads`, `TpSetTimer`, `TpSetWait`, `TpSimpleTryPost`, `TpWaitForTimer`, `TpWaitForWait`, `TpWaitForWork`, `atoi`, `memset`
+
+## rtl_time
+
+`NtQueryPerformanceCounter`, `NtQuerySystemTime`, `NtQueryTimerResolution`, `NtSetTimerResolution`, `RtlGetCurrentProcessorNumber`, `RtlGetNtProductType`, `RtlGetSystemTimePrecise`, `RtlGetVersion`, `RtlLocalTimeToSystemTime`, `RtlQueryPerformanceCounter`, `RtlQueryPerformanceFrequency`, `RtlQueryTimeZoneInformation`, `RtlQueryUnbiasedInterruptTime`, `RtlSecondsSince1970ToTime`, `RtlSecondsSince1980ToTime`, `RtlSystemTimeToLocalTime`, `RtlTimeFieldsToTime`, `RtlTimeToElapsedTimeFields`, `RtlTimeToSecondsSince1970`, `RtlTimeToSecondsSince1980`, `RtlTimeToTimeFields`, `memcmp`, `memset`
