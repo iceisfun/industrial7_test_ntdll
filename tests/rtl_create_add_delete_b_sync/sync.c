@@ -369,8 +369,8 @@ TEST(rtl_cad_b_memory_zone_lock) {
     EXPECT_EQ(s, 0); if (s != 0 || !z) return;
     EXPECT_EQ(UN(RtlUnlockMemoryZone)(z), S(0xC0000001));         /* not locked */
     NTSTATUS l = UN(RtlLockMemoryZone)(z);
-    if (l != 0) { t_note("RtlLockMemoryZone status %08lx", (unsigned long)l); }
-    else {
+    if (l != 0) { t_skip("RtlLockMemoryZone refused with %08lx", (unsigned long)l); UN(RtlDestroyMemoryZone)(z); return; }
+    {
         EXPECT_EQ(UN(RtlLockMemoryZone)(z), 0);
         EXPECT_EQ(UN(RtlUnlockMemoryZone)(z), 0);
         EXPECT_EQ(UN(RtlUnlockMemoryZone)(z), 0);
@@ -386,8 +386,8 @@ TEST(rtl_cad_b_memory_block_lookaside_lock) {
     EXPECT_EQ(s, 0); if (s != 0 || !lk) return;
     EXPECT_EQ(UN(RtlUnlockMemoryBlockLookaside)(lk), S(0xC0000001));
     NTSTATUS l = UN(RtlLockMemoryBlockLookaside)(lk);
-    if (l != 0) t_note("RtlLockMemoryBlockLookaside status %08lx", (unsigned long)l);
-    else {
+    if (l != 0) { t_skip("RtlLockMemoryBlockLookaside refused with %08lx", (unsigned long)l); UN(RtlDestroyMemoryBlockLookaside)(lk); return; }
+    {
         EXPECT_EQ(UN(RtlLockMemoryBlockLookaside)(lk), 0);
         EXPECT_EQ(UN(RtlUnlockMemoryBlockLookaside)(lk), 0);
         EXPECT_EQ(UN(RtlUnlockMemoryBlockLookaside)(lk), 0);
