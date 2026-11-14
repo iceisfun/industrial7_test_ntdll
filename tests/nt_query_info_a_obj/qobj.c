@@ -108,7 +108,8 @@ TEST(qobj_directory)
     ctx = 0;
     s = UN(NtQueryDirectoryObject)(h, buf, 2 * sizeof(DIRENT) + 100, FALSE, TRUE, &ctx, &ret);
     t_note("partial buffer = %08lx ctx %lu", (unsigned long)s, ctx);
-    CHECK(s == 0 || s == S(0x105));
+    EXPECT_EQ(s, S(0x105));                    /* STATUS_MORE_ENTRIES: the 132-byte buffer cannot hold the whole set */
+    CHECK(ctx >= 1 && ctx < total);
     UN(NtClose)(h);
     /* invalid / wrong-type handle */
     s = UN(NtQueryDirectoryObject)((HANDLE)(ULONG_PTR)0x7777, buf, sizeof buf, FALSE, TRUE, &ctx, &ret);
@@ -275,11 +276,12 @@ TEST(qobj_security_object)
     /* empty selection still produces a header-only descriptor */
     s = UN(NtQuerySecurityObject)(ev, 0, &sd, sizeof sd, &need2);
     t_note("info=0 -> %08lx need %lu", (unsigned long)s, need2);
-    CHECK(s == 0 || s == ST_INV_PARM);
+    EXPECT_EQ(s, 0);                                   /* observed: header-only descriptor */
+    EXPECT_EQ(need2, 20);
     /* SACL needs ACCESS_SYSTEM_SECURITY, not granted by an ordinary token */
     s = UN(NtQuerySecurityObject)(ev, SACL_SECURITY_INFORMATION, &sd, sizeof sd, &need2);
     t_note("SACL -> %08lx", (unsigned long)s);
-    CHECK(s == ST_DENIED || s == S(0xC0000061) || s == 0);
+    EXPECT_EQ(s, ST_DENIED);
     /* a handle without READ_CONTROL */
     CHECK(DuplicateHandle(GetCurrentProcess(), ev, GetCurrentProcess(), &weak, EVENT_MODIFY_STATE, FALSE, 0));
     if (weak) {
@@ -431,7 +433,7 @@ TEST(qobj_job)
     EXPECT_EQ(s, ST_INV_CLASS);
     s = UN(NtQueryInformationJobObject)(job, 0, &buf, sizeof buf, &ret);
     t_note("class 0 = %08lx", (unsigned long)s);
-    CHECK(s == ST_INV_CLASS || s == ST_INV_PARM);
+    EXPECT_EQ(s, ST_INV_CLASS);
     /* handle checks */
     s = UN(NtQueryInformationJobObject)((HANDLE)(ULONG_PTR)0x7777, 2, &bl, sizeof bl, &ret);
     EXPECT_EQ(s, ST_INV_HANDLE);

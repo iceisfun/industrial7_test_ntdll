@@ -16,3 +16,5 @@ All files and handles live in the per-process scratch directory (`t_tmpdir`) or 
 | NtQueryQuotaInformationFile | invalid handle STATUS_INVALID_HANDLE; query on an NTFS file or volume handle without quota entries returns success with Information 56 (a note, not asserted: it depends on the quota state of the volume) | observed |
 
 Skips: qfile_ea skips when the scratch volume cannot store EAs (STATUS_EAS_NOT_SUPPORTED / STATUS_INVALID_DEVICE_REQUEST).
+
+Review hardening (observed on 19041): a wildcard character in the path is STATUS_OBJECT_NAME_INVALID; NtQueryAttributesFile with a NULL output is STATUS_ACCESS_VIOLATION; NtQueryInformationByName with a short buffer is STATUS_INFO_LENGTH_MISMATCH; NtQueryEaFile with a short or zero-length buffer is STATUS_BUFFER_TOO_SMALL and an EA list naming an absent attribute returns an entry with zero value length (Information = 15); NtQueryQuotaInformationFile on a file handle returns one FILE_QUOTA_INFORMATION (40-byte header plus SID, observed-only behaviour for a non-volume handle) and STATUS_BUFFER_TOO_SMALL for an 8-byte buffer.

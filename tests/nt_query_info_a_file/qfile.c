@@ -125,9 +125,11 @@ TEST(qfile_attributes_file)
       UN(RtlInitUnicodeString)(&m, L"\\??\\C:\\a<b");
       InitializeObjectAttributes(&oa, &m, OBJ_CASE_INSENSITIVE, NULL, NULL);
       s = UN(NtQueryAttributesFile)(&oa, &bi); t_note("wildcard name = %08lx", (unsigned long)s);
-      CHECK(s == ST_NAME_INV || s == ST_NOT_FOUND || s == ST_PATH_NF); }
+      EXPECT_EQ(s, ST_NAME_INV); }
+    InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
     s = UN(NtQueryAttributesFile)(&oa, NULL);
     t_note("NULL out = %08lx", (unsigned long)s);
+    EXPECT_EQ(s, ST_AV);
     UN(RtlFreeUnicodeString)(&us);
     rmfile("qa_file.dat");
 }
@@ -190,7 +192,7 @@ TEST(qfile_by_name)
     /* too short */
     s = UN(NtQueryInformationByName)(&oa, &io, &buf, 8, 68);
     t_note("ByName short = %08lx", (unsigned long)s);
-    CHECK(s == ST_LEN_MISM || s == ST_TOO_SMALL);
+    EXPECT_EQ(s, ST_LEN_MISM);
     /* classes without a by-name implementation */
     s = UN(NtQueryInformationByName)(&oa, &io, &buf, 256, 4);  EXPECT_EQ(s, ST_INV_PARM);
     s = UN(NtQueryInformationByName)(&oa, &io, &buf, 256, 5);  EXPECT_EQ(s, ST_INV_PARM);
@@ -406,14 +408,16 @@ TEST(qfile_ea)
     /* buffer too small for the single entry */
     s = UN(NtQueryEaFile)(h, &io, out, 8, FALSE, NULL, 0, NULL, TRUE);
     t_note("EA small buffer = %08lx", (unsigned long)s);
-    CHECK(s == ST_OVERFLOW || s == ST_TOO_SMALL || s == ST_LEN_MISM);
+    EXPECT_EQ(s, ST_TOO_SMALL);
     /* EA list with a name that is absent: entry returned with zero value length */
     { BYTE list[32]; GEA *g = (GEA *)list; memset(list, 0, sizeof list);
       g->nlen = 6; memcpy(g->name, "NOSUCH", 7);
       memset(out, 0xcc, sizeof out);
       s = UN(NtQueryEaFile)(h, &io, out, sizeof out, FALSE, list, 5 + 7, NULL, TRUE);
       t_note("EA list absent = %08lx info %llu", (unsigned long)s, (unsigned long long)io.Information);
-      if (s >= 0) { EXPECT_EQ(((FEA *)out)->vlen, 0); EXPECT_EQ(((FEA *)out)->nlen, 6); }
+      EXPECT_EQ(s, 0);
+      EXPECT_EQ(((FEA *)out)->vlen, 0); EXPECT_EQ(((FEA *)out)->nlen, 6);
+      EXPECT_EQ(io.Information, 8 + 7);
       memset(list, 0, sizeof list); g->nlen = 6; memcpy(g->name, "MYATTR", 7);
       s = UN(NtQueryEaFile)(h, &io, out, sizeof out, FALSE, list, 5 + 7, NULL, TRUE);
       EXPECT_EQ(s, 0);
@@ -430,7 +434,7 @@ TEST(qfile_ea)
     EXPECT_EQ(s, ST_INV_HANDLE);
     s = UN(NtQueryEaFile)(h, &io, out, 0, FALSE, NULL, 0, NULL, TRUE);
     t_note("EA zero length = %08lx", (unsigned long)s);
-    CHECK(s < 0 || s == 0);
+    EXPECT_EQ(s, ST_TOO_SMALL);                      /* observed */
 done:
     UN(NtClose)(h);
     UN(RtlFreeUnicodeString)(&us);
@@ -449,6 +453,15 @@ TEST(qfile_quota)
     if (s == 0) {
         s = UN(NtQueryQuotaInformationFile)(h, &io, out, sizeof out, FALSE, NULL, 0, NULL, TRUE);
         t_note("Quota on a file handle = %08lx info %llu", (unsigned long)s, (unsigned long long)io.Information);
+        EXPECT_EQ(s, 0);                             /* observed: a file handle is accepted and yields the volume's first quota entry */
+        if (s == 0) {
+            ULONG sl = *(ULONG *)(out + 4);          /* FILE_QUOTA_INFORMATION.SidLength */
+            CHECK(sl >= 8 && sl <= 68 && out[40] == 1);   /* Sid revision 1 follows the 40-byte header */
+            EXPECT_EQ(io.Information, 40 + sl);
+            EXPECT_EQ(*(ULONG *)out, 0);             /* single entry requested */
+        }
+        s = UN(NtQueryQuotaInformationFile)(h, &io, out, 8, FALSE, NULL, 0, NULL, TRUE);
+        EXPECT_EQ(s, ST_TOO_SMALL);
         UN(NtClose)(h);
     }
     s = UN(NtQueryQuotaInformationFile)((HANDLE)(ULONG_PTR)0x7777, &io, out, sizeof out, FALSE, NULL, 0, NULL, TRUE);

@@ -24,6 +24,7 @@ UDECL(NTSTATUS, NtDeleteWnfStateData, (const ULONGLONG *, const void *));
 UDECL(NTSTATUS, NtQueryWnfStateData, (const ULONGLONG *, PVOID, const void *, PULONG, PVOID, PULONG));
 UDECL(NTSTATUS, NtQueryWnfStateNameInformation, (const ULONGLONG *, ULONG, const void *, PVOID, ULONG));
 UDECL(NTSTATUS, NtQueryInformationPort, (HANDLE, ULONG, PVOID, ULONG, PULONG));
+UDECL(NTSTATUS, NtCreatePort, (PHANDLE, POBJECT_ATTRIBUTES, ULONG, ULONG, ULONG));
 UDECL(NTSTATUS, NtQuerySecurityPolicy, (PVOID, PVOID, PVOID, PVOID, PVOID, PVOID));
 UDECL(NTSTATUS, NtCreateTransaction, (PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, LPGUID, HANDLE, ULONG, ULONG, ULONG, PLARGE_INTEGER, PUNICODE_STRING));
 UDECL(NTSTATUS, NtQueryInformationTransaction, (HANDLE, ULONG, PVOID, ULONG, PULONG));
@@ -126,7 +127,7 @@ TEST(qmisc_multiple_value_key)
     blen = sizeof buf;
     s = UN(NtQueryMultipleValueKey)(k, e, 0, buf, &blen, &req);
     t_note("zero entries = %08lx", (unsigned long)s);
-    CHECK(s == 0 || s == ST_INV_PARM);
+    EXPECT_EQ(s, 0);                                  /* observed */
     /* handle checks */
     blen = sizeof buf;
     s = UN(NtQueryMultipleValueKey)((HANDLE)(ULONG_PTR)0x7777, e, 1, buf, &blen, &req);
@@ -300,6 +301,7 @@ TEST(qmisc_wnf)
     sz = sizeof buf; stamp = 0xcc;
     s = UN(NtQueryWnfStateData)(&name, NULL, NULL, &stamp, buf, &sz);
     t_note("query before update = %08lx stamp %lu size %lu", (unsigned long)s, stamp, sz);
+    EXPECT_EQ(s, 0);                                  /* observed: a fresh name reports an empty state, not an error */
     EXPECT_EQ(stamp, 0);
     EXPECT_EQ(sz, 0);
     /* publish and read back */
@@ -361,7 +363,30 @@ TEST(qmisc_port_info)
       t_note("port info on event = %08lx", (unsigned long)s);
       CHECK(s == ST_TYPE_MISM || s == ST_INV_HANDLE);
       CloseHandle(ev); }
-
+    /* a real (legacy LPC) server port */
+    if (UN(NtCreatePort)) {
+        UNICODE_STRING pn; OBJECT_ATTRIBUTES oa; WCHAR nm[96]; HANDLE ph = NULL;
+        swprintf(nm, 96, L"\\RPC Control\\ntdllt_qip_%lu", GetCurrentProcessId());
+        UN(RtlInitUnicodeString)(&pn, nm);
+        InitializeObjectAttributes(&oa, &pn, OBJ_CASE_INSENSITIVE, NULL, NULL);
+        s = UN(NtCreatePort)(&ph, &oa, 0, 0x100, 0);
+        t_note("NtCreatePort = %08lx", (unsigned long)s);
+        if (s >= 0) {
+            for (ULONG c = 0; c < 4; c++) {
+                memset(buf, 0xcc, sizeof buf); ret = 0xcc;
+                s = UN(NtQueryInformationPort)(ph, c, buf, sizeof buf, &ret);
+                /* observed on 19041: the call is accepted and writes nothing (informational classes are unimplemented) */
+                EXPECT_EQ(s, 0);
+                EXPECT_EQ(ret, 0);
+                CHECK(buf[0] == 0xcc && buf[sizeof buf - 1] == 0xcc);
+            }
+            s = UN(NtQueryInformationPort)(ph, 0x7777, buf, sizeof buf, &ret);
+            t_note("QIP class 0x7777 = %08lx", (unsigned long)s);
+            s = UN(NtQueryInformationPort)(ph, 0, buf, 0, &ret);
+            t_note("QIP zero length = %08lx", (unsigned long)s);
+            UN(NtClose)(ph);
+        }
+    }
 }
 
 TEST(qmisc_security_policy)
@@ -457,7 +482,7 @@ TEST(qmisc_tm_rm_enlistment)
         CHECK(!memcmp(buf.b, &rmid, 16));
         EXPECT_EQ(*(ULONG *)(buf.b + 16), 18);                                       /* DescriptionLength bytes */
         CHECK(!memcmp(buf.b + 20, L"ntdllt_rm", 18));
-        t_note("rm basic ret %lu", ret);
+        EXPECT_EQ(ret, 38);                                                          /* 20-byte header + description */
         s = UN(NtQueryInformationResourceManager)(rm, 0, &buf, 8, &ret);
         EXPECT_EQ(s, ST_TOO_SMALL);
         s = UN(NtQueryInformationResourceManager)(rm, 0x7777, &buf, sizeof buf, &ret);

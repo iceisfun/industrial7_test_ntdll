@@ -26,3 +26,5 @@ Skips: `sys_firmware_privileged` skips when the token cannot enable SeSystemEnvi
 the privilege adjust returns STATUS_PRIVILEGE_NOT_HELD).
 
 Nt/Zw pairs: the test compares the exported addresses of every Nt/Zw pair (they share an RVA).
+
+Review hardening (all observed on 19041): NtQueryAuxiliaryCounterFrequency accepts only success or STATUS_NOT_SUPPORTED and returns STATUS_ACCESS_VIOLATION for a NULL out pointer; NtQuerySystemInformationEx class 0 without input is STATUS_INVALID_PARAMETER; NtQueryLicenseValue with a NULL buffer is STATUS_BUFFER_TOO_SMALL with the size, and a NULL or empty name is STATUS_INVALID_PARAMETER; NtQueryIntervalProfile sources 1 and 0x1000 return 0 (observed-only); NtQueryDebugFilterState with an unknown component returns 0 and is stable across calls; NtQueryPortInformationProcess returns 0 or 1 and is stable across calls.

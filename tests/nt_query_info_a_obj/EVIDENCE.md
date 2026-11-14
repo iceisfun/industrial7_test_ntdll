@@ -14,3 +14,5 @@ public headers.
 | NtQueryInformationJobObject | empty job: accounting class 1 all zero, class 2 reflects kernel32-set ActiveProcessLimit 7 and native priority class 5 (below normal), class 9 extended, class 3 empty list; short buffer STATUS_INFO_LENGTH_MISMATCH; class 0x7777 and 0 STATUS_INVALID_INFO_CLASS; bogus handle STATUS_INVALID_HANDLE; event STATUS_OBJECT_TYPE_MISMATCH; handle with only JOB_OBJECT_SET_ATTRIBUTES STATUS_ACCESS_DENIED | observed |
 
 Nt/Zw alias pairs share an address (asserted by qobj_alias_pairs).
+
+Review hardening (observed on 19041): NtQueryDirectoryObject with a buffer too small for the set returns STATUS_MORE_ENTRIES; NtQuerySecurityObject with no information selected returns a 20-byte header-only descriptor, and SACL_SECURITY_INFORMATION on a default-access handle is STATUS_ACCESS_DENIED; NtQueryInformationJobObject class 0 is STATUS_INVALID_INFO_CLASS.

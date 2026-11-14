@@ -20,3 +20,5 @@ headers (KEY_VALUE_ENTRY, FILE_*; TRANSACTION_BASIC_INFORMATION and the other TM
 
 Skips: qmisc_wnf skips on STATUS_ACCESS_DENIED / STATUS_PRIVILEGE_NOT_HELD from name creation (not seen); the TM, RM and
 transaction tests skip when creation returns an error status. All objects created are closed; the registry key is deleted.
+
+Review hardening (observed-only on 19041): NtQueryInformationPort on a legacy LPC server port (NtCreatePort in \RPC Control) is accepted for classes 0..3, returns 0 and writes nothing (ReturnLength 0); NtQueryMultipleValueKey with zero entries returns 0; NtQueryWnfStateData on a name without data returns 0 with stamp 0 and size 0; NtQueryInformationResourceManager basic information returns 38 bytes for a 9-character description.

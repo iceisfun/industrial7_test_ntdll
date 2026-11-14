@@ -139,10 +139,12 @@ TEST(sys_interval_profile)
     t_note("NtQueryIntervalProfile(0) = %08lx interval %lu", (unsigned long)s, v);
     EXPECT_EQ(s, 0);
     CHECK(v > 0);
-    v = 0; s = UN(NtQueryIntervalProfile)(1, &v);   /* ProfileAlignmentFixup */
+    v = 0xcc; s = UN(NtQueryIntervalProfile)(1, &v);   /* ProfileAlignmentFixup */
     t_note("NtQueryIntervalProfile(1) = %08lx interval %lu", (unsigned long)s, v);
+    EXPECT_EQ(s, 0);                                 /* observed */
     s = UN(NtQueryIntervalProfile)(0x1000, &v);
     t_note("NtQueryIntervalProfile(0x1000) = %08lx", (unsigned long)s);
+    EXPECT_EQ(s, 0);                                 /* observed: an invalid source is not rejected */
     EXPECT_EQ(UN(NtQueryIntervalProfile)(0, NULL), ST_AV);
 }
 
@@ -157,8 +159,9 @@ TEST(sys_debug_filter)
     }
     s = UN(NtQueryDebugFilterState)(0xFFFFFFFF, 0);
     t_note("NtQueryDebugFilterState(-1,0) = %08lx", (unsigned long)s);
-    s = UN(NtQueryDebugFilterState)(0, 32);
-    t_note("NtQueryDebugFilterState(0,32) = %08lx", (unsigned long)s);
+    EXPECT_EQ(s, 0);                       /* observed: an unknown component is simply not enabled */
+    s = UN(NtQueryDebugFilterState)(0, 0);
+    EXPECT_EQ(UN(NtQueryDebugFilterState)(0, 0), s);   /* stable across calls */
 }
 
 TEST(sys_aux_counter)
@@ -167,10 +170,10 @@ TEST(sys_aux_counter)
     REQUIRE(UN(NtQueryAuxiliaryCounterFrequency));
     s = UN(NtQueryAuxiliaryCounterFrequency)(&v);
     t_note("NtQueryAuxiliaryCounterFrequency = %08lx value %llu", (unsigned long)s, v);
-    CHECK(s == 0 || (s & 0xC0000000) == 0xC0000000);
+    CHECKF(s == 0 || s == S(0xC00000BB), "status %08lx (success or STATUS_NOT_SUPPORTED)", (unsigned long)s);
     if (s == 0) CHECK(v != 0 && v != 0xcc);
     s = UN(NtQueryAuxiliaryCounterFrequency)(NULL);
-    t_note("NtQueryAuxiliaryCounterFrequency(NULL) = %08lx", (unsigned long)s);
+    EXPECT_EQ(s, ST_AV);
 }
 
 TEST(sys_sysinfoex)
@@ -210,7 +213,7 @@ TEST(sys_sysinfoex)
     { SYSTEM_BASIC_INFORMATION bi; memset(&bi, 0, sizeof bi);
       s = UN(NtQuerySystemInformationEx)(0, NULL, 0, &bi, sizeof bi, &ret);
       t_note("SysInfoEx(Basic) = %08lx ret %lu", (unsigned long)s, ret);
-      if (s == 0) { EXPECT_EQ(ret, sizeof bi); CHECK(bi.NumberOfProcessors > 0); } }
+      EXPECT_EQ(s, ST_INV_PARM);      /* observed: only classes taking an input buffer are accepted */ }
     HeapFree(GetProcessHeap(), 0, buf);
 }
 
@@ -235,6 +238,7 @@ TEST(sys_license)
     res = 0xcc;
     s = UN(NtQueryLicenseValue)(&n, &type, NULL, 0, &res);
     t_note("size query = %08lx res %lu", (unsigned long)s, res);
+    EXPECT_EQ(s, ST_TOO_SMALL);
     EXPECT_EQ(res, 4);
     UN(RtlInitUnicodeString)(&n, L"No-Such-License-Value-Zz");
     res = 0xcc;
@@ -243,11 +247,11 @@ TEST(sys_license)
     EXPECT_EQ(s, ST_NOT_FOUND);
     s = UN(NtQueryLicenseValue)(NULL, &type, &data, sizeof data, &res);
     t_note("NULL name = %08lx", (unsigned long)s);
-    CHECK((s & 0xC0000000) == 0xC0000000);
+    EXPECT_EQ(s, ST_INV_PARM);
     UN(RtlInitUnicodeString)(&n, L"");
     s = UN(NtQueryLicenseValue)(&n, &type, &data, sizeof data, &res);
     t_note("empty name = %08lx", (unsigned long)s);
-    CHECK((s & 0xC0000000) == 0xC0000000);
+    EXPECT_EQ(s, ST_INV_PARM);
 }
 
 TEST(sys_port_info_process)
@@ -256,7 +260,8 @@ TEST(sys_port_info_process)
     REQUIRE(UN(NtQueryPortInformationProcess));
     s = UN(NtQueryPortInformationProcess)();
     t_note("NtQueryPortInformationProcess = %08lx", (unsigned long)s);
-    CHECK(s == 0 || s == 1 || s == (NTSTATUS)0xC0000001 || s == (NTSTATUS)0xC00000BB);
+    CHECK(s == 0 || s == 1);                  /* boolean-style result (observed 1) */
+    EXPECT_EQ(UN(NtQueryPortInformationProcess)(), s);   /* stable across calls */
 }
 
 /* ---- firmware queries ------------------------------------------------- */
