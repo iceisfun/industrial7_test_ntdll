@@ -134,12 +134,12 @@ TEST(timer_invalid)
     LARGE_INTEGER due; due.QuadPart = -10000;
     NTSTATUS r;
     r = UN(TpSetTimerEx)(NULL, &due, 0, 0);
-    t_note("TpSetTimerEx(NULL) -> %lu, exceptions=%ld", (unsigned long)r, exc_take());
     EXPECT_EQ(r, 0);
+    EXPECT_EQ(exc_take(), 1);
     g_exc = 0;
     r = UN(TpTimerOutstandingCallbackCount)(NULL);
-    t_note("TpTimerOutstandingCallbackCount(NULL) -> %lu, exceptions=%ld", (unsigned long)r, exc_take());
     EXPECT_EQ(r, 0);
+    EXPECT_EQ(exc_take(), 1);
     veh_off();
 }
 
@@ -432,7 +432,7 @@ TEST(alpc_completion)
         ac = NULL;
         /* a port accepts one completion association: allocating again on it fails, a new port works */
         st = UN(TpAllocAlpcCompletionEx)(&ac, port, alpc_cb, (PVOID)0x78, &env);
-        t_note("TpAllocAlpcCompletionEx on a used port -> 0x%lx", (unsigned long)st);
+        EXPECT_EQ(st, S(0xC0000048));
         if (st == 0 && ac) UN(TpReleaseAlpcCompletion)(ac);
         UN(NtClose)(port); port = NULL;
         EXPECT_EQ(UN(NtAlpcCreatePort)(&port, NULL, NULL), 0);

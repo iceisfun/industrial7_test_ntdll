@@ -194,7 +194,7 @@ TEST(iocp_open_named)
     CHECK(h2 && h2 != h1);
     HANDLE h4 = NULL;
     st = UN(NtCreateIoCompletion)(&h4, IOCP_ALL, &oa, 0);
-    CHECKF(st == ST_EXISTS || st == S(0x40000000), "duplicate name create gave 0x%lx", (unsigned long)st);
+    EXPECT_EQ(st, ST_EXISTS);   /* STATUS_OBJECT_NAME_COLLISION */
     if (h4) UN(NtClose)(h4);
     /* shared object: set via one handle, observe via the other */
     st = UN(NtSetIoCompletion)(h1, (PVOID)0x11, (PVOID)0x22, 0, 0x33);
@@ -213,6 +213,9 @@ TEST(iocp_open_named)
     st = UN(NtOpenIoCompletion)(&h3, IOCP_ALL, &oa);
     EXPECT_EQ(st, ST_NAME_NOT_FOUND);
 }
+
+static volatile LONG g_apc_ran;
+static VOID CALLBACK apc_fn(ULONG_PTR p) { g_apc_ran = 1; }
 
 TEST(iocp_remove_ex)
 {
@@ -254,10 +257,18 @@ TEST(iocp_remove_ex)
     EXPECT_EQ(st, ST_ACCVIO);
     st = UN(NtRemoveIoCompletionEx)(NULL, info, 1, &got, &z, FALSE);
     EXPECT_EQ(st, ST_INV_HANDLE);
-    /* alertable wait is interrupted by a queued user APC */
+    /* alertable wait with nothing queued times out */
     t = rel_ms(100);
     st = UN(NtRemoveIoCompletionEx)(h, info, 1, &got, &t, TRUE);
     EXPECT_EQ(st, ST_TIMEOUT);
+    /* alertable wait is interrupted by a queued user APC (STATUS_USER_APC) */
+    g_apc_ran = 0;
+    QueueUserAPC(apc_fn, GetCurrentThread(), 1);
+    t = rel_ms(2000);
+    st = UN(NtRemoveIoCompletionEx)(h, info, 1, &got, &t, TRUE);
+    EXPECT_EQ(st, S(0xC0));
+    SleepEx(0, TRUE);
+    EXPECT_EQ(g_apc_ran, 1);
     UN(NtClose)(h);
 }
 

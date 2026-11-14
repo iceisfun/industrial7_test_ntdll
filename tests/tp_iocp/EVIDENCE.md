@@ -19,3 +19,6 @@ RVA), so argument validation and results come from the kernel. Every status belo
 
 Nothing depends on privilege. Named-object tests use the session's object directory discovered from a named event and skip if
 creation is denied.
+
+Review additions: creating a second port with an existing name -> 0xC0000035 (observed, asserted exactly); an alertable
+NtRemoveIoCompletionEx wait interrupted by a queued user APC returns 0xC0 (STATUS_USER_APC) and the APC then runs (observed).

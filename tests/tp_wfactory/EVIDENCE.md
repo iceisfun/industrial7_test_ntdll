@@ -14,7 +14,7 @@ TpTrimPools), which fixes the class numbering. Statuses were observed on the Win
 | NtWorkerFactoryWorkerReady: bad handle 0xC0000008, wrong type 0xC0000024, no worker registered 0xC0000001 | observed |
 | NtReleaseWorkerFactoryWorker on a factory with a start routine creates a worker: the start routine runs with the start parameter | observed |
 | Shutdown: bad handle / wrong type errors; after a successful shutdown BasicInformation.Shutdown is 1; a second shutdown returns 0 | observed |
-| NtWaitForWorkViaWorkerFactory with NULL arguments returns 0xC000000D (only argument validation is reachable from a non-worker thread; success path not tested) | observed |
+| NtWaitForWorkViaWorkerFactory with NULL arguments returns 0xC000000D (only argument validation is reachable from a non-worker thread; success path not tested; observed 0xC000000D for NULL handle and wrong type, logged only, not asserted) | observed (not asserted) |
 
 The pending-count output of NtShutdownWorkerFactory, ReleaseWorkerFactoryWorker after shutdown (0x80) and the class 15 (CPU sets)
 and class 9 values are not asserted: they depend on internal worker state or hardware.

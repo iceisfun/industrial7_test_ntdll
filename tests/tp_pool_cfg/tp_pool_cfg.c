@@ -470,7 +470,7 @@ TEST(callback_may_run_long_independent)
     g_inst.st = S(0x5a5a5a5a);
     CHECK(run_inst(OP_MAYRUN, pool, TRUE));
     t_note("TpCallbackMayRunLong in callback -> 0x%lx", (unsigned long)g_inst.st);
-    CHECK(g_inst.st == 0 || g_inst.st == 1 || g_inst.st == S(0xC00000BB));
+    EXPECT_EQ(g_inst.st, 0);
     g_inst.st = S(0x5a5a5a5a);
     CHECK(run_inst(OP_INDEP, pool, TRUE));
     t_note("TpCallbackIndependent in callback -> 0x%lx", (unsigned long)g_inst.st);
