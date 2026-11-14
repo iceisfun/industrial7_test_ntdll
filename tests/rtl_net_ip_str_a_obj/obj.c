@@ -89,8 +89,7 @@ TEST(rtl_net_ip_str_a_bitmap_ex_find) {
     EXPECT_EQ(UN(RtlFindClearBitsEx)(&bm, 57, 0), 71);
     EXPECT_EQ(UN(RtlFindClearBitsEx)(&bm, 58, 0), NOTFOUND);
     EXPECT_EQ(UN(RtlFindClearBitsEx)(&bm, 3, 10), 15);
-    EXPECT_EQ(UN(RtlFindSetBitsAndClearEx)(&bm, 3, 0), 10); EXPECT_EQ(buf[0], 0x6000ULL & ~0ULL ? buf[0] : 0);
-    EXPECT_EQ(buf[0], 0x6000ULL);                         /* bits 10..12 cleared */
+    EXPECT_EQ(UN(RtlFindSetBitsAndClearEx)(&bm, 3, 0), 10);     EXPECT_EQ(buf[0], 0x6000ULL);                         /* bits 10..12 cleared */
     EXPECT_EQ(UN(RtlFindSetBitsAndClearEx)(&bm, 3, 0), NOTFOUND); EXPECT_EQ(buf[0], 0x6000ULL);
     EXPECT_EQ(UN(RtlFindSetBitsAndClearEx)(&bm, 1, 0), 13); EXPECT_EQ(buf[0], 0x4000ULL);
     /* run crossing the 64-bit word boundary */

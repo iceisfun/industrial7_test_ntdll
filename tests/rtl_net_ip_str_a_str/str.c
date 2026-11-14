@@ -34,6 +34,7 @@ UDECL(VOID, RtlCopyMappedMemory, (PVOID, const VOID *, SIZE_T));
 UDECL(VOID, RtlCopyMemory, (PVOID, const VOID *, SIZE_T));
 UDECL(VOID, RtlCopyMemoryNonTemporal, (PVOID, const VOID *, SIZE_T));
 UDECL(NTSTATUS, RtlFreeUTF8String, (STR8 *));
+UDECL(NTSTATUS, RtlUnicodeStringToUTF8String, (STR8 *, const UNICODE_STRING *, BOOLEAN));
 
 #define ST(x) ((NTSTATUS)(x))
 #define SGN(x) ((x) < 0 ? -1 : (x) > 0)
@@ -91,6 +92,16 @@ TEST(rtl_net_ip_str_a_free_utf8_empty) {
     STR8 s = {0, 0, NULL};
     UN(RtlFreeUTF8String)(&s);
     EXPECT_EQ(s.Buffer, NULL); EXPECT_EQ(s.Length, 0);
+    /* freeing a heap-allocated UTF-8 string releases it and zeroes the descriptor */
+    if (!UN(RtlUnicodeStringToUTF8String)) { t_skip("RtlUnicodeStringToUTF8String not exported"); return; }
+    WCHAR w[] = L"caf\x00e9"; UNICODE_STRING u = {8, 10, w}; STR8 d; memset(&d, 0, sizeof d);
+    EXPECT_EQ(UN(RtlUnicodeStringToUTF8String)(&d, &u, TRUE), 0);
+    EXPECT_EQ(d.Length, 5); CHECK(d.Buffer != NULL);
+    if (d.Buffer) EXPECT_EQ(memcmp(d.Buffer, "caf\xc3\xa9", 5), 0);
+    UN(RtlFreeUTF8String)(&d);
+    EXPECT_EQ(d.Buffer, NULL); EXPECT_EQ(d.Length, 0); EXPECT_EQ(d.MaximumLength, 0);
+    /* same RVA as RtlFreeUnicodeString/RtlFreeAnsiString */
+    EXPECT_EQ(t_proc("RtlFreeUTF8String"), t_proc("RtlFreeUnicodeString"));
 }
 TEST(rtl_net_ip_str_a_ansi_char) {
     REQUIRE(UN(RtlAnsiCharToUnicodeChar));
@@ -291,6 +302,19 @@ TEST(rtl_net_ip_str_a_copy_sd) {
     NTSTATUS s = UN(RtlCopySecurityDescriptor)(&sd, &out);
     EXPECT_EQ(s, 0);
     if (s == 0 && out) { EXPECT_EQ(((SECURITY_DESCRIPTOR *)out)->Revision, 1); EXPECT_EQ(memcmp(out, &sd, 20), 0);
+        UN(RtlFreeHeap)(GetProcessHeap(), 0, out); }
+    /* self-relative SD with owner SID S-1-1-0 and an empty DACL: whole blob is copied */
+    BYTE rel[40]; memset(rel, 0, sizeof rel);
+    rel[0] = 1; rel[2] = 0x04; rel[3] = 0x80;                 /* SE_DACL_PRESENT | SE_SELF_RELATIVE */
+    rel[4] = 20;                                              /* owner offset */
+    rel[16] = 32;                                             /* dacl offset */
+    rel[20] = 1; rel[21] = 1; rel[27] = 1; rel[28] = 0;      /* SID S-1-1-0 */
+    rel[32] = 2; rel[34] = 8;                                 /* ACL rev 2, size 8, no ACEs */
+    out = NULL; s = UN(RtlCopySecurityDescriptor)(rel, &out);
+    EXPECT_EQ(s, 0);
+    if (s == 0 && out) {
+        EXPECT_EQ(UN(RtlLengthSecurityDescriptor)(out), 40);
+        EXPECT_EQ(memcmp(out, rel, 40), 0); EXPECT_NE(out, (PVOID)rel);
         UN(RtlFreeHeap)(GetProcessHeap(), 0, out); }
 }
 TEST(rtl_net_ip_str_a_copy_memory) {
