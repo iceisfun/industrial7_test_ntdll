@@ -15,4 +15,6 @@ output values were observed on the Windows 10 guest.
 | RtlReplaceSystemDirectoryInPath | decomp 0x87110 + helper 0x871bc: machine id 1 = System32, 0x14c = SysWOW64, 0x1c4 = SysARM32, 0x3a64 = SyCHPE32, others 0xC000000D (target checked first); identical ids return 0 without examining anything; first case-insensitive occurrence replaced; flag nonzero requires `\Name\` delimiters | Directory swap in both directions, ARM and CHPE names, case-insensitive match, first occurrence only, flag variants, errors |
 | RtlLoadString | decomp 0x46fa0: NULL module / NULL output / flags above 1 0xC000000D, flags 1 with extra pointers 0xC00000BB; success: string id mapped to block `(id>>4)+1`, entry `id & 15` | First string found in user32 compared with LoadStringW; missing block fails |
 
+Review additions (observed on the guest): unsupported normalization forms (3, 0x77) give 0xC0000034, a too-small buffer for RtlLcidToLocaleName gives 0xC0000023 with Length left 0, a missing RtlLoadString block gives 0xC000008B with the length output untouched.
+
 The loader-image mode (flags 1) and the extra output parameters are not exercised beyond the 0xC00000BB check.

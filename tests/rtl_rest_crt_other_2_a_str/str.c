@@ -51,7 +51,7 @@ TEST(lcid_to_locale_name) {
     /* a buffer too small for "en-US" */
     { WCHAR tiny[3]; UNICODE_STRING ut; mkus(&ut, tiny, sizeof tiny);
       s = UN(RtlLcidToLocaleName)(0x409, &ut, 0, FALSE);
-      CHECKF(s < 0, "tiny buffer unexpectedly succeeded 0x%lx", (ULONG)s); }
+      EXPECT_EQ(s, S(0xC0000023)); EXPECT_EQ(ut.Length, 0); }
     /* neutral locales are only returned when flag 2 is passed */
     mkus(&u, buf, sizeof buf);
     EXPECT_EQ(UN(RtlLcidToLocaleName)(0x0007, &u, 0, FALSE), S(0xC00000EF));
@@ -142,11 +142,11 @@ TEST(normalize_string) {
     /* size query: output length is reported with a too-small buffer */
     n = 0;
     s = UN(RtlNormalizeString)(NFC, L"e\x0301", 2, NULL, &n);
-    CHECKF(s == S(0xC0000023) || s == 0, "size query status 0x%lx", (ULONG)s);
+    EXPECT_EQ(s, 0);                                           /* output length 0 is a pure size query */
     CHECKF(n >= 1, "size query reported %ld", n);               /* an upper-bound estimate, not the exact size */
     n = 0;
     s = UN(RtlNormalizeString)(NFD, L"\x00e9", 1, dst, &n);
-    CHECKF(s == S(0xC0000023) || s == 0, "zero-length output status 0x%lx", (ULONG)s);
+    EXPECT_EQ(s, 0);                                           /* output length 0 is a pure size query */
     CHECKF(n >= 2, "estimate %ld below the 2 needed", n);
     n = 1;
     s = UN(RtlNormalizeString)(NFD, L"\x00e9", 1, dst, &n);
@@ -161,9 +161,9 @@ TEST(normalize_string) {
     EXPECT_EQ(UN(RtlNormalizeString)(NFC, L"a", 1, dst, &n), S(0xC000000D));
     n = 64;
     s = UN(RtlNormalizeString)(3, L"a", 1, dst, &n);          /* 3 and 4 are not normalization forms */
-    CHECKF(s < 0, "invalid form 3 accepted: 0x%lx", (ULONG)s);
+    EXPECT_EQ(s, S(0xC0000034));
     s = UN(RtlNormalizeString)(0x77, L"a", 1, dst, &n);
-    CHECKF(s < 0, "invalid form accepted: 0x%lx", (ULONG)s);
+    EXPECT_EQ(s, S(0xC0000034));
 }
 
 /* ---------- RtlNtPathNameToDosPathName ---------- */
@@ -318,6 +318,6 @@ TEST(load_string) {
     /* nonexistent id in an existing block and a nonexistent block */
     str = NULL; len = 0xFFFF;
     s = UN(RtlLoadString)(m, 0xFFF0, NULL, 0, &str, &len, NULL, NULL);
-    CHECKF(s < 0, "missing string block accepted: 0x%lx", (ULONG)s);
+    EXPECT_EQ(s, S(0xC000008B)); EXPECT_EQ(len, 0xFFFF);
     FreeLibrary(m);
 }
