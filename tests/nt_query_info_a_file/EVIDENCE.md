@@ -1,0 +1,18 @@
+# nt_query_info_a_file evidence
+
+Oracle: Windows 10 22H2 guest (ntdll 10.0.19041.2788), elevated administrator and standard user.
+Corpus Explorer decompilations of all exports in this area are bare syscall stubs (no user-mode validation), so every
+status below was observed on the guest; public documentation fixed the structure layouts.
+All files and handles live in the per-process scratch directory (`t_tmpdir`) or the object under test (EA, quota).
+
+| Export | Assertions | Source |
+|---|---|---|
+| NtQueryAttributesFile | FILE_BASIC_INFORMATION of a read-only file and of a directory match GetFileAttributesExW (attributes, creation/write time); missing leaf STATUS_OBJECT_NAME_NOT_FOUND (0xC0000034); missing parent STATUS_OBJECT_PATH_NOT_FOUND (0xC000003A); name with `<` is STATUS_OBJECT_NAME_INVALID or not found (note); NULL output STATUS_ACCESS_VIOLATION (observed, note) | observed |
+| NtQueryFullAttributesFile | FILE_NETWORK_OPEN_INFORMATION: EndOfFile 5000, allocation size rounded to a 512 multiple, attributes and write time match Win32; missing leaf 0xC0000034 | observed |
+| NtQueryInformationByName | Only the stat classes are implemented on 19041: FileStatInformation (68, 72 bytes: EndOfFile at +48, AllocationSize at +40, FileAttributes at +56, NumberOfLinks at +64) and FileStatLxInformation (70, 96 bytes) succeed; classes 4 (Basic), 5 (Standard) and 34 return STATUS_INVALID_PARAMETER (the class loop on the guest showed only 68, 70 and 71 as non-INVALID_PARAMETER; 71 FileCaseSensitiveInformation returned STATUS_ACCESS_DENIED to an administrator and is not asserted); classes 0 and 0x7777 are STATUS_INVALID_INFO_CLASS; missing file STATUS_OBJECT_NAME_NOT_FOUND; a too-short buffer is a negative status (STATUS_INFO_LENGTH_MISMATCH or STATUS_BUFFER_TOO_SMALL) | observed |
+| NtQueryDirectoryFile (alias Zw checked) | FileNamesInformation (12) with a `dq_?.x` pattern returns the three entries in one call, the pattern sticks to the handle and the next call is STATUS_NO_MORE_FILES (0x80000006); restart + single entry returns one 12+name entry; FileDirectoryInformation EndOfFile at +40; a no-match wildcard on a handle already enumerated is STATUS_NO_MORE_FILES; the first enumeration of a fresh handle with an unmatched exact name is STATUS_NO_SUCH_FILE (0xC000000F); class 0x7777 STATUS_INVALID_INFO_CLASS; an 8 byte buffer STATUS_INFO_LENGTH_MISMATCH; bogus handle STATUS_INVALID_HANDLE | observed + docs |
+| NtQueryDirectoryFileEx | QueryFlags SL_RESTART_SCAN (1), SL_RETURN_SINGLE_ENTRY (2) walk the same three entries, then STATUS_NO_MORE_FILES; fresh-handle no match STATUS_NO_SUCH_FILE; invalid class, invalid handle; a file (non-directory) handle STATUS_INVALID_PARAMETER | observed |
+| NtQueryEaFile | file without EAs STATUS_NO_EAS_ON_FILE (0xC0000052); after NtSetEaFile of MYATTR/"hello": FILE_FULL_EA_INFORMATION with 6 byte name, 5 byte value, Information 20; index 2 STATUS_NO_MORE_EAS (0x80000012); 8 byte buffer STATUS_BUFFER_TOO_SMALL; EA list with a missing name returns an entry with value length 0, with the present name returns the value; a list whose name length overruns the list gives STATUS_EA_LIST_INCONSISTENT (0x80000014); invalid handle | observed |
+| NtQueryQuotaInformationFile | invalid handle STATUS_INVALID_HANDLE; query on an NTFS file or volume handle without quota entries returns success with Information 56 (a note, not asserted: it depends on the quota state of the volume) | observed |
+
+Skips: qfile_ea skips when the scratch volume cannot store EAs (STATUS_EAS_NOT_SUPPORTED / STATUS_INVALID_DEVICE_REQUEST).
