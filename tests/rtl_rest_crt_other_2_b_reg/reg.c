@@ -250,6 +250,8 @@ TEST(culture_names_to_lcids) {
     PWSTR out = NULL; NTSTATUS s;
     s = UN(RtlpConvertCultureNamesToLCIDs)(L"en-US\0\0", &out, NULL, 0);
     t_note("en-US -> 0x%lx out=%p", (unsigned long)s, (void *)out);
+    EXPECT_EQ(s, 0);
+    CHECK(out != NULL);
     if (s == 0 && out) {
         EXPECT_EQ(multisz_eq(out, L"0409\0\0"), 1);
         HeapFree(GetProcessHeap(), 0, out);
@@ -257,6 +259,7 @@ TEST(culture_names_to_lcids) {
     out = NULL;
     s = UN(RtlpConvertCultureNamesToLCIDs)(L"de-DE\0fr-FR\0\0", &out, NULL, 0);
     EXPECT_EQ(s, 0);
+    CHECK(out != NULL);
     if (s == 0 && out) { EXPECT_EQ(multisz_eq(out, L"0407\0" L"040c\0\0"), 1); HeapFree(GetProcessHeap(), 0, out); }
     out = NULL;
     EXPECT_EQ(UN(RtlpConvertCultureNamesToLCIDs)(L"zz-invalid-name\0\0", &out, NULL, 0), ST_INVPARAM);
@@ -273,6 +276,7 @@ TEST(lcids_to_culture_names) {
     PWSTR out = NULL; NTSTATUS s;
     s = UN(RtlpConvertLCIDsToCultureNames)(L"0409\0\0", &out);
     t_note("0409 -> 0x%lx", (unsigned long)s);
+    EXPECT_EQ(s, 0);
     if (s == 0 && out) { EXPECT_EQ(multisz_eq(out, L"en-US\0\0"), 1); HeapFree(GetProcessHeap(), 0, out); }
     out = NULL;
     s = UN(RtlpConvertLCIDsToCultureNames)(L"0407\0" L"040c\0\0", &out);

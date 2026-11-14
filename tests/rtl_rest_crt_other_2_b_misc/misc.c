@@ -592,7 +592,7 @@ TEST(walk_frame_chain) {
     PVOID full[32], skip[32]; memset(full, 0, sizeof full); memset(skip, 0, sizeof skip);
     ULONG nf = walk_inner(full, 32, 0), ns = walk_inner(skip, 32, 1 << 8);
     t_note("full %lu skip1 %lu", (unsigned long)nf, (unsigned long)ns);
-    CHECK(ns >= 1 && ns <= 32);
+    CHECK(nf >= 1 && ns >= 1 && ns <= nf);
 }
 
 /* ------------------------------------------------------------ RtlUpdateTimer */
