@@ -20,3 +20,7 @@ Review and correction history for this pass:
 Limits: only build 19045 was available as a baseline, other Windows 10 builds and locales are UNVERIFIED; each mode was run in full once after the last fixes (individual areas were run repeatedly during development, no flakiness was recorded). Wine was not used as an authority.
 
 Earlier record (before this expansion, 28 areas): 2188 tests, standard 0 failed / 2 skipped, administrator 0 failed / 1 skipped.
+
+## nt_cancel_io (separate oracle record, bb #1228)
+
+The `nt_cancel_io` area was also run on a Windows 10 22H2 guest by another lane at commits a6fc062 (15 tests) and 0cc9da9 (16 tests): standard user x2 and administrator x2, all green and byte-identical, no expectation changed. Notes: native `NtCancelIoFileEx` returns 0x00000000 with `IoStatusBlock.Status` 0x00000000; the cancelled request's completion-port packet arrives as a failed-I/O packet for that request only (`iosb.Status` 0xC0000120, 0 bytes). The full-corpus run above includes this area (16 tests, both modes).
