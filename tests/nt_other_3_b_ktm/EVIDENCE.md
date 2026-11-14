@@ -14,4 +14,6 @@ services are exercised only through their handle checks.
 | ZwRollbackEnlistment, ZwRollbackComplete, ZwReadOnlyEnlistment, ZwSinglePhaseReject, ZwRecoverEnlistment | NULL/unused handle -> 0xc0000008; event handle -> 0xc0000024 | obs |
 | ZwRenameTransactionManager | unknown manager id -> status recorded (0xc0000034) | obs |
 
+Valid transaction, resource-manager and transaction-manager handles passed to a service of another kind -> 0xc0000024 (type mismatch), also for the enlistment services. Volatile managers (no log) are not online: recover/rollforward -> 0xc019003b and resource-manager creation fails, so they cannot be used.
+
 Skip: manager creation failure (status in the skip text).

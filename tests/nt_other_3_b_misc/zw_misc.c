@@ -200,14 +200,15 @@ TEST(zw_system_debug_control)
 {
     NTSTATUS s; ULONG ret = 0; BYTE out[16];
     REQUIRE(UN(ZwSystemDebugControl));
-    /* An undefined command, every pointer NULL. Result depends on whether a debugger could ever attach
-       (boot configuration) and on SeDebugPrivilege, so only the documented failure family is asserted. */
+    /* With no kernel debugger on the system the service fails before looking at the command (this is the
+       state of a normal boot; any other state is skipped). */
     s = UN(ZwSystemDebugControl)(0x7fff, NULL, 0, NULL, 0, NULL);
     t_note("ZwSystemDebugControl(0x7fff) = %08lx", (ULONG)s);
-    CHECKF(s == S(0xc0000354) || s == DENIED || s == S(0xc0000003) || s == S(0xc0000002), "undefined command status %08lx", (ULONG)s);
+    if (s != S(0xc0000354)) { t_skip("kernel debugger state differs from a normal boot (status %08lx)", (ULONG)s); return; }
+    /* STATUS_DEBUGGER_INACTIVE: no kernel debugger is attached, whatever the command or the token */
     ret = 0x55;
-    s = UN(ZwSystemDebugControl)(0x7fff, NULL, 0, out, sizeof out, &ret);
-    CHECKF(s < 0, "undefined command must fail, got %08lx", (ULONG)s);
+    EXPECT_EQ(UN(ZwSystemDebugControl)(0x7fff, NULL, 0, out, sizeof out, &ret), S(0xc0000354));
+    EXPECT_EQ(UN(ZwSystemDebugControl)(0, NULL, 0, NULL, 0, NULL), S(0xc0000354));
     EXPECT_EQ(ret, 0x55);
 }
 

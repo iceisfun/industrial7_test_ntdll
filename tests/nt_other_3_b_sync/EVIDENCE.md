@@ -15,13 +15,14 @@ implementation read through the Corpus Explorer. Every value below was confirmed
 | ZwReleaseMutant | not owned -> 0xc0000046; recursion: previous count of a twice-acquired mutant is -1 (count decremented per acquire); release of an initially owned mutant succeeds once | obs |
 | ZwWaitForSingleObject | zero timeout -> 0x102 on unsignaled, 0 on signaled; auto-reset consumed; relative timeout waits ~ the interval; absolute time in the past -> 0x102; no SYNCHRONIZE -> 0xc0000022; current process/thread pseudo handles are waitable (unsignaled -> 0x102); alertable wait with pending alert -> 0x101 (alert consumed); non-alertable wait ignores alert | doc + obs |
 | ZwWaitForMultipleObjects | WaitAny returns index; WaitAll 0; count 0 or > 64 -> 0xc00000ef (INVALID_PARAMETER_1); wait type other than 0/1 -> 0xc00000f1 (INVALID_PARAMETER_3); invalid handle in the array -> 0xc0000008; 64 handles accepted | obs |
-| ZwWaitForMultipleObjects32 | same parameter validation as the 64-bit service; a 32-bit handle array with a small handle value is waited successfully (observed 0) | obs |
+| ZwWaitForMultipleObjects32 | same parameter validation as the 64-bit service; a 32-bit handle array with a small handle value is waited successfully (0); a zero handle -> 0xc0000008 | obs |
 | ZwSignalAndWaitForSingleObject | signals event/semaphore/mutant then waits; mutant not owned -> 0xc0000046; unsupported signal type (timer) -> 0xc0000024; bad handles -> 0xc0000008; signal handle without modify access -> 0xc0000022; the signal happens even when the wait times out | doc + obs |
 | ZwTestAlert | 0 normally; 0x101 once when an alert is pending (consumed) | doc + obs |
 | ZwYieldExecution | 0 (another thread ran) or 0x40000024 (STATUS_NO_YIELD_PERFORMED) | doc |
 | ZwWaitForAlertByThreadId | timeout -> 0x102; a pending alert (posted before or during) is consumed once and the wait returns 0x101; invalid thread id for NtAlertThreadByThreadId -> 0xc000000b | obs |
 | ZwReleaseKeyedEvent / ZwWaitForKeyedEvent | no partner: 0x102 on timeout; low bit of key set -> 0xc00000ef; NULL handle = default keyed event (times out); unused handle -> 0xc0000008; event handle -> 0xc0000024; two threads pair in either order and both return 0 | obs |
 | ZwWaitLowEventPair / ZwWaitHighEventPair | event pairs are not implemented: `NtCreateEventPair` and both wait services return 0xc0000002 for any handle (NULL, unused, event) | obs |
+| cross-thread wake-ups | a thread blocked in ZwWaitForSingleObject/ZwWaitForMultipleObjects (all and any) is released by NtSetEvent from another thread (any returns the index, wait-all consumes the auto-reset member); a blocked alertable wait is released by NtAlertThread with 0x101; a ZwWaitForAlertByThreadId waiter is released by NtAlertThreadByThreadId with 0x101 | obs |
 
 Skips: none expected. The event pair test asserts the not-implemented status rather than skipping.
 Hazards avoided: no wait that could block forever (every blocking wait has a timeout), no alert left pending at the end of a test.

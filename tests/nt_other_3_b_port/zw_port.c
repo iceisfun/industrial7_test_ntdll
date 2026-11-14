@@ -101,6 +101,11 @@ static HANDLE g_port, g_comm;
 static volatile LONG g_ready, g_done, g_requests, g_datagrams, g_closed, g_died, g_wait_dgram;
 static volatile NTSTATUS g_srv_status, g_wr_status;
 static char g_dgram[16], g_wdgram[16];
+static volatile LONG g_plain, g_xfer;
+static volatile NTSTATUS g_rd_status, g_wr_xfer_status;
+static volatile SIZE_T g_rd_n, g_wr_n;
+static char g_rd_data[32];
+static volatile NTSTATUS g_rd_idx_status, g_rd_big_status, g_wr_idx_status, g_wr_big_status;
 
 static DWORD WINAPI server(PVOID arg)
 {
@@ -109,7 +114,11 @@ static DWORD WINAPI server(PVOID arg)
     memset(&out, 0, sizeof out);
     for (iter = 0; iter < 40; iter++) {
         memset(&msg, 0, sizeof msg);
-        s = UN(ZwReplyWaitReceivePortEx)(g_port, &ctx, reply, &msg.h, &to);
+        if (iter == 1 || iter == 2) { /* the first two requests are received through the plain (no timeout) service */
+            s = UN(ZwReplyWaitReceivePort)(g_port, &ctx, reply, &msg.h);
+            if (s >= 0) InterlockedIncrement(&g_plain);
+        } else
+            s = UN(ZwReplyWaitReceivePortEx)(g_port, &ctx, reply, &msg.h, &to);
         reply = NULL;
         if (s == TIMEOUT) { g_srv_status = s; break; }
         if (s < 0) { g_srv_status = s; break; }
@@ -123,7 +132,24 @@ static DWORD WINAPI server(PVOID arg)
             int i; InterlockedIncrement(&g_requests);
             out = msg;
             for (i = 0; i < msg.h.DataLength && i < 64; i++) out.d[i] = (char)(msg.d[i] + 1);
-            if (msg.d[0] == 'P') { /* reply straight on the communication port */
+            if (msg.d[0] == 'D') { /* data transfer: read the client's buffer, write a result back into it */
+                SIZE_T n = 0; char res[16];
+                memset(g_rd_data, 0, sizeof g_rd_data);
+                g_rd_status = UN(ZwReadRequestData)(g_comm, &msg.h, 0, g_rd_data, 16, &n);
+                g_rd_n = n;
+                memset(res, 'z', sizeof res); n = 0;
+                g_wr_xfer_status = UN(ZwWriteRequestData)(g_comm, &msg.h, 0, res, 8, &n);
+                g_wr_n = n;
+                { char tmp[64]; SIZE_T m = 77;
+                  g_rd_idx_status = UN(ZwReadRequestData)(g_comm, &msg.h, 1, tmp, 8, &m);
+                  g_wr_idx_status = UN(ZwWriteRequestData)(g_comm, &msg.h, 1, tmp, 8, &m);
+                  g_rd_big_status = UN(ZwReadRequestData)(g_comm, &msg.h, 0, tmp, 32, &m);
+                  g_wr_big_status = UN(ZwWriteRequestData)(g_comm, &msg.h, 0, tmp, 32, &m); }
+                InterlockedIncrement(&g_xfer);
+                out.h.DataLength = 8; out.h.TotalLength = sizeof(PM) + 8; out.h.DataInfoOffset = 0;
+                memcpy(out.d, "Done....", 8);
+                reply = &out.h;
+            } else if (msg.d[0] == 'P') { /* reply straight on the communication port */
                 s = UN(ZwReplyPort)(g_comm, &out.h);
                 g_srv_status = s;
             } else if (msg.d[0] == 'W') { /* reply and wait on the communication port for the next client message */
@@ -140,6 +166,14 @@ static DWORD WINAPI server(PVOID arg)
         }
     }
     InterlockedExchange(&g_done, 1);
+    return 0;
+}
+
+typedef struct { HANDLE cli; PM *req, *rep; volatile NTSTATUS st; } xfer_arg_t;
+static DWORD WINAPI xfer_thread(PVOID p)
+{
+    xfer_arg_t *a = p;
+    a->st = UN(ZwRequestWaitReplyPort)(a->cli, a->req, a->rep);
     return 0;
 }
 
@@ -182,11 +216,44 @@ TEST(zw_port_round_trip)
     EXPECT_EQ(rep.d[0], 'b'); EXPECT_EQ(rep.d[1], 'c'); EXPECT_EQ(rep.d[6], 'h');
     EXPECT_EQ(g_requests, 1);
 
+    EXPECT_EQ(g_plain, 1);   /* ZwReplyWaitReceivePort delivered the first request */
+
     /* reply through ZwReplyPort on the communication port */
     memset(&req, 0, sizeof req); memset(&rep, 0, sizeof rep);
     req.h.DataLength = 8; req.h.TotalLength = sizeof(PM) + 8; memcpy(req.d, "Pxyzabc", 8);
     EXPECT_EQ(UN(ZwRequestWaitReplyPort)(cli, &req.h, &rep.h), 0);
     EXPECT_EQ(rep.d[0], 'Q'); EXPECT_EQ(rep.d[1], 'y'); EXPECT_EQ(g_requests, 2);
+
+    EXPECT_EQ(g_plain, 2);   /* ... and the second one, carrying the reply to the first */
+
+    /* data transfer: the client message describes a buffer in the client; the server reads it with
+       ZwReadRequestData and writes into it with ZwWriteRequestData while the client waits for the reply */
+    { char cbuf[32]; struct { PM h; char d[8]; ULONG cnt; ULONG pad; PVOID addr; ULONG size; ULONG pad2; } dm; LMSG drep;
+      memset(cbuf, 'c', sizeof cbuf); memcpy(cbuf, "0123456789ABCDEF", 16);
+      memset(&dm, 0, sizeof dm); memset(&drep, 0, sizeof drep);
+      memcpy(dm.d, "Data....", 8);
+      dm.cnt = 1; dm.size = 16; dm.addr = cbuf;
+      dm.h.DataLength = sizeof dm - sizeof(PM); dm.h.TotalLength = sizeof dm; dm.h.DataInfoOffset = sizeof(PM) + 8;
+      { xfer_arg_t xa; HANDLE xt; xa.cli = cli; xa.req = &dm.h; xa.rep = &drep.h; xa.st = S(0x7777);
+        xt = CreateThread(NULL, 0, xfer_thread, &xa, 0, NULL);   /* bounded wait: the call itself has no timeout */
+        if (xt && WaitForSingleObject(xt, 10000) == WAIT_OBJECT_0) { s = xa.st; CloseHandle(xt); }
+        else { s = S(0x7777); t_note("data transfer request did not complete"); if (xt) { UN(NtClose)(cli); cli = NULL; WaitForSingleObject(xt, 5000); CloseHandle(xt); } }
+      }
+      if (!cli) { CHECK(0); goto out; }
+      t_note("data transfer request: %08lx read %08lx/%llu write %08lx/%llu", (ULONG)s, (ULONG)g_rd_status,
+             (unsigned long long)g_rd_n, (ULONG)g_wr_xfer_status, (unsigned long long)g_wr_n);
+      EXPECT_EQ(s, 0);
+      EXPECT_EQ(drep.d[0], 'D'); EXPECT_EQ(drep.h.DataLength, 8);
+      t_note("entry index 1: read %08lx write %08lx; oversize: read %08lx write %08lx", (ULONG)g_rd_idx_status, (ULONG)g_wr_idx_status,
+             (ULONG)g_rd_big_status, (ULONG)g_wr_big_status);
+      EXPECT_EQ(g_rd_idx_status, BAD_PARAM); EXPECT_EQ(g_wr_idx_status, BAD_PARAM);   /* only entry 0 exists */
+      EXPECT_EQ(g_rd_big_status, BAD_PARAM); EXPECT_EQ(g_wr_big_status, BAD_PARAM);   /* larger than the 16-byte entry */
+      EXPECT_EQ(g_xfer, 1);
+      EXPECT_EQ(g_rd_status, 0); EXPECT_EQ(g_rd_n, 16);
+      EXPECT_EQ(memcmp(g_rd_data, "0123456789ABCDEF", 16), 0);
+      EXPECT_EQ(g_wr_xfer_status, 0); EXPECT_EQ(g_wr_n, 8);
+      EXPECT_EQ(memcmp(cbuf, "zzzzzzzz89ABCDEF", 16), 0);
+    }
 
     /* datagram: no reply */
     memset(&req, 0, sizeof req);

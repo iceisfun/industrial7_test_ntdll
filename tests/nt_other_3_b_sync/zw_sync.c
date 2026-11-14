@@ -92,7 +92,7 @@ TEST(zw_reset_event)
 {
     HANDLE h, ro, sem; LONG prev; NTSTATUS s;
     REQUIRE(UN(ZwResetEvent)); REQUIRE(UN(NtCreateEvent)); REQUIRE(UN(NtSetEvent));
-    h = mk_event(1 /* notification */, TRUE, EVENT_ALL_ACCESS);
+    h = mk_event(NOTIF, TRUE, EVENT_ALL_ACCESS);
     if (!h) { t_skip("event creation failed"); return; }
     prev = -5;
     EXPECT_EQ(UN(ZwResetEvent)(h, &prev), 0);
@@ -308,6 +308,9 @@ TEST(zw_wait_multiple32)
     arr[0] = (ULONG)(ULONG_PTR)a; arr[1] = 0;
     s = UN(ZwWaitForMultipleObjects32)(1, arr, 1, FALSE, &z);
     t_note("ZwWaitForMultipleObjects32 with a 32-bit handle array on x64: %08lx", (ULONG)s);
+    EXPECT_EQ(s, 0);
+    arr[0] = 0;
+    EXPECT_EQ(UN(ZwWaitForMultipleObjects32)(1, arr, 1, FALSE, &z), BAD_HANDLE);
     /* Argument validation precedes handle lookup and is independent of the calling ABI. */
     EXPECT_EQ(UN(ZwWaitForMultipleObjects32)(0, arr, 1, FALSE, &z), P1);
     EXPECT_EQ(UN(ZwWaitForMultipleObjects32)(1, arr, 2, FALSE, &z), P3);
@@ -373,7 +376,7 @@ TEST(zw_wait_alert_by_thread_id)
     EXPECT_EQ(UN(NtAlertThreadByThreadId)(tid), 0);
     EXPECT_EQ(UN(ZwWaitForAlertByThreadId)(NULL, &t), ALERTED);
     EXPECT_EQ(UN(ZwWaitForAlertByThreadId)(NULL, &t), TIMEOUT);
-    /* a second thread alerts us */
+    /* the alert is a single pending flag: two alerts are consumed by one wait */
     EXPECT_EQ(UN(NtAlertThreadByThreadId)(tid), 0);
     EXPECT_EQ(UN(NtAlertThreadByThreadId)(tid), 0);
     EXPECT_EQ(UN(ZwWaitForAlertByThreadId)((PVOID)0x1234, &t), ALERTED);
@@ -436,4 +439,87 @@ TEST(zw_event_pair)
     EXPECT_EQ(UN(ZwWaitLowEventPair)((HANDLE)(ULONG_PTR)0x7ffffff4), S(0xc0000002));
     { HANDLE ev = mk_event(NOTIF, TRUE, EVENT_ALL_ACCESS);
       if (ev) { EXPECT_EQ(UN(ZwWaitLowEventPair)(ev), S(0xc0000002)); EXPECT_EQ(UN(ZwWaitHighEventPair)(ev), S(0xc0000002)); cl(ev); } }
+}
+
+/* ---- cross-thread wake-ups ---- */
+typedef struct { HANDLE h[2]; ULONG cnt, type; BOOLEAN alertable; volatile NTSTATUS st; volatile LONG up, done; int alert_mode; } xw_t;
+static DWORD WINAPI xwait_thread(PVOID p)
+{
+    xw_t *x = p; LARGE_INTEGER t = rel_ms(10000);
+    InterlockedExchange(&x->up, 1);
+    if (x->alert_mode) x->st = UN(ZwWaitForAlertByThreadId)(NULL, &t);
+    else if (x->cnt == 1) x->st = UN(ZwWaitForSingleObject)(x->h[0], x->alertable, &t);
+    else x->st = UN(ZwWaitForMultipleObjects)(x->cnt, x->h, x->type, x->alertable, &t);
+    InterlockedExchange(&x->done, 1);
+    return 0;
+}
+static HANDLE start_wait(xw_t *x)
+{
+    HANDLE th = CreateThread(NULL, 0, xwait_thread, x, 0, NULL);
+    int i;
+    if (!th) return NULL;
+    for (i = 0; i < 500 && !x->up; i++) Sleep(10);
+    Sleep(100);   /* let it block */
+    return th;
+}
+
+TEST(zw_wait_cross_thread)
+{
+    xw_t x; HANDLE th, a, b; LARGE_INTEGER z = {0};
+    REQUIRE(UN(ZwWaitForSingleObject)); REQUIRE(UN(ZwWaitForMultipleObjects)); REQUIRE(UN(NtCreateEvent)); REQUIRE(UN(NtSetEvent));
+    a = mk_event(NOTIF, FALSE, EVENT_ALL_ACCESS); b = mk_event(SYNC, FALSE, EVENT_ALL_ACCESS);
+    if (!a || !b) { t_skip("event creation failed"); cl(a); cl(b); return; }
+    /* single wait released by NtSetEvent from another thread */
+    memset(&x, 0, sizeof x); x.h[0] = a; x.cnt = 1; x.st = S(0x7777);
+    th = start_wait(&x);
+    if (th) {
+        CHECK(!x.done);
+        UN(NtSetEvent)(a, NULL);
+        WaitForSingleObject(th, 15000); CloseHandle(th);
+        EXPECT_EQ(x.st, 0);
+    }
+    UN(ZwResetEvent)(a, NULL);
+    /* wait-all is released only when every object is signaled; auto-reset member is consumed */
+    memset(&x, 0, sizeof x); x.h[0] = a; x.h[1] = b; x.cnt = 2; x.type = 0; x.st = S(0x7777);
+    th = start_wait(&x);
+    if (th) {
+        UN(NtSetEvent)(a, NULL); Sleep(100);
+        CHECK(!x.done);
+        UN(NtSetEvent)(b, NULL);
+        WaitForSingleObject(th, 15000); CloseHandle(th);
+        EXPECT_EQ(x.st, 0);
+        EXPECT_EQ(UN(ZwWaitForSingleObject)(b, FALSE, &z), TIMEOUT);
+    }
+    UN(ZwResetEvent)(a, NULL);
+    /* wait-any returns the index of the object that fired */
+    memset(&x, 0, sizeof x); x.h[0] = a; x.h[1] = b; x.cnt = 2; x.type = 1; x.st = S(0x7777);
+    th = start_wait(&x);
+    if (th) {
+        UN(NtSetEvent)(b, NULL);
+        WaitForSingleObject(th, 15000); CloseHandle(th);
+        EXPECT_EQ(x.st, 1);
+    }
+    /* an alert delivered to a blocked alertable waiter returns STATUS_ALERTED */
+    memset(&x, 0, sizeof x); x.h[0] = a; x.cnt = 1; x.alertable = TRUE; x.st = S(0x7777);
+    th = start_wait(&x);
+    if (th) {
+        UN(NtAlertThread)(th);
+        WaitForSingleObject(th, 15000); CloseHandle(th);
+        EXPECT_EQ(x.st, ALERTED);
+    }
+    cl(a); cl(b);
+}
+
+TEST(zw_wait_alert_by_thread_id_cross_thread)
+{
+    xw_t x; HANDLE th = NULL; DWORD tid;
+    REQUIRE(UN(ZwWaitForAlertByThreadId)); REQUIRE(UN(NtAlertThreadByThreadId));
+    memset(&x, 0, sizeof x); x.alert_mode = 1; x.st = S(0x7777);
+    th = CreateThread(NULL, 0, xwait_thread, &x, 0, &tid);
+    if (!th) { t_skip("CreateThread failed"); return; }
+    { int i; for (i = 0; i < 500 && !x.up; i++) Sleep(10); Sleep(100); }
+    CHECK(!x.done);
+    EXPECT_EQ(UN(NtAlertThreadByThreadId)((HANDLE)(ULONG_PTR)tid), 0);
+    WaitForSingleObject(th, 15000); CloseHandle(th);
+    EXPECT_EQ(x.st, ALERTED);
 }

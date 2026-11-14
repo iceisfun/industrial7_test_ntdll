@@ -1,4 +1,6 @@
-/* Zw-named kernel transaction manager services on volatile transaction managers. */
+/* Zw-named kernel transaction manager services on a log-backed transaction manager.
+ * Enlistments cannot be built (a transaction cannot be bound to the manager), so the enlistment services
+ * are covered through their handle and type validation only. */
 #include "t.h"
 #include <wchar.h>
 
@@ -160,5 +162,22 @@ TEST(zw_ktm_transaction_lifecycle)
     }
     s = UN(ZwRollforwardTransactionManager)(tm, &vc);
     EXPECT_EQ(s, 0);
+    /* valid KTM objects of the wrong kind are type mismatches */
+    if (rm && UN(NtCreateTransaction)(&tx, 0x1f003f, NULL, NULL, NULL, 0, 0, 0, NULL, NULL) == 0) {
+        EXPECT_EQ(UN(ZwRollbackTransaction)(tm, TRUE), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRollbackTransaction)(rm, TRUE), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRecoverTransactionManager)(rm), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRecoverTransactionManager)(tx), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRollforwardTransactionManager)(tx, &vc), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRecoverResourceManager)(tm), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRecoverResourceManager)(tx), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRollbackEnlistment)(tx, &vc), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRollbackComplete)(rm, &vc), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwReadOnlyEnlistment)(tm, &vc), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwSinglePhaseReject)(tx, &vc), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRecoverEnlistment)(rm, NULL), WRONG_TYPE);
+        EXPECT_EQ(UN(ZwRollbackTransaction)(tx, TRUE), 0);
+        cl(tx);
+    }
     cl(rm); cl(tm);
 }
