@@ -15,3 +15,5 @@ Nt/Zw pairs: `alias_pairs` compares the two resolved addresses (same RVA).
 | NtMapViewOfSectionEx | pagefile section mapped at a new address with offset 0: view size = section size, shared content with a Win32 view, MEM_MAPPED, requested protection; partial view size; offset 4096 -> `STATUS_MAPPED_ALIGNMENT` (C0000220); invalid section or process handle C0000008. Extended parameters NULL/0 only. | observed |
 
 Skips: none. Not covered here: NtFreeUserPhysicalPages, NtMapUserPhysicalPages(Scatter) (AWE needs SeLockMemoryPrivilege).
+
+Review additions: NtMapViewOfSectionEx wrong-type section or process handle -> STATUS_OBJECT_TYPE_MISMATCH (C0000024), observed in adm and std modes.

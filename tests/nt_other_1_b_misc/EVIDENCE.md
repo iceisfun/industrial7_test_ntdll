@@ -21,3 +21,5 @@ wrong object types, missing privileges, nonexistent hive/driver). Values observe
 | NtNotifyChangeMultipleKeys | invalid master handle C0000008. | observed |
 
 Skips: none. Uncovered exports are listed with reasons in the report.
+
+Review additions: NtGetCachedSigningLevel NULL handle -> C000000D, process pseudo handle -> C0000024 (observed, adm and std); NtGetDevicePowerState wrong-type handle C0000024; kernel32 signing query asserted to succeed (flags/level values are not asserted beyond range). NtLoadKey/NtLoadKey2/NtLoadKeyEx/NtLoadDriver/NtLockRegistryKey/NtPlugPlayControl/audit alarms are covered only by their privilege gate (no hive or driver is ever loaded); NtListenPort and the transaction-manager natives only by handle/type validation (no port or enlistment can be created without a service connection or transaction manager).

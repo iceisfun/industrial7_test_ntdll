@@ -101,6 +101,9 @@ TEST(registry_and_power_handles)
     EXPECT_EQ(UN(NtGetDevicePowerState)(BADH, &st), S_INVH);
     EXPECT_EQ(UN(NtGetDevicePowerState)(NULL, &st), S_INVH);
     EXPECT_EQ(UN(NtGetCachedSigningLevel)(BADH, &f, &lvl, tp, &tsz, &alg), S_INVH);
+    EXPECT_EQ(UN(NtGetCachedSigningLevel)(NULL, &f, &lvl, tp, &tsz, &alg), XS(0xC000000D)); /* NULL handle is rejected as a parameter */
+    EXPECT_EQ(UN(NtGetDevicePowerState)((HANDLE)(LONG_PTR)-1, &st), XS(0xC0000024)); /* wrong type */
+    EXPECT_EQ(UN(NtGetCachedSigningLevel)((HANDLE)(LONG_PTR)-1, &f, &lvl, tp, &tsz, &alg), XS(0xC0000024));
     /* the signing level of a system file can be queried; its value depends on the SKU/state, so only the call shape is checked */
     char sys[MAX_PATH]; GetSystemDirectoryA(sys, sizeof sys); lstrcatA(sys, "\\kernel32.dll");
     HANDLE h = CreateFileA(sys, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -108,6 +111,7 @@ TEST(registry_and_power_handles)
         tsz = sizeof tp; f = 0xcc; lvl = 0xcc; alg = 0;
         NTSTATUS s = UN(NtGetCachedSigningLevel)(h, &f, &lvl, tp, &tsz, &alg);
         t_note("kernel32 cached signing level: status %08lx flags %lx level %lx", s, f, lvl);
+        EXPECT_EQ(s, 0);
         if (s == 0) { CHECK(lvl <= 0xf); CHECK(tsz <= sizeof tp); }
         CloseHandle(h);
     }

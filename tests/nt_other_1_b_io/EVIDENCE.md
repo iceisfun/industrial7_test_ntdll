@@ -15,3 +15,5 @@ ReadFileScatter, ReadDirectoryChangesW, RegNotifyChangeKeyValue) and runs on the
 | NtMakeTemporaryObject / NtMakePermanentObject | temporary: 0 repeatedly, also without DELETE access on an unnamed event; permanent: `STATUS_PRIVILEGE_NOT_HELD` (C0000061) for admin and standard users alike, and the privilege is checked before the handle (invalid handle also C0000061). | observed |
 
 Skips: none. Observed-only: NtNotifyChangeDirectoryFileEx class handling, NtMakeTemporaryObject without DELETE.
+
+Review additions: NtNotifyChangeMultipleKeys with zero slave keys completes a LAST_SET watch with STATUS_NOTIFY_ENUM_DIR on a value change, wrong-type handle C0000024 (observed, adm and std). NtMakePermanentObject gate assertion is skipped (noted) if SeCreatePermanentPrivilege happens to be enabled.

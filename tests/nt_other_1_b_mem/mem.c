@@ -221,6 +221,11 @@ TEST(map_view_of_section_ex)
     EXPECT_EQ(UN(NtMapViewOfSectionEx)((HANDLE)(LONG_PTR)0x7777c, PSEUDO_PROC, &base, &off, &vs, 0, PAGE_READWRITE, NULL, 0), XS(0xC0000008));
     base = NULL; vs = 0;
     EXPECT_EQ(UN(NtMapViewOfSectionEx)(m, (HANDLE)(LONG_PTR)0x7777c, &base, &off, &vs, 0, PAGE_READWRITE, NULL, 0), XS(0xC0000008));
+    /* a handle of the wrong type as the section */
+    base = NULL; vs = 0;
+    EXPECT_EQ(UN(NtMapViewOfSectionEx)(PSEUDO_PROC, PSEUDO_PROC, &base, &off, &vs, 0, PAGE_READWRITE, NULL, 0), XS(0xC0000024));
+    base = NULL; vs = 0;
+    EXPECT_EQ(UN(NtMapViewOfSectionEx)(m, m, &base, &off, &vs, 0, PAGE_READWRITE, NULL, 0), XS(0xC0000024));
     UnmapViewOfFile(a);
     CloseHandle(m);
 }

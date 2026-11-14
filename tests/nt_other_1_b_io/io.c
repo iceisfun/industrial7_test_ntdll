@@ -15,6 +15,7 @@ UDECL(NTSTATUS, NtFlushKey, (HANDLE));
 UDECL(NTSTATUS, NtNotifyChangeKey, (HANDLE, HANDLE, PVOID, PVOID, PIO_STATUS_BLOCK, ULONG, BOOLEAN, PVOID, ULONG, BOOLEAN));
 UDECL(NTSTATUS, NtSetValueKey, (HANDLE, PUNICODE_STRING, ULONG, ULONG, PVOID, ULONG));
 UDECL(NTSTATUS, RtlOpenCurrentUser, (ACCESS_MASK, PHANDLE));
+UDECL(NTSTATUS, NtNotifyChangeMultipleKeys, (HANDLE, ULONG, POBJECT_ATTRIBUTES, HANDLE, PVOID, PVOID, PIO_STATUS_BLOCK, ULONG, BOOLEAN, PVOID, ULONG, BOOLEAN));
 UDECL(NTSTATUS, NtMakeTemporaryObject, (HANDLE));
 UDECL(NTSTATUS, NtMakePermanentObject, (HANDLE));
 UDECL(NTSTATUS, NtCreateEvent, (PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, ULONG, BOOLEAN));
@@ -418,6 +419,21 @@ TEST(notify_change_key)
         UN(NtClose)(hcu);
     }
     EXPECT_EQ(UN(NtNotifyChangeKey)(BADH, NULL, NULL, NULL, &io, 1, FALSE, NULL, 0, FALSE), XS(0xC0000008));
+    /* NtNotifyChangeMultipleKeys with no slave keys behaves like NtNotifyChangeKey */
+    if (UN(NtNotifyChangeMultipleKeys)) {
+        k = make_key(&hcu, "n4");
+        if (k) {
+            ResetEvent(ev); memset(&io, 0xcc, sizeof io);
+            s = UN(NtNotifyChangeMultipleKeys)(k, 0, NULL, ev, NULL, NULL, &io, 4, FALSE, NULL, 0, TRUE);
+            EXPECT_EQ(s, PEND);
+            EXPECT_EQ(WaitForSingleObject(ev, 50), WAIT_TIMEOUT);
+            EXPECT_EQ(UN(NtSetValueKey)(k, &vn, 0, REG_DWORD, &val, 4), 0);
+            EXPECT_EQ(WaitForSingleObject(ev, 10000), WAIT_OBJECT_0);
+            EXPECT_EQ(io.Status, XS(0x10C));
+            UN(NtDeleteKey)(k); UN(NtClose)(k); UN(NtClose)(hcu);
+        }
+        EXPECT_EQ(UN(NtNotifyChangeMultipleKeys)((HANDLE)(LONG_PTR)-1, 0, NULL, NULL, NULL, NULL, &io, 4, FALSE, NULL, 0, FALSE), XS(0xC0000024));
+    }
     CloseHandle(ev);
 }
 
@@ -433,7 +449,8 @@ TEST(make_temporary_permanent_object)
     /* permanence needs SeCreatePermanentPrivilege, which neither admins nor users hold by default */
     s = UN(NtMakePermanentObject)(e);
     t_note("NtMakePermanentObject: %08lx", s);
-    EXPECT_EQ(s, XS(0xC0000061)); /* STATUS_PRIVILEGE_NOT_HELD */
+    if (s == 0) { UN(NtMakeTemporaryObject)(e); t_note("SeCreatePermanentPrivilege is enabled; gate not exercised"); }
+    else EXPECT_EQ(s, XS(0xC0000061)); /* STATUS_PRIVILEGE_NOT_HELD */
     UN(NtClose)(e);
     /* handle without DELETE access */
     s = UN(NtCreateEvent)(&e, EVENT_ALL_ACCESS, NULL, 0, FALSE);
