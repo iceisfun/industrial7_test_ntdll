@@ -57,3 +57,8 @@ view and handle is released at the end of its test.
 ## Skips
 
 None expected. Tests use REQUIRE() only for exports missing from the module.
+
+## Review additions
+
+- NtFlushVirtualMemory: an address with nothing mapped gives 0xC0000019 (STATUS_NOT_MAPPED_VIEW, observed); a view of a
+  real (throwaway) file section flushes with success and leaves Base/Size rounded to the requested pages.

@@ -72,3 +72,16 @@ Language-dependent NtIsUILanguageComitted; job assignment failure (nested-job po
 ## Justified-uncovered (not in this file's tests)
 
 See the group report: kernel-only/system-state/service-connection exports are not called.
+
+## Review additions
+
+- NtImpersonateClientOfPort on a real unnamed port (NtCreatePort, never listened on): 0xC000021F
+  (STATUS_REPLY_MESSAGE_MISMATCH) for a well-formed header, 0xC000000D for an all-zero header. NtListenPort is not called
+  on a live port because it blocks.
+- User pointer faults: NtGetContextThread(NULL context), NtGetNextProcess(NULL output), NtPrivilegeCheck(NULL result or NULL
+  set) give 0xC0000005; a NULL token handle gives 0xC0000008.
+- NtMakePermanentObject: the privilege check precedes handle lookup; with SeCreatePermanentPrivilege absent (both guest
+  accounts) an invalid handle gives 0xC0000061, asserted exactly (0xC0000008 only if the privilege is held).
+- NtPowerInformation SystemExecutionState: value 0 observed on the guest; test only asserts it holds EXECUTION_STATE bits
+  and that a 2-byte buffer gives 0xC0000023. Capability and processor MHz values are hardware-dependent and not asserted.
+- NtPulseEvent: waiter release is driven by repeated pulses rather than a fixed sleep (no timing assumption).

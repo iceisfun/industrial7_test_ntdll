@@ -217,8 +217,31 @@ TEST(other3a_flush_vm_errors)
     p = b; sz = 0x1000;
     EXPECT_EQ(N(NtFlushVirtualMemory)((HANDLE)(LONG_PTR)-77, &p, &sz, &io), XS(0xC0000008));
     p = (PVOID)0x10000; sz = 0x1000;
-    CHECK(N(NtFlushVirtualMemory)(SELF, &p, &sz, &io) < 0);
+    EXPECT_EQ(N(NtFlushVirtualMemory)(SELF, &p, &sz, &io), XS(0xC0000019));         /* free address: STATUS_NOT_MAPPED_VIEW */
     rel(b);
+}
+TEST(other3a_flush_vm_file_backed_view)
+{
+    HANDLE f, sec = NULL; LARGE_INTEGER li; PVOID b = NULL, p; SIZE_T vs = 0, sz; IO_STATUS_BLOCK io; char path[MAX_PATH]; NTSTATUS s;
+    NEED_VM(); REQUIRE(N(NtFlushVirtualMemory)); REQUIRE(N(NtCreateSection)); REQUIRE(N(NtMapViewOfSection)); REQUIRE(N(NtUnmapViewOfSection)); REQUIRE(N(NtClose));
+    t_tmpfile(path, sizeof path, "o3a_fl.bin");
+    f = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    CHECK(f != INVALID_HANDLE_VALUE); if (f == INVALID_HANDLE_VALUE) return;
+    li.QuadPart = 0x2000;
+    s = N(NtCreateSection)(&sec, SECTION_ALL_ACCESS, NULL, &li, PAGE_READWRITE, SEC_COMMIT, f);
+    EXPECT_EQ(s, 0);
+    if (s == 0) {
+        EXPECT_EQ(N(NtMapViewOfSection)(sec, SELF, &b, 0, 0, NULL, &vs, 1, 0, PAGE_READWRITE), 0);
+        if (b) {
+            ((BYTE *)b)[0x10] = 0x77;
+            p = b; sz = 0x2000; memset(&io, 0xcc, sizeof io);
+            EXPECT_EQ(N(NtFlushVirtualMemory)(SELF, &p, &sz, &io), 0);              /* file-backed view: flush succeeds */
+            EXPECT_EQ(p, b); EXPECT_EQ(sz, 0x2000);
+            N(NtUnmapViewOfSection)(SELF, b);
+        }
+        N(NtClose)(sec);
+    }
+    CloseHandle(f); DeleteFileA(path);
 }
 
 /* ---- NtLockVirtualMemory ----------------------------------------------- */
@@ -388,7 +411,7 @@ TEST(other3a_map_view_two_views_share_data)
 /* ---- Flush services ----------------------------------------------------- */
 TEST(other3a_flush_instruction_cache)
 {
-    PVOID b; NTSTATUS s; NEED_VM(); REQUIRE(N(NtFlushInstructionCache));
+    PVOID b; NEED_VM(); REQUIRE(N(NtFlushInstructionCache));
     b = amem(0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE); CHECK(b != NULL); if (!b) return;
     EXPECT_EQ(N(NtFlushInstructionCache)(SELF, b, 0x1000), 0);
     EXPECT_EQ(N(NtFlushInstructionCache)(SELF, NULL, 0), 0);                    /* whole-process form */

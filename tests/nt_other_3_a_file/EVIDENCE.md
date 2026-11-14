@@ -53,3 +53,8 @@ fixture purposes only; all assertions are on ntdll calls.
 
 Volume-dependent FSCTLs (compression state, reparse query, sparse) skip with the observed status
 if the scratch volume does not implement them.
+
+## Review additions
+
+- NtFsControlFile: an undefined control code on a file gives 0xC0000010; FSCTL_QUERY_ALLOCATED_RANGES with an
+  input buffer shorter than FILE_ALLOCATED_RANGE_BUFFER gives 0xC000000D (observed; previously only asserted negative).

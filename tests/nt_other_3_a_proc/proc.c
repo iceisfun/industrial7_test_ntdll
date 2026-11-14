@@ -46,7 +46,7 @@ TEST(other3a_proc_nt_zw_aliases)
 {
     static const char *n[] = { "GetNextProcess", "GetNextThread", "GetCurrentProcessorNumber", "GetCurrentProcessorNumberEx",
         "IsProcessInJob", "GetContextThread", "QueueApcThread", "QueueApcThreadEx", "PulseEvent", "PrivilegeCheck",
-        "ImpersonateAnonymousToken", "ImpersonateThread", "MakeTemporaryObject", "MakePermanentObject", "PowerInformation",
+        "ImpersonateAnonymousToken", "ImpersonateThread", "CreatePort", "MakeTemporaryObject", "MakePermanentObject", "PowerInformation",
         "RaiseException", "ListenPort", "ImpersonateClientOfPort", "GetNlsSectionPtr", "IsUILanguageComitted",
         "GetMUIRegistryInfo", "IsSystemResumeAutomatic" };
     for (unsigned i = 0; i < sizeof n / sizeof *n; i++) {
@@ -261,8 +261,12 @@ TEST(other3a_pulse_event_releases_waiters_and_leaves_unsignaled)
     EXPECT_EQ(WaitForSingleObject(ev, 0), WAIT_TIMEOUT);                          /* pulse with no waiter leaves it clear */
     th = CreateThread(NULL, 0, evwait, ev, 0, &tid); CHECK(th != NULL);
     if (th) {
-        Sleep(200);
-        prev = 77; s = N(NtPulseEvent)(ev, &prev);
+        int i;
+        for (i = 0; i < 100; i++) {                                                  /* pulse until the waiter has arrived and is released */
+            prev = 77; s = N(NtPulseEvent)(ev, &prev);
+            if (s != 0 || prev != 0) break;
+            if (WaitForSingleObject(th, 50) == WAIT_OBJECT_0) break;
+        }
         EXPECT_EQ(s, 0); EXPECT_EQ(prev, 0);
         EXPECT_EQ(WaitForSingleObject(th, 5000), WAIT_OBJECT_0);
         GetExitCodeThread(th, &code); EXPECT_EQ(code, WAIT_OBJECT_0);             /* waiter released by the pulse */
@@ -421,20 +425,48 @@ TEST(other3a_port_services_reject_bad_handles)
     }
 }
 
+UDECL(NTSTATUS, NtCreatePort, (PHANDLE, POBJECT_ATTRIBUTES, ULONG, ULONG, ULONG));
+TEST(other3a_impersonate_client_of_port_without_client)
+{
+    HANDLE port = NULL; BYTE msg[128]; OBJECT_ATTRIBUTES oa; NTSTATUS s; REQUIRE(N(NtImpersonateClientOfPort)); REQUIRE(N(NtCreatePort));
+    InitializeObjectAttributes(&oa, NULL, 0, NULL, NULL);
+    s = N(NtCreatePort)(&port, &oa, 0, 0x100, 0);                                     /* unnamed server port; never listened on */
+    EXPECT_EQ(s, 0); if (s != 0 || !port) return;
+    memset(msg, 0, sizeof msg); ((USHORT *)msg)[1] = 0x28; *(ULONG *)(msg + 0x18) = 1;
+    EXPECT_EQ(N(NtImpersonateClientOfPort)(port, msg), XS(0xC000021F));              /* STATUS_REPLY_MESSAGE_MISMATCH: no such client message */
+    memset(msg, 0, sizeof msg);
+    EXPECT_EQ(N(NtImpersonateClientOfPort)(port, msg), XS(0xC000000D));              /* header without a length */
+    N(NtClose)(port);
+}
+TEST(other3a_user_pointer_faults_are_reported)
+{
+    HANDLE t = NULL; PRIVILEGE_SET ps; BOOLEAN r; REQUIRE(N(NtGetContextThread)); REQUIRE(N(NtPrivilegeCheck)); REQUIRE(N(NtOpenProcessToken)); REQUIRE(N(NtGetNextProcess));
+    EXPECT_EQ(N(NtGetContextThread)(GetCurrentThread(), NULL), XS(0xC0000005));
+    EXPECT_EQ(N(NtGetNextProcess)(NULL, PROCESS_QUERY_LIMITED_INFORMATION, 0, 0, NULL), XS(0xC0000005));
+    if (N(NtOpenProcessToken)(SELFP, TOKEN_QUERY, &t) == 0) {
+        memset(&ps, 0, sizeof ps);
+        EXPECT_EQ(N(NtPrivilegeCheck)(t, &ps, NULL), XS(0xC0000005));
+        EXPECT_EQ(N(NtPrivilegeCheck)(t, NULL, &r), XS(0xC0000005));
+        EXPECT_EQ(N(NtPrivilegeCheck)(NULL, &ps, &r), XS(0xC0000008));
+        N(NtClose)(t);
+    }
+}
+
 /* ---- NtMakeTemporaryObject / NtMakePermanentObject --------------------------- */
 TEST(other3a_make_temporary_and_permanent_object)
 {
-    HANDLE ev = NULL, ro = NULL; NTSTATUS s; REQUIRE(N(NtMakeTemporaryObject)); REQUIRE(N(NtMakePermanentObject)); REQUIRE(N(NtCreateEvent)); REQUIRE(N(NtDuplicateObject));
+    HANDLE ev = NULL, ro = NULL; NTSTATUS s; int privheld; REQUIRE(N(NtMakeTemporaryObject)); REQUIRE(N(NtMakePermanentObject)); REQUIRE(N(NtCreateEvent)); REQUIRE(N(NtDuplicateObject));
     EXPECT_EQ(N(NtCreateEvent)(&ev, EVENT_ALL_ACCESS, NULL, 0, FALSE), 0); if (!ev) return;
     s = N(NtMakeTemporaryObject)(ev);
     EXPECT_EQ(s, 0);                                                                     /* already temporary: still success */
     s = N(NtMakePermanentObject)(ev);
     if (s == 0) { EXPECT_EQ(N(NtMakeTemporaryObject)(ev), 0); }                         /* undo so the object dies with its last handle */
     else EXPECT_EQ(s, XS(0xC0000061));                                                  /* STATUS_PRIVILEGE_NOT_HELD: SeCreatePermanentPrivilege */
+    privheld = (s == 0);
     EXPECT_EQ(N(NtDuplicateObject)(SELFP, ev, SELFP, &ro, SYNCHRONIZE, 0, 0), 0);
     if (ro) { EXPECT_EQ(N(NtMakeTemporaryObject)(ro), XS(0xC0000022)); N(NtClose)(ro); }   /* DELETE access required */
     EXPECT_EQ(N(NtMakeTemporaryObject)(BADH), XS(0xC0000008));
-    { NTSTATUS sp = N(NtMakePermanentObject)(BADH); CHECK(sp == XS(0xC0000008) || sp == XS(0xC0000061)); }   /* privilege is checked before the handle */
+    EXPECT_EQ(N(NtMakePermanentObject)(BADH), privheld ? XS(0xC0000008) : XS(0xC0000061));   /* privilege is checked before the handle */
     N(NtClose)(ev);
 }
 
@@ -452,12 +484,13 @@ TEST(other3a_power_information_levels)
     EXPECT_EQ(s, 0);
     if (s == 0) {
         struct pp { ULONG Number, MaxMhz, CurrentMhz, MhzLimit, MaxIdleState, CurrentIdleState; } *p = (struct pp *)buf;
-        for (DWORD i = 0; i < si.dwNumberOfProcessors && i < 8; i++) { EXPECT_EQ(p[i].Number, i); CHECK(p[i].MaxMhz > 0 || p[i].CurrentMhz > 0 || 1); }
+        for (DWORD i = 0; i < si.dwNumberOfProcessors && i < 8; i++) { EXPECT_EQ(p[i].Number, i); CHECK(p[i].CurrentMhz <= p[i].MaxMhz || p[i].MaxMhz == 0); }
     }
     EXPECT_EQ(N(NtPowerInformation)(11, NULL, 0, buf, 4), XS(0xC0000023));
     state = 0xcc;
     s = N(NtPowerInformation)(16 /* SystemExecutionState */, NULL, 0, &state, sizeof state);
-    EXPECT_EQ(s, 0); CHECK(state & ES_CONTINUOUS || state == 0);
+    EXPECT_EQ(s, 0); CHECK((state & ~0x8000000Fu) == 0);                    /* only EXECUTION_STATE bits */
+    state = 0xcc; EXPECT_EQ(N(NtPowerInformation)(16, NULL, 0, &state, 2), XS(0xC0000023));
     {   ULONG64 t = 0xcc; s = N(NtPowerInformation)(14 /* LastWakeTime */, NULL, 0, &t, sizeof t); EXPECT_EQ(s, 0); }
     s = N(NtPowerInformation)(0x7fff, NULL, 0, buf, sizeof buf);
     EXPECT_EQ(s, XS(0xC000000D));                                                          /* unknown information level */

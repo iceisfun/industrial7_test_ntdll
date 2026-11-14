@@ -58,7 +58,7 @@ TEST(other3a_readfile_sync_position_and_offset)
     EXPECT_EQ(io.Information, 64); CHECK(pat_ok(buf, 5000, 64));
     EXPECT_EQ(N(NtReadFile)(h, NULL, NULL, NULL, &io, buf, 8, NULL, NULL), 0);    /* explicit offset moves the position on sync handles */
     CHECK(pat_ok(buf, 5064, 8));
-    off.QuadPart = -1;                                                              /* FILE_USE_FILE_POINTER_POSITION is {-1,-1} */
+    /* FILE_USE_FILE_POINTER_POSITION is {0xfffffffe,-1} */
     off.HighPart = -1; off.LowPart = 0xfffffffe;
     EXPECT_EQ(N(NtReadFile)(h, NULL, NULL, NULL, &io, buf, 8, &off, NULL), 0);
     CHECK(pat_ok(buf, 5072, 8));
@@ -292,7 +292,7 @@ TEST(other3a_fsctl_reparse_and_invalid_requests)
     if (s == XS(0xC0000010) || s == XS(0xC00000BB)) t_skip("file system lacks reparse support: 0x%08lx", (unsigned long)s);
     else EXPECT_EQ(s, XS(0xC0000275));                                                         /* STATUS_NOT_A_REPARSE_POINT */
     s = N(NtFsControlFile)(h, NULL, NULL, NULL, &io, 0x00090003 /* device 9, function 0 not defined */, NULL, 0, buf, sizeof buf);
-    CHECK(s < 0);
+    EXPECT_EQ(s, XS(0xC0000010));                                                              /* STATUS_INVALID_DEVICE_REQUEST */
     EXPECT_EQ(N(NtFsControlFile)(BADH, NULL, NULL, NULL, &io, FSCTL_GET_COMPRESSION_, NULL, 0, buf, 2), XS(0xC0000008));
     EXPECT_EQ(N(NtFsControlFile)(NULL, NULL, NULL, NULL, &io, FSCTL_GET_COMPRESSION_, NULL, 0, buf, 2), XS(0xC0000008));
     N(NtClose)(h);
@@ -312,7 +312,7 @@ TEST(other3a_fsctl_sparse_file_allocated_ranges)
     CHECK(io.Information >= sizeof out[0] && io.Information % sizeof out[0] == 0);
     if (io.Information >= sizeof out[0]) { CHECK(out[0].off <= 0x10000 && out[0].off + out[0].len > 0x10000); }
     s = N(NtFsControlFile)(h, NULL, NULL, NULL, &io, FSCTL_QUERY_ALLOCATED_RANGES_, &in, 8, out, sizeof out);   /* short input */
-    CHECK(s < 0);
+    EXPECT_EQ(s, XS(0xC000000D));
     N(NtClose)(h);
 }
 TEST(other3a_fsctl_pipe_peek)

@@ -28,3 +28,9 @@ the hive root is not writable), deleted at the end of each test.
 - NtNotifyChangeMultipleKeys: with no slave array it behaves like NtNotifyChangeKey; an existing
   slave key (Count 1) gives 0xC000000D, a missing one 0xC0000034, Count 1 with a NULL array 0xC000000D.
   The reason an existing slave is refused is observed only.
+
+## Review additions
+
+- NtNotifyChangeKey: a CompletionFilter of 0 is accepted (STATUS_PENDING) and never matches a value change; closing the
+  last handle completes it with STATUS_NOTIFY_CLEANUP 0x10B. A filter with bit 0x80000000 gives 0xC000000D. A handle
+  opened with KEY_QUERY_VALUE only gives 0xC0000022 (KEY_NOTIFY required). All observed on the Windows 10 22H2 guest.

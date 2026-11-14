@@ -182,6 +182,29 @@ TEST(other3a_notify_key_errors)
     if (ev) { EXPECT_EQ(N(NtNotifyChangeKey)(ev, NULL, NULL, NULL, &io, 4, FALSE, buf, sizeof buf, TRUE), XS(0xC0000024)); N(NtClose)(ev); }
     fx_free(&f);
 }
+TEST(other3a_notify_key_filter_and_access_errors)
+{
+    HANDLE q = NULL, ev; IO_STATUS_BLOCK io; UNICODE_STRING u; OBJECT_ATTRIBUTES oa; HANDLE sub; START("nk7");
+    REQUIRE(N(NtNotifyChangeKey));
+    ev = mkev(); CHECK(ev != NULL);
+    if (ev) {                                                                                                              /* an empty filter is accepted and simply never matches */
+        memset(&io, 0xcc, sizeof io);
+        EXPECT_EQ(N(NtNotifyChangeKey)(f.key, ev, NULL, NULL, &io, 0, FALSE, NULL, 0, TRUE), ST_PENDING);
+        EXPECT_EQ(setval(f.key, L"nomatch", 1), 0);
+        EXPECT_EQ(WaitForSingleObject(ev, 200), WAIT_TIMEOUT);
+    }
+    EXPECT_EQ(N(NtNotifyChangeKey)(f.key, NULL, NULL, NULL, &io, 0x80000000u, FALSE, NULL, 0, TRUE), XS(0xC000000D));  /* unknown filter bits */
+    sub = subkey(f.key, L"noacc", KEY_ALL_ACCESS);
+    u.Buffer = L"noacc"; u.Length = 10; u.MaximumLength = 12;
+    InitializeObjectAttributes(&oa, &u, OBJ_CASE_INSENSITIVE, f.key, NULL);
+    if (sub && N(NtOpenKey)(&q, KEY_QUERY_VALUE, &oa) == 0) {
+        EXPECT_EQ(N(NtNotifyChangeKey)(q, NULL, NULL, NULL, &io, 0x4, FALSE, NULL, 0, TRUE), XS(0xC0000022));        /* KEY_NOTIFY required */
+        N(NtClose)(q);
+    }
+    if (sub) { N(NtDeleteKey)(sub); N(NtClose)(sub); }
+    fx_free(&f);                                                                                                           /* last handle closed: pending request ends */
+    if (ev) { EXPECT_EQ(WaitForSingleObject(ev, 5000), WAIT_OBJECT_0); EXPECT_EQ(io.Status, XS(0x0000010B)); N(NtClose)(ev); }
+}
 TEST(other3a_notify_multiple_keys_master_only)
 {
     HANDLE ev; IO_STATUS_BLOCK io; NTSTATUS s; START("nm1");
