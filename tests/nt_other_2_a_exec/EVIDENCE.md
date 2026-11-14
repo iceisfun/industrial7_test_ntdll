@@ -1,8 +1,7 @@
 # nt_other_2_a_exec: suspension, termination, alerts, waits, VM and file leftovers
 
 Oracle: Windows 10 22H2 guest (ntdll 10.0.19041.2788), elevated and standard-user runs. The kernel-side bodies
-of these services are not available in the corpus (ntdll only holds the syscall stub)
-NtResumeThread at the Corpus Explorer record shows `syscall` stubs only), so every expected value is either
+of these services are not available in the corpus (ntdll only holds the syscall stub), so every expected value is either
 public documentation or **observed on Windows 10**; observed-only values are marked (obs).
 
 | Export | Expectation | Source |
