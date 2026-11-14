@@ -16,3 +16,6 @@ KTM semantics (volatile manager, CLFS-logged manager in the scratch directory).
 Enlistment-level success paths (NtRollbackEnlistment, NtRollbackComplete, NtSinglePhaseReject with a real
 enlistment) are not reached: creating a transaction under a manager returned `STATUS_INVALID_PARAMETER` with
 the plain NtCreateTransaction call here, so these are covered by validation only.
+
+Validation: administrator run green three times. The standard-user run skips only the thaw test whose success
+path needs SeBackup and SeRestore (RtlAdjustPrivilege status 0xC0000061); the denial assertions run first.

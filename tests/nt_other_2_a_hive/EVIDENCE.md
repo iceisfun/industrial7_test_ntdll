@@ -17,3 +17,6 @@ result does not depend on test order.
 
 Standard users hold neither privilege: the denial assertions run, and the success paths t_skip with the exact
 RtlAdjustPrivilege status.
+
+Validation: administrator run green three times; standard-user run green with three tests skipped, each with the
+exact reason `0xC0000061` (STATUS_PRIVILEGE_NOT_HELD) from RtlAdjustPrivilege.
