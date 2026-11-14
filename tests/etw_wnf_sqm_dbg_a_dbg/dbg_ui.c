@@ -79,8 +79,12 @@ TEST(dbg_print_family)
     EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrintEx)(101, 0, "ntdllt dbgprintex err %d\n", 7);
-    EXPECT_EQ(r, 0);   /* DbgPrintEx(101,0): no debugger, nothing raised */
-    EXPECT_EQ(g_dp_n, 0);
+    EXPECT_EQ(r, 0);   /* DbgPrintEx(101,0): no debugger attached, returns 0 */
+    /* level 0 of the default component is enabled in the filter mask (the previous test restores it if it cleared it),
+     * so the formatted text is offered to a debugger as one DBG_PRINTEXCEPTION_C (0x40010006) carrying the text */
+    EXPECT_EQ(g_dp_n, 1);
+    EXPECT_EQ(g_dp_code[0], 0x40010006);
+    CHECK(!strcmp(g_dp_msg[0], "ntdllt dbgprintex err 7\n"));
     g_dp_n = 0;
     r = UN(DbgPrintEx)(101, 3, "ntdllt dbgprintex lvl3\n");
     EXPECT_EQ(r, 0);   /* DbgPrintEx(101,3): no debugger, nothing raised */
@@ -99,8 +103,10 @@ TEST(dbg_print_family)
     EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrintReturnControlC)("ntdllt dbgprint rcc %d\n", 1);
-    EXPECT_EQ(r, 0);   /* DbgPrintReturnControlC: no debugger, nothing raised */
-    EXPECT_EQ(g_dp_n, 0);
+    EXPECT_EQ(r, 0);   /* DbgPrintReturnControlC: no debugger attached, returns 0 */
+    EXPECT_EQ(g_dp_n, 1);   /* uses the default component at error level: same single print exception */
+    EXPECT_EQ(g_dp_code[0], 0x40010006);
+    CHECK(!strcmp(g_dp_msg[0], "ntdllt dbgprint rcc 1\n"));
     RemoveVectoredExceptionHandler(vh);
 }
 
@@ -142,8 +148,20 @@ TEST(dbg_prompt_and_filter)
     s = UN(DbgQueryDebugFilterState)(0x1000, 0); EXPECT_EQ(s, 0);
     /* clearing a level that is already clear changes nothing */
     s = UN(DbgSetDebugFilterState)(101, 3, FALSE); t_note("Set(101,3,FALSE)=0x%lx", s);
-    s = UN(DbgSetDebugFilterState)(0xffffffff, 0, FALSE); t_note("Set(-1,0,FALSE)=0x%lx", s);
     s = UN(DbgQueryDebugFilterState)(101, 3); EXPECT_EQ(s, 0);
+    /* Component 0xffffffff level 0 maps onto the default component's error level. Setting it requires the debug
+     * privilege: an elevated token gets 0 and the level really clears, a standard user gets STATUS_ACCESS_DENIED
+     * (0xC0000022, observed) and nothing changes. Either way the original state is restored for later tests. */
+    NTS sc = UN(DbgSetDebugFilterState)(0xffffffff, 0, FALSE);
+    NTS after = UN(DbgQueryDebugFilterState)(101, 0);
+    if (sc == 0) {
+        EXPECT_EQ(after, 0);
+        EXPECT_EQ(UN(DbgSetDebugFilterState)(0xffffffff, 0, TRUE), 0);
+    } else {
+        EXPECT_EQ(sc, (NTS)0xC0000022);
+        EXPECT_EQ(after, 1);
+    }
+    s = UN(DbgQueryDebugFilterState)(101, 0); EXPECT_EQ(s, 1);
 }
 
 /* ---- break points ------------------------------------------------------ */
