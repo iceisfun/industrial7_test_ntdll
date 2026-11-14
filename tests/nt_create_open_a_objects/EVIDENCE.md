@@ -19,6 +19,7 @@ handle is closed.
 | NtCreatePort, NtCreateWaitablePort | named/unnamed ok, collide, MaxMessageLength 0x10000 -> 0xC000000D; both produce object type `ALPC Port` on Windows 10 | observed |
 | NtCreatePrivateNamespace, NtOpenPrivateNamespace | identified by a boundary descriptor (built with Rtl* helpers); create, open, duplicate create -> 0xC0000035, delete via NtDeletePrivateNamespace, open afterwards -> 0xC000003A; an unrooted object name -> 0xC0000033; junk descriptor -> 0xC000000D; NULL descriptor -> 0xC0000005 | observed |
 | NtCreateEventPair, NtOpenEventPair (+Zw alias) | every call returns 0xC0000002 (STATUS_NOT_IMPLEMENTED) on Windows 10 | observed |
+| NtOpenSection, NtOpenJobObject, NtOpenDirectoryObject, NtOpenSymbolicLinkObject, NtOpenKeyedEvent | open of a missing name -> 0xC0000034 (section, job); NULL ObjectAttributes -> 0xC000000D; an existing event of that name -> 0xC0000024 (type mismatch) | observed |
 | ZwCreateEvent | alias of NtCreateEvent (same entry); behaves as an event: notification event initially signalled, type 2 -> 0xC000000D | observed |
 | Zw aliases | CreateCrossVmEvent/Mutant, DebugObject, DirectoryObject(Ex), Enclave, Enlistment, Event, EventPair resolve to the same address as their Nt names | image export table |
 

@@ -417,3 +417,32 @@ TEST(event_pair_is_not_implemented)
     EXPECT_EQ(UN(NtOpenEventPair)(&h, 0x100000, &oa), ST_NOT_IMPL);
     CHECK(h == NULL);
 }
+
+TEST(open_missing_null_and_type_mismatch)
+{
+    HANDLE h = NULL, ev = NULL; OBJECT_ATTRIBUTES oa; WCHAR nm[96];
+    REQUIRE(UN(NtOpenSection)); REQUIRE(UN(NtOpenJobObject)); REQUIRE(UN(NtOpenDirectoryObject)); REQUIRE(UN(NtOpenSymbolicLinkObject));
+    REQUIRE(UN(NtOpenKeyedEvent)); REQUIRE(UN(NtCreateEvent)); REQUIRE(UN(NtClose));
+    bno_name(nm, L"oa_openerr"); oa_init(&oa, nm, OBJ_CI);
+    /* nothing of that name exists */
+    EXPECT_EQ(UN(NtOpenSection)(&h, SECTION_MAP_READ, &oa), ST_NAME_NOT_FOUND);
+    EXPECT_EQ(UN(NtOpenJobObject)(&h, JOB_OBJECT_ALL_ACCESS, &oa), ST_NAME_NOT_FOUND);
+    /* the name is mandatory */
+    EXPECT_EQ(UN(NtOpenSection)(&h, SECTION_MAP_READ, NULL), ST_INVALID_PARAMETER);
+    EXPECT_EQ(UN(NtOpenJobObject)(&h, JOB_OBJECT_ALL_ACCESS, NULL), ST_INVALID_PARAMETER);
+    EXPECT_EQ(UN(NtOpenDirectoryObject)(&h, 1, NULL), ST_INVALID_PARAMETER);
+    EXPECT_EQ(UN(NtOpenSymbolicLinkObject)(&h, 1, NULL), ST_INVALID_PARAMETER);
+    EXPECT_EQ(UN(NtOpenKeyedEvent)(&h, 3, NULL), ST_INVALID_PARAMETER);
+    CHECK(h == NULL);
+    /* an existing object of another type */
+    EXPECT_EQ(UN(NtCreateEvent)(&ev, EVENT_ALL_ACCESS, &oa, 1, FALSE), ST_SUCCESS);
+    if (ev) {
+        EXPECT_EQ(UN(NtOpenSection)(&h, SECTION_MAP_READ, &oa), ST(0xC0000024));
+        EXPECT_EQ(UN(NtOpenJobObject)(&h, JOB_OBJECT_ALL_ACCESS, &oa), ST(0xC0000024));
+        EXPECT_EQ(UN(NtOpenDirectoryObject)(&h, 1, &oa), ST(0xC0000024));
+        EXPECT_EQ(UN(NtOpenSymbolicLinkObject)(&h, 1, &oa), ST(0xC0000024));
+        EXPECT_EQ(UN(NtOpenKeyedEvent)(&h, 3, &oa), ST(0xC0000024));
+        CHECK(h == NULL);
+    }
+    CLOSE(ev);
+}

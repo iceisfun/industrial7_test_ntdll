@@ -1,7 +1,7 @@
 # nt_create_open_a_proc: process, thread and token creation
 
 Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788). All exports are syscall stubs; statuses are **observed on
-Windows 10** (guest, administrator and, where the guest allows, standard user). Documentation only covers
+Windows 10** (guest, administrator; the standard-user mode could not be run in the guest and is unverified). Documentation only covers
 the Win32 wrappers (CreateProcess, CreateThread, OpenProcessToken, OpenThreadToken); the native contracts
 below come from running them.
 
