@@ -77,11 +77,11 @@ TEST(continue_errors)
     NTSTATUS s;
     REQUIRE(UN(NtContinue)); REQUIRE(UN(NtContinueEx));
     s = UN(NtContinue)(NULL, FALSE);
-    t_note("NtContinue(NULL) = 0x%08lx", s);
+    EXPECT_EQ(s, S(0xC0000005));
     s = UN(NtContinueEx)(NULL, NULL);
-    t_note("NtContinueEx(NULL) = 0x%08lx", s);
+    EXPECT_EQ(s, S(0xC0000005));
     s = UN(NtContinue)((PCONTEXT)(ULONG_PTR)0x1000, FALSE);
-    t_note("NtContinue(unmapped) = 0x%08lx", s);
-    { static BYTE buf[sizeof(CONTEXT) + 16]; PCONTEXT c = (PCONTEXT)(((ULONG_PTR)buf + 15) & ~15) ; c = (PCONTEXT)((BYTE *)c + 4);
-      s = UN(NtContinue)(c, FALSE); t_note("NtContinue(misaligned) = 0x%08lx", s); }
+    EXPECT_EQ(s, S(0xC0000005));
+    { static BYTE buf[sizeof(CONTEXT) + 32]; PCONTEXT c = (PCONTEXT)(((ULONG_PTR)buf + 15) & ~15) ; c = (PCONTEXT)((BYTE *)c + 4);
+      s = UN(NtContinue)(c, FALSE); EXPECT_EQ(s, S(0x80000002)); }   /* STATUS_DATATYPE_MISALIGNMENT */
 }

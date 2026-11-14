@@ -26,3 +26,5 @@ Oracle: Windows 10 22H2 guest; adm and std. All values observed unless a source 
   Skipped with a reason if the token does hold the privilege.
 
 Cleanup: scratch files live in the per-process temporary directory; views, sections and memory are released.
+* Review additions (observed): NtAllocateUserPhysicalPages with a NULL process handle returns STATUS_INVALID_HANDLE; the range-bounded NtAllocateVirtualMemoryEx request (0x20000000..0x2FFFFFFF)
+  succeeds and stays in range. AWE allocation itself is only covered through the missing-privilege path (SeLockMemoryPrivilege is not held by ordinary or administrator tokens).

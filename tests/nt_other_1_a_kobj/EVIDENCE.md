@@ -20,3 +20,6 @@ Oracle: Windows 10 22H2 guest. Observed unless noted.
 * WNF: NtDeleteWnfStateData/NtDeleteWnfStateName on an invalid name STATUS_INVALID_PARAMETER, NULL/bad pointers STATUS_ACCESS_VIOLATION; for a temporary name created by the test, deleting
   data (even twice) succeeds, deleting the name once succeeds and a second time gives STATUS_OBJECT_NAME_NOT_FOUND.
 * Private namespaces: NtDeletePrivateNamespace on a namespace created through CreatePrivateNamespaceW succeeds; the handle is then invalid; NULL STATUS_INVALID_HANDLE, event STATUS_OBJECT_TYPE_MISMATCH.
+* Review additions (observed): a second NtCommitRegistryTransaction on a committed transaction returns 0xC0190003; NtEnumerateTransactionObject with an event handle returns
+  STATUS_OBJECT_TYPE_MISMATCH. NtCommitEnlistment / NtCommitComplete success paths and NtEnumerateTransactionObject over live transactions are not covered (no enlistment could be created
+  on the guest); only their argument-validation errors are asserted.

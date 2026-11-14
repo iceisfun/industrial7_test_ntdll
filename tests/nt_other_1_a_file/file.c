@@ -379,8 +379,8 @@ TEST(allocate_virtual_memory_ex)
     memset(&ar, 0, sizeof ar); ar.Lowest = (PVOID)(ULONG_PTR)0x20000000; ar.Highest = (PVOID)(ULONG_PTR)0x2FFFFFFF;
     base = NULL; size = 0x10000;
     s = UN(NtAllocateVirtualMemoryEx)((HANDLE)(LONG_PTR)-1, &base, &size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE, &ep, 1);
+    EXPECT_EQ(s, 0);
     if (s == 0) { CHECK((ULONG_PTR)base >= 0x20000000 && (ULONG_PTR)base + size <= 0x30000000); size = 0; UN(NtFreeVirtualMemory)((HANDLE)(LONG_PTR)-1, &base, &size, MEM_RELEASE); }
-    else t_note("range-bounded allocation -> 0x%08lx", s);
     /* alignment that is not a power of two */
     memset(&ar, 0, sizeof ar); ar.Alignment = 0x30000;
     base = NULL; size = 0x10000;
@@ -441,5 +441,5 @@ TEST(allocate_user_physical_pages)
     n = 4;
     s = UN(NtAllocateUserPhysicalPagesEx)((HANDLE)(LONG_PTR)-1, &n, pfn, NULL, 0);
     EXPECT_EQ(s, S(0xC0000061));
-    t_note("AWE with NULL handle -> 0x%08lx", UN(NtAllocateUserPhysicalPages)(NULL, &n, pfn));
+    n = 4; EXPECT_EQ(UN(NtAllocateUserPhysicalPages)(NULL, &n, pfn), ST_INVHANDLE);   /* observed */
 }

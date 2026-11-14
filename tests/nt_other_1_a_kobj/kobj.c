@@ -140,7 +140,7 @@ TEST(enumerate_transaction_object)
     EXPECT_EQ(UN(NtEnumerateTransactionObject)(tm, 0, NULL, 0, &ret), ST_INVPARAM);
     UN(NtClose)(tm);
     { HANDLE ev = CreateEventW(NULL, 1, 0, NULL);
-      s = UN(NtEnumerateTransactionObject)(ev, 0, cur.b, 36, &ret); t_note("enumerate with an event handle as root: 0x%08lx", s); CloseHandle(ev); }
+      s = UN(NtEnumerateTransactionObject)(ev, 0, cur.b, 36, &ret); EXPECT_EQ(s, ST_TYPEMISM); CloseHandle(ev); }
 }
 
 TEST(enlistment_commit)
@@ -194,7 +194,7 @@ TEST(registry_transaction)
     EXPECT_EQ(s, 0);
     if (s >= 0 && rt) {
         EXPECT_EQ(UN(NtCommitRegistryTransaction)(rt, 0), 0);
-        s = UN(NtCommitRegistryTransaction)(rt, 0); t_note("commit again: 0x%08lx", s);
+        s = UN(NtCommitRegistryTransaction)(rt, 0); EXPECT_EQ(s, S(0xC0190003));   /* observed: transaction no longer active */
         UN(NtClose)(rt);
     }
 }
