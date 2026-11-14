@@ -274,7 +274,11 @@ TEST(rtl_net_ip_str_b_misc_state_predicates) {
     EXPECT_EQ(a, (flags >> 9) & 1);
     EXPECT_EQ(b, (flags >> 10) & 1);
     BOOLEAN m = UN(RtlIsMultiSessionSku)();
-    CHECK(m == 0 || m == 1);
+    {   /* with the service session id 0 the answer is bit 8 of SharedDataFlags */
+        ULONG (WINAPI *sid)(void) = (void *)t_proc("RtlGetCurrentServiceSessionId");
+        if (sid && sid() == 0) EXPECT_EQ(m, (flags >> 8) & 1);
+        else CHECK(m == 0 || m == 1);
+    }
     t_note("multi-session=%d multiuser-in-session=%d state-separation=%d", m, a, b);
 }
 
@@ -788,14 +792,11 @@ TEST(rtl_net_ip_str_b_misc_parent_of_child_appcontainer) {
     ULONG nt[2] = {32, 544}; static const BYTE ntauth[6] = {0,0,0,0,0,5}; mksid(ns, 2, ntauth, nt);
     BOOLEAN a = UN(RtlIsParentOfChildAppContainer)(ps, cs);
     BOOLEAN b = UN(RtlIsParentOfChildAppContainer)(cs, ps);
-    CHECKF(a != b, "exactly one argument order identifies the parent (parent,child)=%d (child,parent)=%d", a, b);
-    BOOLEAN good = a ? 1 : 0;      /* the order that matched */
-    PSID p1 = good ? ps : cs, c1 = good ? cs : ps;
-    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(p1, c1), 1);
-    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(p1, os), 0);       /* different parent hash */
-    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(p1, p1), 0);
-    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(c1, c1), 0);
-    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(ns, c1), 0);
-    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(p1, ns), 0);
-    t_note("argument order (parent,child) = %s", good ? "first=8-subauthority sid" : "first=12-subauthority sid");
+    /* observed on Windows 10: (8-sub-authority parent, 12-sub-authority child) matches, the swapped order does not */
+    CHECKF(a == 1 && b == 0, "(parent,child)=%d (child,parent)=%d", a, b);
+    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(ps, os), 0);       /* different parent hash */
+    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(ps, ps), 0);
+    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(cs, cs), 0);
+    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(ns, cs), 0);
+    EXPECT_EQ(UN(RtlIsParentOfChildAppContainer)(ps, ns), 0);
 }
