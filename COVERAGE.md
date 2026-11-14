@@ -2,7 +2,7 @@
 
 Which `ntdll.dll` exports the tests refer to, per area. The list is name-based: an export is listed under an area when the area's sources call it (directly, through a typed pointer, or through a table of names). It says nothing about how deeply the behaviour is verified. `export_surface` additionally checks the whole export table (names, ordinals, forwarders) of Windows 10 22H2 build 19045 without calling each function.
 
-Reference: ntdll.dll 10.0.19041.2788, 2433 exports (2432 named). Exports referenced by at least one area: 550.
+Reference: ntdll.dll 10.0.19041.2788, 2433 exports (2432 named). Exports referenced by at least one area: 552.
 
 | Area | Exports referenced |
 |---|---:|
@@ -12,6 +12,7 @@ Reference: ntdll.dll 10.0.19041.2788, 2433 exports (2432 named). Exports referen
 | `export_surface` | 0 |
 | `harness_checks` | 5 |
 | `ldr_image` | 26 |
+| `nt_cancel_io` | 4 |
 | `nt_file` | 29 |
 | `nt_process` | 14 |
 | `nt_registry` | 28 |
@@ -60,6 +61,10 @@ Reference: ntdll.dll 10.0.19041.2788, 2433 exports (2432 named). Exports referen
 ## ldr_image
 
 `LdrAddRefDll`, `LdrEnumerateLoadedModules`, `LdrFindEntryForAddress`, `LdrGetDllHandle`, `LdrGetDllHandleEx`, `LdrGetProcedureAddress`, `LdrGetProcedureAddressEx`, `LdrLoadDll`, `LdrLockLoaderLock`, `LdrUnloadDll`, `LdrUnlockLoaderLock`, `NtClose`, `RtlAllocateHeap`, `RtlImageDirectoryEntryToData`, `RtlImageNtHeader`, `RtlImageNtHeaderEx`, `RtlImageRvaToSection`, `RtlImageRvaToVa`, `RtlInitUnicodeString`, `RtlPcToFileHeader`, `_wcsnicmp`, `memmove`, `memset`, `strcmp`, `strcpy`, `strlen`
+
+## nt_cancel_io
+
+`NtCancelIoFile`, `NtCancelIoFileEx`, `NtCancelSynchronousIoFile`, `NtReadFile`
 
 ## nt_file
 

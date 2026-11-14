@@ -4,6 +4,7 @@ crt_strings
 export_surface
 harness_checks
 ldr_image
+nt_cancel_io
 nt_file
 nt_process
 nt_registry
