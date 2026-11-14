@@ -1,0 +1,22 @@
+# nt_query_info_a_misc evidence
+
+Oracle: Windows 10 22H2 guest (ntdll 10.0.19041.2788), elevated administrator and standard user. The decompilations
+of all exports here are bare syscall stubs, so statuses were observed on the guest; structure layouts come from public
+headers (KEY_VALUE_ENTRY, FILE_*; TRANSACTION_BASIC_INFORMATION and the other TM structures from ktmw32/wdm).
+
+| Export | Assertions | Source |
+|---|---|---|
+| NtQueryMultipleValueKey | DWORD and SZ values on a volatile HKCU key: types, lengths and data copied at the returned DataOffsets, BufferLength equals RequiredLength; 4-byte buffer STATUS_BUFFER_OVERFLOW (0x80000005) with the full size in RequiredLength; a missing value STATUS_OBJECT_NAME_NOT_FOUND; invalid handle 0xC0000008; event handle STATUS_OBJECT_TYPE_MISMATCH; zero entries is success (note) | observed |
+| NtQueryOpenSubKeys | Only a hive root is accepted: an ordinary key returns STATUS_INVALID_PARAMETER (the guest accepted `\Registry\Machine\SOFTWARE`, `\SYSTEM`, `\SAM` and the current user root, and rejected `\Registry\Machine`, `\Registry\User` and a subkey). The count for the current-user hive root increases by exactly one when a child key handle is opened; missing key 0xC0000034; NULL count pointer STATUS_ACCESS_VIOLATION | observed |
+| NtQueryOpenSubKeysEx | Without SeRestorePrivilege STATUS_PRIVILEGE_NOT_HELD; with it (administrator only; the Ex success path is skipped otherwise, noted in the log) a 64-byte buffer on the current-user hive root returns STATUS_BUFFER_OVERFLOW with RequiredSize larger than the buffer | observed |
+| NtQuerySecurityAttributesToken | process token: all attributes (count 0) succeed; a named missing attribute is STATUS_NOT_FOUND (0xC0000225); a 1-byte buffer STATUS_BUFFER_TOO_SMALL and the return length equals the full size; invalid handle; event handle STATUS_OBJECT_TYPE_MISMATCH; token without TOKEN_QUERY STATUS_ACCESS_DENIED | observed |
+| NtQueryWnfStateData / NtQueryWnfStateNameInformation | temporary state name (lifetime 3, user scope 2) created with an open (NULL DACL) descriptor: existence class 0 returns 1, class 99 STATUS_INVALID_INFO_CLASS, a 1-byte buffer STATUS_INVALID_PARAMETER; before any update change stamp 0 and size 0; after updates stamp 1 then 2 with the stored bytes; a 2-byte buffer STATUS_BUFFER_TOO_SMALL with the required size; NULL buffer likewise; update beyond the maximum state size STATUS_INVALID_PARAMETER; after NtDeleteWnfStateName existence reads 0 and the data query is STATUS_OBJECT_NAME_NOT_FOUND. Creation constraints observed on the way: temporary + machine scope and lifetime 7 are STATUS_INVALID_PARAMETER, volatile lifetime without privilege STATUS_PRIVILEGE_NOT_HELD | observed |
+| NtQueryInformationPort | invalid handle returns STATUS_INVALID_HANDLE for classes 0..5; an event handle STATUS_OBJECT_TYPE_MISMATCH (no ALPC/LPC port is created here: the area that owns ports covers the success path) | observed |
+| NtQuerySecurityPolicy | undocumented; all-NULL arguments STATUS_INVALID_PARAMETER is the only observed behaviour | observed |
+| NtQueryInformationTransaction | volatile-TM-less transaction: class 0 returns 24 bytes with a nonzero GUID, State 1 (Normal), Outcome 1 (Undetermined); class 1 returns at least 28 bytes; 23 byte buffer STATUS_INFO_LENGTH_MISMATCH; class 0x7777 STATUS_INVALID_INFO_CLASS; invalid handle; event handle STATUS_OBJECT_TYPE_MISMATCH; after NtRollbackTransaction outcome is 3 (Aborted) | observed |
+| NtQueryInformationTransactionManager | volatile TM: class 0 returns 24 bytes with a nonzero identity GUID; 23 bytes STATUS_INFO_LENGTH_MISMATCH; bad class; invalid and event handles | observed |
+| NtQueryInformationResourceManager | RM of a volatile TM: class 0 returns the GUID given at creation and DescriptionLength 18 followed by the description; an 8-byte buffer STATUS_BUFFER_TOO_SMALL (not LENGTH_MISMATCH, unlike the other classes); bad class; invalid handle | observed |
+| NtQueryInformationEnlistment | invalid handle STATUS_INVALID_HANDLE is checked. The success path could not be built: NtCreateTransaction with an explicit TM handle returned STATUS_INVALID_PARAMETER for a volatile and for a log-file TM on this guest, so no enlistment can be created | observed |
+
+Skips: qmisc_wnf skips on STATUS_ACCESS_DENIED / STATUS_PRIVILEGE_NOT_HELD from name creation (not seen); the TM, RM and
+transaction tests skip when creation returns an error status. All objects created are closed; the registry key is deleted.
