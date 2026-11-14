@@ -182,7 +182,7 @@ TEST(nt_create_open_b_mailslot)
       EXPECT_EQ(UN(ZwCreateMailslotFile)(&m, GENERIC_READ | SYNCHRONIZE, &oa, NULL, O_SYNC, 0, 0x100, &to), S_AV);
       /* a device name that is not the mailslot filesystem */
       { UNICODE_STRING bu; OBJECT_ATTRIBUTES boa; cob_us(&bu, L"\\Device\\NamedPipe\\cob_ms_wrongfs"); cob_oa(&boa, &bu, 0x40, NULL);
-        s = UN(ZwCreateMailslotFile)(&m, GENERIC_READ | SYNCHRONIZE, &boa, &iosb, O_SYNC, 0, 0x100, &to); CHECK(s < 0); cob_close(m); } }
+        s = UN(ZwCreateMailslotFile)(&m, GENERIC_READ | SYNCHRONIZE, &boa, &iosb, O_SYNC, 0, 0x100, &to); EXPECT_EQ(s, (NTSTATUS)0xC0000010 /* INVALID_DEVICE_REQUEST */); cob_close(m); } }
 }
 
 TEST(nt_create_open_b_named_pipe)

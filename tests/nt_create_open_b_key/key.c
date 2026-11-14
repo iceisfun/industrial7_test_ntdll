@@ -151,7 +151,7 @@ TEST(nt_create_open_b_key_symbolic_link_option)
         s = UN(ZwOpenKey)(&o, KEY_READ_, &oa); EXPECT_EQ(s, S_OK_); cob_close(o); o = NULL;
         /* without OPENLINK the dangling link cannot be followed */
         cob_oa(&oa, &u, 0x40, NULL);
-        s = UN(ZwOpenKey)(&o, KEY_READ_, &oa); CHECK(s < 0); cob_close(o); o = NULL;
+        s = UN(ZwOpenKey)(&o, KEY_READ_, &oa); EXPECT_EQ(s, (NTSTATUS)0xC0000034); cob_close(o); o = NULL;
         /* delete the link key via an OPENLINK handle */
         cob_oa(&oa, &u, 0x40 | 0x100, NULL); if (UN(ZwOpenKey)(&o, DELETE, &oa) == 0) { UN(NtDeleteKey)(o); cob_close(o); } }
     UN(NtDeleteKey)(h); cob_close(h);
@@ -189,7 +189,7 @@ TEST(nt_create_open_b_key_transacted)
         s = UN(ZwOpenKey)(&k2, DELETE | KEY_READ_, &oa); EXPECT_EQ(s, S_OK_);
         if (k2) { UN(NtDeleteKey)(k2); cob_close(k2); k2 = NULL; }
         /* operations after commit fail */
-        EXPECT_EQ(UN(ZwOpenKeyTransacted)(&k2, KEY_READ_, &oa, tx) < 0, 1); cob_close(k2); k2 = NULL;
+        EXPECT_EQ(UN(ZwOpenKeyTransacted)(&k2, KEY_READ_, &oa, tx), (NTSTATUS)0xC0190003 /* TRANSACTION_NOT_ACTIVE */); cob_close(k2); k2 = NULL;
         cob_close(tx); tx = NULL;
     }
     /* invalid transaction handles */

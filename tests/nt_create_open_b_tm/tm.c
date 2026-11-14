@@ -105,11 +105,11 @@ TEST(nt_create_open_b_resource_manager_and_enlistment)
         s = UN(ZwOpenResourceManager)(&o, RM_ALL, tm, NULL, &oa); EXPECT_EQ(s, S_INVPARAM); cob_close(o); o = NULL;
         /* enlistments: none exist */
         { GUID eg = rg; eg.Data1++; o = (HANDLE)0x1234;
-          s = UN(ZwOpenEnlistment)(&o, RM_ALL, rm, &eg, NULL); CHECK(s < 0); EXPECT_EQ(UN(ZwOpenEnlistment)(&o, RM_ALL, rm, NULL, NULL), S_INVPARAM);
+          s = UN(ZwOpenEnlistment)(&o, RM_ALL, rm, &eg, NULL); EXPECT_EQ(s, (NTSTATUS)0xC0190050 /* ENLISTMENT_NOT_FOUND */); EXPECT_EQ(UN(ZwOpenEnlistment)(&o, RM_ALL, rm, NULL, NULL), S_INVPARAM);
           EXPECT_EQ(UN(ZwOpenEnlistment)(&o, RM_ALL, (HANDLE)(ULONG_PTR)0x7ffffff0, &eg, NULL), S_INVHANDLE);
           EXPECT_EQ(UN(ZwOpenEnlistment)(&o, RM_ALL, tm, &eg, NULL), S_TYPEMM); }
         /* RM with an unknown GUID */
-        { GUID bad = rg; bad.Data1 += 5; o = (HANDLE)0x1234; s = UN(ZwOpenResourceManager)(&o, RM_ALL, tm, &bad, NULL); CHECK(s < 0); }
+        { GUID bad = rg; bad.Data1 += 5; o = (HANDLE)0x1234; s = UN(ZwOpenResourceManager)(&o, RM_ALL, tm, &bad, NULL); EXPECT_EQ(s, (NTSTATUS)0xC019004F /* RESOURCEMANAGER_NOT_FOUND */); }
         cob_close(rm);
     }
     EXPECT_EQ(UN(ZwCreateResourceManager)(&rm, RM_ALL, (HANDLE)(ULONG_PTR)0x7ffffff0, &rg, NULL, 1, NULL), S_INVHANDLE);
