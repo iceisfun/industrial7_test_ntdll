@@ -50,7 +50,7 @@ TEST(alias_pairs)
     const char *n[] = { "ListenPort", "ImpersonateClientOfPort", "ReadRequestData", "PrepareEnlistment", "PrePrepareEnlistment",
         "PrepareComplete", "PrePrepareComplete", "PropagationComplete", "PropagationFailed", "ReadOnlyEnlistment",
         "RecoverEnlistment", "RecoverResourceManager", "GetNotificationResourceManager", "LockRegistryKey",
-        "GetDevicePowerState", "GetCachedSigningLevel", "LoadKey", "LoadKey2", "LoadKeyEx", "LockProductActivationKeys", "LoadDriver" };
+        "GetDevicePowerState", "GetCachedSigningLevel", "LoadKey", "LoadKey2", "LoadKeyEx", "LockProductActivationKeys", "LoadDriver", "PlugPlayControl", "PrivilegedServiceAuditAlarm", "PrivilegeObjectAuditAlarm", "FreeUserPhysicalPages", "MapUserPhysicalPages", "MapUserPhysicalPagesScatter", "GetMUIRegistryInfo", "NotifyChangeMultipleKeys" };
     for (unsigned i = 0; i < sizeof n / sizeof *n; i++) {
         char a[64], b[64]; wsprintfA(a, "Nt%s", n[i]); wsprintfA(b, "Zw%s", n[i]);
         FARPROC pa = t_proc(a), pb = t_proc(b);
@@ -159,4 +159,63 @@ TEST(lock_product_activation_keys)
     t_note("NtLockProductActivationKeys: %08lx ver=%lx safe=%lx", s, ver, safe);
     EXPECT_EQ(s, 0);
     EXPECT_EQ(safe, 0);   /* not booted in safe mode */
+}
+
+UDECL(NTSTATUS, NtPlugPlayControl, (ULONG, PVOID, ULONG));
+UDECL(NTSTATUS, NtPrivilegedServiceAuditAlarm, (PUNICODE_STRING, PUNICODE_STRING, HANDLE, PPRIVILEGE_SET, BOOLEAN));
+UDECL(NTSTATUS, NtPrivilegeObjectAuditAlarm, (PUNICODE_STRING, PVOID, HANDLE, ACCESS_MASK, PPRIVILEGE_SET, BOOLEAN));
+UDECL(NTSTATUS, NtFreeUserPhysicalPages, (HANDLE, PULONG_PTR, PULONG_PTR));
+UDECL(NTSTATUS, NtMapUserPhysicalPages, (PVOID, ULONG_PTR, PULONG_PTR));
+UDECL(NTSTATUS, NtMapUserPhysicalPagesScatter, (PVOID *, ULONG_PTR, PULONG_PTR));
+UDECL(NTSTATUS, NtGetMUIRegistryInfo, (ULONG, PULONG, PVOID));
+UDECL(NTSTATUS, NtNotifyChangeMultipleKeys, (HANDLE, ULONG, POBJECT_ATTRIBUTES, HANDLE, PVOID, PVOID, PIO_STATUS_BLOCK, ULONG, BOOLEAN, PVOID, ULONG, BOOLEAN));
+
+TEST(plug_play_and_audit_privileges)
+{
+    REQUIRE(UN(NtPlugPlayControl)); REQUIRE(UN(NtPrivilegedServiceAuditAlarm)); REQUIRE(UN(NtPrivilegeObjectAuditAlarm));
+    BYTE buf[512]; memset(buf, 0, sizeof buf);
+    int load = has_priv(10), audit = has_priv(21); /* SeLoadDriverPrivilege, SeAuditPrivilege */
+    if (load < 0 || audit < 0) { t_skip("cannot read token privileges"); return; }
+    if (load < 2) {
+        EXPECT_EQ(UN(NtPlugPlayControl)(0x7fff, buf, sizeof buf), XS(0xC0000061));
+        EXPECT_EQ(UN(NtPlugPlayControl)(0, NULL, 0), XS(0xC0000061));
+    } else t_note("SeLoadDriverPrivilege enabled, plug-and-play gate not exercised");
+    if (audit < 2) {
+        UNICODE_STRING a; a.Buffer = L"x"; a.Length = a.MaximumLength = 2;
+        PRIVILEGE_SET ps; memset(&ps, 0, sizeof ps);
+        EXPECT_EQ(UN(NtPrivilegedServiceAuditAlarm)(&a, &a, BADH, &ps, TRUE), XS(0xC0000061));
+        EXPECT_EQ(UN(NtPrivilegeObjectAuditAlarm)(&a, NULL, BADH, 0, &ps, TRUE), XS(0xC0000061));
+    } else t_note("SeAuditPrivilege enabled, audit gate not exercised");
+}
+
+TEST(user_physical_pages_errors)
+{
+    REQUIRE(UN(NtFreeUserPhysicalPages)); REQUIRE(UN(NtMapUserPhysicalPages)); REQUIRE(UN(NtMapUserPhysicalPagesScatter));
+    ULONG_PTR n = 1, pfn = 0;
+    /* nothing was ever allocated through AWE: the address is not an AWE region / the page is unknown */
+    EXPECT_EQ(UN(NtFreeUserPhysicalPages)((HANDLE)(LONG_PTR)-1, &n, &pfn), XS(0xC00000EF));
+    n = 0;
+    EXPECT_EQ(UN(NtFreeUserPhysicalPages)((HANDLE)(LONG_PTR)-1, &n, &pfn), XS(0xC00000F0));
+    EXPECT_EQ(UN(NtMapUserPhysicalPages)((PVOID)0x10000, 0, NULL), XS(0xC00000F0));
+    EXPECT_EQ(UN(NtMapUserPhysicalPages)((PVOID)0x10000, 1, &pfn), XS(0xC00000EF));
+    EXPECT_EQ(UN(NtMapUserPhysicalPagesScatter)(NULL, 0, NULL), 0);
+}
+
+TEST(mui_registry_info_and_multi_notify)
+{
+    REQUIRE(UN(NtGetMUIRegistryInfo)); REQUIRE(UN(NtNotifyChangeMultipleKeys));
+    BYTE buf[512]; ULONG sz = 0;
+    EXPECT_EQ(UN(NtGetMUIRegistryInfo)(0, &sz, buf), XS(0xC000000D));
+    sz = sizeof buf;
+    EXPECT_EQ(UN(NtGetMUIRegistryInfo)(0, &sz, buf), XS(0xC0000023));   /* STATUS_BUFFER_TOO_SMALL */
+    EXPECT_EQ(sz, 1232);                                              /* required size is reported */
+    BYTE *big = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (big) {
+        sz = 4096;
+        NTSTATUS s = UN(NtGetMUIRegistryInfo)(0, &sz, big);
+        EXPECT_EQ(s, 0); EXPECT_EQ(sz, 1232);
+        VirtualFree(big, 0, MEM_RELEASE);
+    }
+    IO_STATUS_BLOCK io;
+    EXPECT_EQ(UN(NtNotifyChangeMultipleKeys)(BADH, 0, NULL, NULL, NULL, NULL, &io, 1, FALSE, NULL, 0, FALSE), S_INVH);
 }

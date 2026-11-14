@@ -14,4 +14,10 @@ wrong object types, missing privileges, nonexistent hive/driver). Values observe
 | NtLoadDriver | SeLoadDriverPrivilege not enabled -> C0000061; enabled branch expects C0000034 (not exercised). | observed |
 | NtLockProductActivationKeys | status 0, safe-mode output 0 (version output not written). | observed |
 
+| NtPlugPlayControl | SeLoadDriverPrivilege not enabled -> C0000061 before any argument check (bogus class, NULL buffer). | observed |
+| NtPrivilegedServiceAuditAlarm, NtPrivilegeObjectAuditAlarm | SeAuditPrivilege not enabled -> C0000061 (checked before the handle). | observed |
+| NtFreeUserPhysicalPages, NtMapUserPhysicalPages, NtMapUserPhysicalPagesScatter | no AWE allocation: C00000EF / C00000F0 (INVALID_PARAMETER_1 / _2) for a non-AWE address, a zero page count; scatter with zero entries returns 0. No SeLockMemory needed for these paths. | observed |
+| NtGetMUIRegistryInfo | size 0 C000000D; 512-byte buffer C0000023 with required size 1232; 4096-byte buffer status 0 and size 1232. | observed |
+| NtNotifyChangeMultipleKeys | invalid master handle C0000008. | observed |
+
 Skips: none. Uncovered exports are listed with reasons in the report.
