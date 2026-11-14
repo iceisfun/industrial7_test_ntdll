@@ -20,4 +20,6 @@ Behavior was derived from the decompilations (`/api/function/ntdll/<Name>/decomp
 | RtlClearThreadWorkOnBehalfTicket | Returns 0 when no ticket is set on the thread. | decomp 0x675b0 |
 | RtlAppxIsFileOwnedByTrustedInstaller | System32\kernel32.dll is owned by TrustedInstaller (TRUE); a scratch file is not (FALSE); NULL output pointer gives 0xC000000D; an invalid handle gives STATUS_INVALID_HANDLE 0xC0000008 and leaves the output. | decomp 0xcbda0; observed |
 
+| KiUserInvertedFunctionTable | Data export: `{ULONG Count, MaxCount, Epoch...; entries of 0x18 bytes at +0x10: ExceptionDirectory, ImageBase, ImageSize, SizeOfTable}`; the executable and ntdll are listed with SizeOfImage and the exception directory taken from their PE headers. | observed on the guest |
+
 Skips: none expected. Observed-only: canonicalization outputs, API-set presence of the chosen contract names.

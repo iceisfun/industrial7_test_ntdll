@@ -377,3 +377,33 @@ TEST(appx_trusted_installer_owner) {
     if (t != INVALID_HANDLE_VALUE) { r = 0xEE; s = UN(RtlAppxIsFileOwnedByTrustedInstaller)(t, &r); EXPECT_EQ(s, 0); EXPECT_EQ(r, 0); CloseHandle(t); }
     r = 0xEE; EXPECT_EQ(UN(RtlAppxIsFileOwnedByTrustedInstaller)((HANDLE)(ULONG_PTR)0xFFFC, &r), S(0xC0000008)); EXPECT_EQ(r, 0xEE);
 }
+
+/* ------------------------------------------- inverted function table */
+static int ift_find(const UCHAR *t, ULONG count, HMODULE m, ULONG *size_out) {
+    for (ULONG i = 0; i < count; i++) {
+        const UCHAR *e = t + 0x10 + i * 0x18;
+        if (*(HMODULE *)(e + 8) == m) { *size_out = *(ULONG *)(e + 0x10); return 1; }
+    }
+    return 0;
+}
+TEST(inverted_function_table) {
+    const UCHAR *t = (const UCHAR *)t_proc("KiUserInvertedFunctionTable");
+    if (!t) { t_skip("KiUserInvertedFunctionTable not exported"); return; }
+    ULONG count = *(const ULONG *)t, max = *(const ULONG *)(t + 4);
+    EXPECT_EQ(count >= 2, 1);                 /* at least the executable and ntdll */
+    EXPECT_EQ(count <= max, 1);
+    HMODULE self = GetModuleHandleW(NULL), nt = GetModuleHandleW(L"ntdll.dll");
+    ULONG sz = 0;
+    for (int k = 0; k < 2; k++) {
+        HMODULE m = k ? nt : self;
+        if (!ift_find(t, count, m, &sz)) { CHECKF(0, "module %p missing from the inverted function table", m); continue; }
+        const IMAGE_DOS_HEADER *dh = (const IMAGE_DOS_HEADER *)m;
+        const IMAGE_NT_HEADERS64 *nh = (const IMAGE_NT_HEADERS64 *)((const UCHAR *)m + dh->e_lfanew);
+        EXPECT_EQ(sz, nh->OptionalHeader.SizeOfImage);
+        const UCHAR *e = NULL; for (ULONG i = 0; i < count; i++) if (*(HMODULE *)(t + 0x10 + i * 0x18 + 8) == m) e = t + 0x10 + i * 0x18;
+        /* exception directory pointer and size agree with the PE header */
+        const IMAGE_DATA_DIRECTORY *ed = &nh->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXCEPTION];
+        EXPECT_EQ(*(const UCHAR **)e, (const UCHAR *)m + ed->VirtualAddress);
+        EXPECT_EQ(*(const ULONG *)(e + 0x14), ed->Size);
+    }
+}
