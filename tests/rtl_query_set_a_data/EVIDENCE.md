@@ -1,7 +1,7 @@
 # RtlQuery* over caller supplied data: Windows 10 contracts
 
-Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788); decompilation: http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/<Name>/decomp.
-All assertions passed on the guest as administrator and as a standard user. "observed" means the value was
+Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788); decompilation of each export was consulted.
+All assertions passed on the guest as administrator. "observed" means the value was
 established by running on Windows 10 and the decompilation is consistent with it.
 
 | Export (RVA) | Source | Checked |
@@ -14,8 +14,8 @@ established by running on Windows 10 and the decompilation is consistent with it
 | RtlQueryUmsThreadInformation (0xf7500) | decomp | operates on a caller supplied context block: classes 1 and 4 (8 bytes), 5 and 6 (1 byte) read the documented offsets; wrong sizes -> 0xC0000004 with return length 0; other classes -> 0xC00000BB |
 | RtlQueryProtectedPolicy (0x819d0) | decomp + observed | unknown GUID -> 0xC0000225, output untouched |
 | RtlQueryResourcePolicy (0x44740) | decomp | NULL buffer, non-zero flags, wrong size -> 0xC000000D; unknown type -> 0xC0000003; values for types 0..3 are machine specific (logged only) |
-| RtlQueryImageMitigationPolicy (0xe1af0) | decomp + observed | machine-wide query with a name -> 0xC000000D; wrong buffer size -> 0xC000000D; image without a policy key fails (0xC0000034 observed); machine-wide policy 10 returns three QWORD states each <= 7 |
-| RtlQueryHeapInformation (0x73fa0) | decomp + observed | class 0 on a fresh heap = 0, short buffer -> 0xC0000023 with length 4, process heap 0 or 2 (LFH), class 0x80000001 returns an 8-byte pointer (short buffer reports 8), unsupported classes 1 and 3 -> 0xC000000D |
+| RtlQueryImageMitigationPolicy (0xe1af0) | decomp + observed | machine-wide query with a name -> 0xC000000D; wrong buffer size -> 0xC000000D; image without a policy key fails (0xC0000034 observed); machine-wide policy 10 returns status 0 with three QWORD states each <= 7 |
+| RtlQueryHeapInformation (0x73fa0) | decomp + observed | class 0 on a fresh heap = 0, short buffer -> 0xC0000023 with length 4, process heap 0 or 2 (LFH), class 0x80000001 returns an 8-byte pointer (short buffer reports 8), short buffer for 0x80000001 -> 0xC0000023, unsupported classes 1 and 3 -> 0xC000000D |
 | RtlQueryTagHeap (0xf29e0) | decomp | returns NULL unless FLG_HEAP_ENABLE_TAGGING is set in the PEB (test skipped if it is) |
 | RtlQueryModuleInformation (0xe3de0) | decomp + observed | system module list: 8-byte and 0x110-byte element forms, size query, first module is ntoskrnl.exe in the upper address half, misaligned buffer -> 0xC00000F1, bad element size -> 0xC00000F0 |
 

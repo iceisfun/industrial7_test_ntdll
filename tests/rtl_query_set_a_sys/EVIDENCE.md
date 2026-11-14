@@ -1,7 +1,7 @@
 # RtlQuery* (process debug buffers, activation contexts, packages, WNF, features): Windows 10 contracts
 
-Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788); decompilation: http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/<Name>/decomp.
-Passing on the Windows 10 guest as administrator and as a standard user.
+Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788); decompilation of each export was consulted.
+Passing on the Windows 10 guest as administrator.
 
 | Export (RVA) | Source | Checked |
 | --- | --- | --- |
@@ -13,9 +13,11 @@ Passing on the Windows 10 guest as administrator and as a standard user.
 | RtlQueryActivationContextApplicationSettings (0x79dd0) | decomp: string-section lookup, namespace compare, chars copied + NUL, returned length = chars + 1 | dpiAware -> "true", length 5; explicit and default namespace; wrong namespace or unknown name -> 0xC0150008; too small -> 0xC0000023 with required length 5; NULL buffer size query. A buffer of exactly 4 chars is NOT exercised: the decompilation shows the terminating NUL is written past it |
 | RtlQueryPackageIdentity (0x69530), RtlQueryPackageIdentityEx (0x69580), RtlQueryPackageClaims (0x695f0) | decomp: wrappers around the same attribute query; observed | for an unpackaged process (verified through GetCurrentPackageFullName == 15700) all return STATUS_NOT_FOUND (0xC0000225) and leave the Packaged flag untouched; invalid token handle -> STATUS_INVALID_HANDLE. Skipped when the process is packaged |
 | RtlQueryTokenHostIdAsUlong64 (0x833d0) | decomp: queries a security attribute, no attribute -> 0xC0000225 | ordinary process token -> 0xC0000225, output untouched; invalid handle -> 0xC0000008 |
-| RtlQueryWnfStateData (0x44f70), RtlQueryWnfStateDataWithExplicitScope (0x83cf0) | decomp: NtQueryWnfStateData into a 0x1000-byte stack buffer, then callback(name, stamp, typeId, context, buffer, size); the TypeId argument is also passed to the syscall so it must be a valid pointer or NULL | temporary user-scope name: fresh name -> callback with stamp 0 and empty payload, after update stamp 1 and the payload, second update stamp 2; callback failure status returned as is; deleted name -> STATUS_OBJECT_NAME_NOT_FOUND without a callback. Skipped if a temporary name cannot be created |
+| RtlQueryWnfStateData (0x44f70), RtlQueryWnfStateDataWithExplicitScope (0x83cf0) | decomp: NtQueryWnfStateData into a 0x1000-byte stack buffer, then callback(name, stamp, typeId, context, buffer, size); the TypeId argument is also passed to the syscall so it must be a valid pointer or NULL | temporary user-scope name: fresh name -> callback with stamp 0 and empty payload, after update stamp 1 and the payload, second update stamp 2; callback failure status returned as is; deleted name -> STATUS_OBJECT_NAME_NOT_FOUND (0xC0000034, observed) without a callback. Skipped if a temporary name cannot be created |
 | RtlQueryWnfMetaNotification (0x82d80) | disassembly: (Buffer, InfoClass, StateName by value, ExplicitScope) -> NtQueryWnfStateNameInformation with size 4 | class 0 (existence) returns 1 for a live name |
-| RtlQueryFeatureConfiguration (0x5cbc0), RtlQueryAllFeatureConfigurations (0x101ad0), RtlQueryFeatureUsageNotificationSubscriptions (0x101b90) | decomp + observed | unknown feature id -> 0xC0000225 (boot and runtime sections); the count query returns STATUS_BUFFER_OVERFLOW (0x80000005) with the entry count (machine specific, not asserted), the fetch returns the same count and each entry round-trips through RtlQueryFeatureConfiguration; subscription count query succeeds |
-| RtlQueryCriticalSectionOwner (0xe8e00) | decomp: NULL -> 0; list search by event handle | NULL and unknown event handle return NULL |
+| RtlQueryFeatureConfiguration (0x5cbc0), RtlQueryAllFeatureConfigurations (0x101ad0), RtlQueryFeatureUsageNotificationSubscriptions (0x101b90) | decomp + observed | unknown feature id -> 0xC0000225 (boot and runtime sections); the count query returns STATUS_BUFFER_OVERFLOW (0x80000005) with the entry count (machine specific, not asserted), a too-small array gives the same, the fetch returns the same count with the shared-data change stamp and each entry round-trips through RtlQueryFeatureConfiguration; subscription count query returns 0 with count 0 in a process with no subscriptions (observed) |
+| RtlQueryCriticalSectionOwner (0xe8e00) | decomp: NULL -> 0; list search by event handle | observed: second argument 1 treats the first as the address of a debug-info section's LockCount and returns the owning thread id (current thread id while owned, 0 after release or delete); second argument 0 (event handle lookup) with a non-handle returns 0; NULL returns 0 |
 
 Notes: the test creates its own manifest file in the per-process scratch directory and its own WNF name; both are removed.
+
+Standard-user mode: not validated by the reviewer (the standard-user guest account could not be logged on); the tests use only non-privileged queries.

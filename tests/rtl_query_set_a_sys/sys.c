@@ -170,7 +170,7 @@ TEST(qs_debug_errors) {
     DBG_PID(b) = GetCurrentProcessId() + 4;
     s = UN(RtlQueryProcessDebugInformation)(me, PDI_MODULES, b);
     t_note("mismatching TargetProcessId status 0x%08lx", (unsigned long)s);
-    CHECK(s < 0);
+    EXPECT_EQ(s, ST_INVALID_PARAMETER);
     DBG_PID(b) = 0;
     UN(RtlDestroyQueryDebugBuffer)(b);
 }
@@ -424,7 +424,7 @@ TEST(qs_wnf_state_data) {
     memset(&c, 0, sizeof c);
     s = UN(RtlQueryWnfStateData)(&stamp, sn, wnf_cb, &c, NULL);
     t_note("deleted name query 0x%08lx calls %d", (unsigned long)s, c.calls);
-    CHECK(s < 0); EXPECT_EQ(c.calls, 0);
+    EXPECT_EQ(s, (NTSTATUS)0xC0000034); EXPECT_EQ(c.calls, 0);
 }
 
 /* ---- feature configuration ------------------------------------------------------------------- */
@@ -463,16 +463,22 @@ TEST(qs_feature_configuration) {
         }
         free(all);
     }
-    /* the change stamp reported alongside matches the shared-data stamp or a later one */
-    CHECK(st2 <= *(volatile ULONGLONG *)((BYTE *)0x7ffe0710) || st2 > 0);
+    /* the change stamp of the fetch is the shared-data stamp */
+    { ULONGLONG st5 = 0; RFC one[64]; SIZE_T n5 = 64;
+      s = UN(RtlQueryAllFeatureConfigurations)(1, &st5, one, &n5);
+      EXPECT_EQ(s, 0); EXPECT_EQ(n5, cnt);
+      EXPECT_EQ(st5, *(volatile ULONGLONG *)(0x7ffe0710)); }
+    /* a too-small output array: STATUS_BUFFER_OVERFLOW with the required count, nothing stored */
+    { RFC one[1]; SIZE_T n5 = 1; ULONGLONG st5 = 0; memset(one, 0xcc, sizeof one);
+      s = UN(RtlQueryAllFeatureConfigurations)(1, &st5, one, &n5);
+      EXPECT_EQ(s, (NTSTATUS)0x80000005); EXPECT_EQ(n5, cnt); }
 }
 
 TEST(qs_feature_usage_subscriptions) {
     REQUIRE(UN(RtlQueryFeatureUsageNotificationSubscriptions));
     SIZE_T cnt = 0; NTSTATUS s = UN(RtlQueryFeatureUsageNotificationSubscriptions)(NULL, &cnt);
     t_note("subscriptions count query 0x%08lx count %llu", (unsigned long)s, (unsigned long long)cnt);
-    CHECK(s == 0 || s == ST_BUFFER_TOO_SMALL);
-    if (s == ST_BUFFER_TOO_SMALL) CHECK(cnt > 0);
+    EXPECT_EQ(s, 0); EXPECT_EQ(cnt, 0);
 }
 
 /* ---- critical section owner ------------------------------------------------------------------ */
@@ -481,4 +487,20 @@ TEST(qs_critical_section_owner) {
     EXPECT_EQ((ULONG_PTR)UN(RtlQueryCriticalSectionOwner)(NULL, 0), 0);
     EXPECT_EQ((ULONG_PTR)UN(RtlQueryCriticalSectionOwner)((HANDLE)(ULONG_PTR)0x7fff0, 0), 0);
     EXPECT_EQ((ULONG_PTR)UN(RtlQueryCriticalSectionOwner)((HANDLE)(ULONG_PTR)0x7fff0, 1), 0);
+}
+
+TEST(qs_critical_section_owner_listed) {
+    REQUIRE(UN(RtlQueryCriticalSectionOwner)); REQUIRE(UN(RtlInitializeCriticalSectionEx));
+    REQUIRE(UN(RtlEnterCriticalSection)); REQUIRE(UN(RtlLeaveCriticalSection)); REQUIRE(UN(RtlDeleteCriticalSection));
+    static RTL_CRITICAL_SECTION cs;
+    EXPECT_EQ(UN(RtlInitializeCriticalSectionEx)(&cs, 0, 0x10000000), 0);   /* FORCE_DEBUG_INFO: listed */
+    EXPECT_EQ(UN(RtlEnterCriticalSection)(&cs), 0);
+    /* second argument non-zero: the first is the address of the section's LockCount; the owning thread id is returned */
+    EXPECT_EQ((ULONG_PTR)UN(RtlQueryCriticalSectionOwner)((HANDLE)&cs.LockCount, 1), (ULONG_PTR)GetCurrentThreadId());
+    /* second argument zero: the first is the lock-semaphore event handle, which this section does not have */
+    EXPECT_EQ((ULONG_PTR)UN(RtlQueryCriticalSectionOwner)((HANDLE)&cs.LockCount, 0), 0);
+    EXPECT_EQ((ULONG_PTR)UN(RtlQueryCriticalSectionOwner)((HANDLE)((BYTE *)&cs.LockCount + 4), 1), 0);
+    UN(RtlLeaveCriticalSection)(&cs);
+    EXPECT_EQ((ULONG_PTR)UN(RtlQueryCriticalSectionOwner)((HANDLE)&cs.LockCount, 1), 0);
+    UN(RtlDeleteCriticalSection)(&cs);
 }

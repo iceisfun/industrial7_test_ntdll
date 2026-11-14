@@ -1,8 +1,8 @@
 # RtlQuery* (shared data, time, S-list, bitmaps, modes): Windows 10 contracts
 
-Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788). Decompilation reference: http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/<Name>/decomp
+Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788). Decompilation (Ghidra) of each export was consulted
 (queried for every export below). All expectations were also confirmed by running the exe on a Windows 10 guest
-as administrator and as a standard user. Exports are resolved dynamically (UDECL/UN); kernel32 comparison functions
+as administrator. Exports are resolved dynamically (UDECL/UN); kernel32 comparison functions
 are pinned with t_proc_in.
 
 | Export (RVA) | Source of expectation | Checked |

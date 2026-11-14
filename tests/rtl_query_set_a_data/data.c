@@ -570,7 +570,7 @@ TEST(qs_image_mitigation_policy) {
     memset(buf, 0xcc, sizeof buf);
     s = UN(RtlQueryImageMitigationPolicy)(L"ntdllt_no_such_image_for_policy_query.exe", 10, 0, buf, 0x18);
     t_note("unknown image policy status 0x%08lx", (unsigned long)s);
-    CHECK(s < 0);
+    EXPECT_EQ(s, ST_NAME_NOT_FOUND);
     /* machine-wide query of policy 10 needs a 0x18 byte buffer */
     s = UN(RtlQueryImageMitigationPolicy)(NULL, 10, 4, buf, 0x10);
     t_note("global policy 10 wrong size status 0x%08lx", (unsigned long)s);
@@ -578,6 +578,7 @@ TEST(qs_image_mitigation_policy) {
     memset(buf, 0xcc, sizeof buf);
     s = UN(RtlQueryImageMitigationPolicy)(NULL, 10, 4, buf, 0x18);
     t_note("global policy 10 status 0x%08lx", (unsigned long)s);
+    EXPECT_EQ(s, 0);
     if (s == 0) { ULONGLONG *q = (ULONGLONG *)buf; CHECK(q[0] <= 7 && q[1] <= 7 && q[2] <= 7); }
 }
 
@@ -610,14 +611,13 @@ TEST(qs_heap_information) {
     ULONG_PTR p = 0; rl = 0x55;
     s = UN(RtlQueryHeapInformation)(h, 0x80000001, &p, 8, &rl);
     t_note("class 0x80000001 status 0x%08lx rl %llu p %p", (unsigned long)s, (unsigned long long)rl, (void *)p);
-    EXPECT_EQ(rl, 8); if (s == 0) CHECK(p != 0);
-    rl = 0x55; s = UN(RtlQueryHeapInformation)(h, 0x80000001, &p, 4, &rl); EXPECT_EQ(rl, 8); CHECK(s != 0);
+    EXPECT_EQ(rl, 8); EXPECT_EQ(s, 0); CHECK(p != 0);
+    rl = 0x55; s = UN(RtlQueryHeapInformation)(h, 0x80000001, &p, 4, &rl); EXPECT_EQ(rl, 8); EXPECT_EQ(s, ST_BUFFER_TOO_SMALL);
     /* unsupported classes */
     for (ULONG cls = 1; cls <= 3; cls++) {
         if (cls == 2) continue;
         s = UN(RtlQueryHeapInformation)(h, cls, &v, 4, &rl);
-        t_note("class %lu status 0x%08lx", cls, (unsigned long)s);
-        CHECK(s < 0);
+        EXPECT_EQ(s, ST_INVALID_PARAMETER);
     }
     UN(RtlDestroyHeap)(h);
 }
