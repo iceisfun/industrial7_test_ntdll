@@ -366,7 +366,7 @@ TEST(rtl_rest_b_idn_to_nameprep_unicode) {
     n = 256; EXPECT_EQ(UN(RtlIdnToNameprepUnicode)(0, up, -1, d, &n), 0);
     EXPECT_WSTR(d, lo); EXPECT_EQ(n, 10);                    /* case-folded, still Unicode */
     n = 256; EXPECT_EQ(UN(RtlIdnToNameprepUnicode)(0, L"Example.COM", -1, d, &n), 0);
-    t_note("nameprep of ASCII mixed case: \"%ls\" n=%ld", d, (long)n);
+    EXPECT_WSTR(d, L"Example.COM"); EXPECT_EQ(n, 12);        /* observed: ASCII letters are not case-folded */
     n = 256; EXPECT_EQ(UN(RtlIdnToNameprepUnicode)(0, NULL, -1, d, &n), ST_INVPARAM);
     n = 3; EXPECT_EQ(UN(RtlIdnToNameprepUnicode)(0, up, -1, d, &n), ST_BUFSMALL);
 }

@@ -28,7 +28,7 @@ guest result is what is asserted; those cases are listed under "Observed".
 
 * RtlDnsHostNameToComputerName truncates a 16 character first label to the first 15 characters and succeeds; only an
   empty first label fails.
-* RtlIdnToNameprepUnicode leaves pure ASCII upper case unchanged (`Example.COM` stays as is, a NOTE only); non-ASCII
+* RtlIdnToNameprepUnicode leaves pure ASCII upper case unchanged (`Example.COM` stays as is; observed-only, asserted); non-ASCII
   input such as `BÜCHER.DE` is case-folded.
 * RtlIdnToAscii with a NULL destination and `*DstLen` 0 returns success and the required size (17).
 * Correlation vector limits are 63 and 127 characters (probed on the guest).
