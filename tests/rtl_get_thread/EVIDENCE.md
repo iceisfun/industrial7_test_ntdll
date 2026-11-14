@@ -23,3 +23,5 @@ validation order and TEB offsets, the guest run (administrator and standard user
 | RtlGetNextEntryHashTable (0x82370) | after RtlLookupEntryHashTable, enumerates the remaining entries with the same signature exactly once each, then NULL | decomp, observed |
 
 Skips: none expected.
+
+Review additions (observed): RtlGetUmsCompletionListEvent on a list from CreateUmsCompletionList returns success and a signalable event handle.

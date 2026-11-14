@@ -143,9 +143,14 @@ TEST(get_token_named_object_path) {
     }
     /* pseudo token handle */
     memset(&p, 0xcc, sizeof p);
-    s = UN(RtlGetTokenNamedObjectPath)((HANDLE)(LONG_PTR)-4, FALSE, &p);
-    t_note("TokenNamedObjectPath(pseudo) = %08lx", (ULONG)s);
-    if (s == 0) UN(RtlFreeUnicodeString)(&p);
+    s = UN(RtlGetTokenNamedObjectPath)((HANDLE)(LONG_PTR)-4, FALSE, &p);   /* effective-token pseudo handle */
+    EXPECT_EQ(s, 0);
+    if (s == 0) {
+        WCHAR want[128];
+        if (session) wsprintfW(want, L"\\Sessions\\%lu\\BaseNamedObjects", session); else wcscpy(want, L"\\BaseNamedObjects");
+        CHECK(p.Length == wcslen(want) * 2 && !_wcsnicmp(p.Buffer, want, p.Length / 2));
+        UN(RtlFreeUnicodeString)(&p);
+    }
     /* bad handle: the underlying token query fails */
     memset(&p, 0xcc, sizeof p);
     s = UN(RtlGetTokenNamedObjectPath)((HANDLE)(ULONG_PTR)0x7777, FALSE, &p);
@@ -178,8 +183,19 @@ TEST(get_system_boot_status) {
         len = 0xdead; memset(buf, 0, sizeof buf);
         NTSTATUS s = UN(RtlGetSystemBootStatus)(0, buf, sizeof buf, &len);
         t_note("RtlGetSystemBootStatus(class 0) = %08lx len=%lu", (ULONG)s, len);
-        if (s == 0) EXPECT_EQ(len, 4);                /* one ULONG status item */
-        else CHECK(s == (NTSTATUS)0xC0000022 || s == (NTSTATUS)0xC0000061);
+        if (s == (NTSTATUS)0xC0000022 || s == (NTSTATUS)0xC0000061) { t_skip("boot status query denied for this account (%08lx)", (ULONG)s); return; }
+        EXPECT_EQ(s, 0);
+        EXPECT_EQ(len, 4);                            /* one ULONG status item */
+        /* the Ex form takes an array of {class, buffer, length} requests; one request must match */
+        struct { ULONG cls; PVOID buf; ULONG len; } req; UCHAR b2[16]; ULONG l2 = 0xdead;
+        memset(&req, 0, sizeof req); memset(b2, 0, sizeof b2);
+        req.cls = 0; req.buf = b2; req.len = sizeof b2;
+        NTSTATUS s2 = UN(RtlGetSystemBootStatusEx)(&req, 1, &l2);
+        EXPECT_EQ(s2, 0); EXPECT_EQ(l2, 4); CHECK(!memcmp(b2, buf, 4));
+        l2 = 0xdead; req.cls = 0x7fffffff;
+        s2 = UN(RtlGetSystemBootStatusEx)(&req, 1, &l2);
+        EXPECT_EQ(s2, ST_INVALID_PARAM); EXPECT_EQ(l2, 0xdead);
+        EXPECT_EQ(UN(RtlGetSystemBootStatus)(0x7fffffff, buf, sizeof buf, &len), ST_INVALID_PARAM);
     }
 }
 

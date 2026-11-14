@@ -174,7 +174,7 @@ TEST(get_ui_language_info) {
     /* small fallback buffer */
     len = 1;
     s = UN(RtlGetUILanguageInfo)(NAME, L"en-US\0", fb, &len, &attr);
-    t_note("UILanguageInfo(1-char buffer): status=%08lx len=%lu", (ULONG)s, len);
+    EXPECT_EQ(s, ST_BUF_TOO_SMALL); EXPECT_EQ(len, 2);
     /* validation */
     len = 256;
     EXPECT_EQ(UN(RtlGetUILanguageInfo)(NAME, NULL, fb, &len, &attr), ST_INVALID_PARAM);
@@ -214,8 +214,7 @@ TEST(get_parent_locale_name) {
     /* too small output */
     UNICODE_STRING sm; sm.Buffer = buf; sm.Length = 0; sm.MaximumLength = 2;
     NTSTATUS s = UN(RtlGetParentLocaleName)(L"en-US", &sm, 2, 0);
-    t_note("parent into 1-char buffer = %08lx", (ULONG)s);
-    CHECK(s < 0);
+    EXPECT_EQ(s, ST_BUF_TOO_SMALL);
 }
 
 TEST(get_file_mui_path) {

@@ -116,8 +116,10 @@ TEST(get_full_path_ustrex) {
     /* no static buffer at all: a dynamic buffer is returned */
     used = NULL; memset(&dyn, 0, sizeof dyn);
     type = 0; s = UN(RtlGetFullPathName_UstrEx)(&in, NULL, &dyn, &used, NULL, NULL, &type, NULL);
-    t_note("UstrEx no static buffer: status=%08lx", (ULONG)s);
-    if (s == 0 && dyn.Buffer) { EXPECT_WSTR(dyn.Buffer, L"C:\\p\\r.txt"); UN(RtlFreeUnicodeString)(&dyn); }
+    EXPECT_EQ(s, 0);
+    EXPECT_EQ(used, &dyn);
+    CHECK(dyn.Buffer != NULL);
+    if (s == 0 && dyn.Buffer) { EXPECT_WSTR(dyn.Buffer, L"C:\\p\\r.txt"); EXPECT_EQ(dyn.Length, wcslen(L"C:\\p\\r.txt") * 2); UN(RtlFreeUnicodeString)(&dyn); }
 }
 
 TEST(get_length_without_trailing_separators) {

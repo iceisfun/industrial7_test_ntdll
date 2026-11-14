@@ -15,3 +15,5 @@ guest run for names and statuses. Session numbers are taken from `ProcessIdToSes
 | RtlGetPersistedStateLocation (0x57dc0) | with no policy key for the source the default location is returned with the byte length including NUL; type 2: 0xC00000F1; small buffer: 0x80000005 with the required size and untouched buffer; skipped if a policy key exists | decomp, observed |
 
 Skips: RtlGetPersistedStateLocation when a policy key is present.
+
+Review additions (observed on Windows 10 22H2): RtlGetSystemBootStatusEx takes an array of {class, buffer, length} requests plus a request count; a class-0 request matches RtlGetSystemBootStatus(0) (4 bytes) and an unknown class returns STATUS_INVALID_PARAMETER (0xC000000D) without touching the length. RtlGetTokenNamedObjectPath accepts the effective-token pseudo handle (-4) and yields the same absolute path as a real token. Boot-status access denial (0xC0000022/0xC0000061) is skipped with that status.

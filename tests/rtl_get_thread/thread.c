@@ -208,8 +208,9 @@ TEST(get_ums_stubs) {
         if (create(&list) && list) {
             ev = NULL;
             NTSTATUS e = UN(RtlGetUmsCompletionListEvent)(list, &ev);
-            t_note("RtlGetUmsCompletionListEvent(real list) = %08lx", (ULONG)e);
-            if (e == 0) { CHECK(ev != NULL); if (ev) { CHECK(SetEvent(ev)); CloseHandle(ev); } }
+            EXPECT_EQ(e, 0);
+            CHECK(ev != NULL && ev != (HANDLE)1);
+            if (e == 0 && ev) { CHECK(SetEvent(ev)); CHECK(WaitForSingleObject(ev, 1000) == WAIT_OBJECT_0); CloseHandle(ev); }
             del(list);
         } else t_note("CreateUmsCompletionList failed: %lu", GetLastError());
     }

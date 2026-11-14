@@ -15,3 +15,5 @@ documented kernel32 wrappers instead of being hard-coded where possible.
 | RtlGetFileMUIPath | for kernel32.dll with the user language: language `en-US`, path `...\en-US\kernel32.dll.mui` that exists, equal to kernel32 GetFileMUIPath; lengths are only rewritten when a buffer is too small, and then the status is still 0 with the required size (observed); NULL file name or reserved flags 0xC000000D. The enumerator argument is stateful and is reset before every call | decomp, observed |
 
 Skips: if the MUI file for kernel32 cannot be resolved (non en-US image) the content checks are skipped.
+
+Review additions (observed): RtlGetParentLocaleName into a 1-char output and RtlGetUILanguageInfo with a 1-char fallback buffer both return STATUS_BUFFER_TOO_SMALL (0xC0000023); the latter reports the required length 2.

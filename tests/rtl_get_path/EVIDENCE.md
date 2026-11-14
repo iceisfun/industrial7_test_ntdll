@@ -15,3 +15,5 @@ Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788). Decompilation from the corpus e
 | RtlGetIntegerAtom (0x4c910) | `MAKEINTATOM` values 1..0xBFFF pass through, 0 maps to 0xC000, >= 0xC000 rejected; `#n` strings accepted when all digits (n in 1..49152 literal, other values clamp to 0xC000), non-digits and `#` alone rejected; the atom output is optional and untouched on failure | decomp, observed |
 
 Skips: none.
+
+Review additions (observed): RtlGetFullPathName_UstrEx with no static buffer and a dynamic string returns STATUS_SUCCESS with StringUsed pointing at the dynamic string.
