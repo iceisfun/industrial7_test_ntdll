@@ -118,7 +118,7 @@ TEST(set_system_information_errors)
     /* SystemBasicInformation (0) is a query-only class */
     st = UN(NtSetSystemInformation)(0, &v, sizeof v);
     t_note("NtSetSystemInformation(SystemBasicInformation) = %08lx", (unsigned long)st);
-    CHECK(st < 0);
+    EXPECT_EQ(st, ST_BAD_CLASS);                   /* observed: query-only class is not a settable class */
 }
 
 TEST(set_debug_filter_state_needs_debug_privilege)

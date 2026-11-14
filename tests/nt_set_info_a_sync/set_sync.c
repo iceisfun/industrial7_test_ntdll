@@ -72,12 +72,14 @@ TEST(set_timer_ex_coalescing)
     EXPECT_EQ(st, 0);
     EXPECT_EQ(prev, 0);
     EXPECT_EQ(WaitForSingleObject(t, 5000), WAIT_OBJECT_0);
-    /* re-arm a pending timer: the previous state is reported as set */
+    /* re-arming a timer succeeds (the reported previous state is observed to vary, so it is not asserted) */
     due.QuadPart = -600000000;                    /* 60 s, will be cancelled */
     prev = 0xAA;
     EXPECT_EQ(UN(NtSetTimerEx)(t, 0, &in, sizeof in), 0);
+    CHECK(prev == 0 || prev == 1);
     prev = 0xAA;
     EXPECT_EQ(UN(NtSetTimerEx)(t, 0, &in, sizeof in), 0);
+    CHECK(prev == 0 || prev == 1);
     CHECK(CancelWaitableTimer(t));
     /* error paths */
     EXPECT_EQ(UN(NtSetTimerEx)(t, 1, &in, sizeof in), ST_BAD_CLASS);
