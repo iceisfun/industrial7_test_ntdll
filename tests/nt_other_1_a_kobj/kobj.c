@@ -369,7 +369,8 @@ TEST(delete_private_namespace)
     if (bd) {
         CHECK(AddSIDToBoundaryDescriptor(&bd, (PSID)world));
         ns = CreatePrivateNamespaceW(NULL, bd, nm);
-        CHECKF(ns != NULL, "CreatePrivateNamespace error %lu", GetLastError());
+        if (!ns && GetLastError() == ERROR_ACCESS_DENIED) t_note("CreatePrivateNamespace denied for this account: namespace deletion not exercised");
+        else CHECKF(ns != NULL, "CreatePrivateNamespace error %lu", GetLastError());
         if (ns) {
             s = UN(NtDeletePrivateNamespace)(ns); EXPECT_EQ(s, 0);
             s = UN(NtDeletePrivateNamespace)(ns); EXPECT_EQ(s, ST_INVHANDLE);   /* the handle was invalidated */
