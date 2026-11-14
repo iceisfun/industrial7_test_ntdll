@@ -364,7 +364,7 @@ TEST(rtl_atom_table_basic) {
     EXPECT_EQ(UN(RtlDeleteAtomFromAtomTable)(tab, a1), 0);
     EXPECT_EQ(UN(RtlLookupAtomInAtomTable)(tab, L"NtdlltAtomFoo", &look), ST_NOTFOUND);
     s = UN(RtlDeleteAtomFromAtomTable)(tab, a1);
-    EXPECT_EQ(s < 0, 1);
+    EXPECT_EQ(s, S(0xC0000008));                       /* STATUS_INVALID_HANDLE: the atom no longer exists */
     EXPECT_EQ(UN(RtlDeleteAtomFromAtomTable)(tab, a3), 0);
     EXPECT_EQ(UN(RtlDestroyAtomTable)(tab), 0);
 }
@@ -462,7 +462,7 @@ TEST(rtl_acquire_privilege_not_held) {
     ULONG two2[2] = {notheld, 2 /* SeCreateTokenPrivilege */}; state = NULL;
     if (proc_has_priv(2) == 0) {
         s = UN(RtlAcquirePrivilege)(two2, 2, 0, &state);
-        t_note("two missing privileges: 0x%08lx", (unsigned long)s);
+        EXPECT_EQ(s, 0);                              /* observed: only a lone missing privilege is reported */
         if (s >= 0 && state) UN(RtlReleasePrivilege)(state);
     }
 }

@@ -528,7 +528,7 @@ TEST(rtl_check_portable_operating_system) {
     REQUIRE(UN(RtlCheckPortableOperatingSystem));
     BOOLEAN p = 2;
     NTSTATUS s = UN(RtlCheckPortableOperatingSystem)(&p);
-    if (s == 0) EXPECT_EQ(p, FALSE);                                                 /* an installed system is not "portable" */
+    if (s == 0) { if (p) t_skip("this system is a portable (Windows To Go) installation"); else EXPECT_EQ(p, FALSE); }
     else { EXPECT_EQ(s, S(0xC0000225)); EXPECT_EQ(p, 2); }                            /* STATUS_NOT_FOUND: no PortableOperatingSystem value; output untouched */
 }
 
@@ -554,7 +554,9 @@ static HANDLE make_actctx(void) {
     fclose(f);
     WCHAR wp[MAX_PATH]; MultiByteToWideChar(CP_ACP, 0, path, -1, wp, MAX_PATH);
     ACTCTXW ac; memset(&ac, 0, sizeof ac); ac.cbSize = sizeof ac; ac.lpSource = wp;
-    return create(&ac);
+    HANDLE h = create(&ac);
+    DeleteFileA(path);                                          /* the context holds its own copy of the parsed data */
+    return h;
 }
 TEST(rtl_activation_context_addref_create) {
     REQUIRE(UN(RtlCreateActivationContext)); REQUIRE(UN(RtlAddRefActivationContext)); REQUIRE(UN(RtlReleaseActivationContext));

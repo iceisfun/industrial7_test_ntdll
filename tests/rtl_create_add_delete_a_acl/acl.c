@@ -1,6 +1,7 @@
 /* RtlAdd*Ace family, RtlCreateAndSetSD, boundary descriptors and token membership checks.
  * Everything works on private ACL buffers and duplicates of the caller's own token. */
 #include "t.h"
+#include <stdlib.h>
 
 UDECL(NTSTATUS, RtlCreateAcl, (PACL, ULONG, ULONG));
 UDECL(NTSTATUS, RtlAddAccessAllowedAceEx, (PACL, ULONG, ULONG, ACCESS_MASK, PSID));
@@ -556,6 +557,35 @@ TEST(rtl_boundary_descriptor) {
     EXPECT_EQ(UN(RtlCreateBoundaryDescriptor)(&odd, 0), NULL);
 }
 
+/* Minimal SHA-1 (service SIDs are the SHA-1 of the upper-cased UTF-16LE service name). */
+static void sha1_buf(const BYTE *d, size_t n, BYTE out[20]) {
+    ULONG h[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+    size_t total = ((n + 8) / 64 + 1) * 64;
+    BYTE *m = calloc(1, total);
+    if (!m) { memset(out, 0, 20); return; }
+    memcpy(m, d, n); m[n] = 0x80;
+    unsigned long long bits = (unsigned long long)n * 8;
+    for (int i = 0; i < 8; i++) m[total - 1 - i] = (BYTE)(bits >> (8 * i));
+    for (size_t off = 0; off < total; off += 64) {
+        ULONG w[80];
+        for (int i = 0; i < 16; i++) w[i] = (ULONG)m[off + 4*i] << 24 | m[off + 4*i + 1] << 16 | m[off + 4*i + 2] << 8 | m[off + 4*i + 3];
+        for (int i = 16; i < 80; i++) { ULONG x = w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16]; w[i] = x << 1 | x >> 31; }
+        ULONG a = h[0], b = h[1], c = h[2], d2 = h[3], e = h[4];
+        for (int i = 0; i < 80; i++) {
+            ULONG f, k;
+            if (i < 20) { f = (b & c) | (~b & d2); k = 0x5A827999; }
+            else if (i < 40) { f = b ^ c ^ d2; k = 0x6ED9EBA1; }
+            else if (i < 60) { f = (b & c) | (b & d2) | (c & d2); k = 0x8F1BBCDC; }
+            else { f = b ^ c ^ d2; k = 0xCA62C1D6; }
+            ULONG t = (a << 5 | a >> 27) + f + e + k + w[i];
+            e = d2; d2 = c; c = b << 30 | b >> 2; b = a; a = t;
+        }
+        h[0] += a; h[1] += b; h[2] += c; h[3] += d2; h[4] += e;
+    }
+    free(m);
+    for (int i = 0; i < 5; i++) { out[4*i] = h[i] >> 24; out[4*i+1] = h[i] >> 16; out[4*i+2] = h[i] >> 8; out[4*i+3] = (BYTE)h[i]; }
+}
+
 /* ---- service SID ---- */
 TEST(rtl_create_service_sid) {
     REQUIRE(UN(RtlCreateServiceSid)); REQUIRE(UN(RtlInitUnicodeString)); REQUIRE(UN(RtlLengthSid));
@@ -566,7 +596,9 @@ TEST(rtl_create_service_sid) {
     /* S-1-5-80-<5 sub-authorities of SHA-1> */
     EXPECT_EQ(sid[0], 1); EXPECT_EQ(sid[1], 6); EXPECT_EQ(sid[7], 5); EXPECT_EQ(*(ULONG *)(sid + 8), 80);
     EXPECT_EQ(UN(RtlLengthSid)(sid), 32);
-    /* the well-known value for "Spooler" is S-1-5-80-3702785172-... on every Windows 10 system; check determinism and case-insensitivity */
+    /* the five sub-authorities are the SHA-1 of the upper-cased UTF-16LE name, as little-endian dwords */
+    { BYTE digest[20]; sha1_buf((const BYTE *)L"SPOOLER", 14, digest); EXPECT_EQ(memcmp(sid + 12, digest, 20), 0); }
+    /* determinism and case-insensitivity */
     BYTE sid2[32]; ULONG len2 = 32; UNICODE_STRING nm2; UN(RtlInitUnicodeString)(&nm2, L"sPOOLER");
     EXPECT_EQ(UN(RtlCreateServiceSid)(&nm2, sid2, &len2), 0);
     EXPECT_EQ(memcmp(sid, sid2, 32), 0);
@@ -614,7 +646,7 @@ TEST(rtl_check_token_membership) {
     HANDLE ptok = NULL; BOOLEAN m = 2;
     if (UN(NtOpenProcessToken)(GetCurrentProcess(), TOKEN_QUERY, &ptok) >= 0) {
         NTSTATUS s = UN(RtlCheckTokenMembership)(ptok, SID_EVERYONE, &m);
-        t_note("primary token handle: status 0x%08lx member=%d", (unsigned long)s, m);
+        EXPECT_EQ(s, S(0xC000005C));                  /* STATUS_BAD_IMPERSONATION_LEVEL */
         EXPECT_EQ(m, FALSE);
         UN(NtClose)(ptok);
     }
@@ -623,13 +655,13 @@ TEST(rtl_check_token_membership_ex) {
     REQUIRE(UN(RtlCheckTokenMembershipEx)); REQUIRE(UN(NtOpenProcessToken)); REQUIRE(UN(NtDuplicateToken)); REQUIRE(UN(NtClose));
     HANDLE tok = dup_imp_token_qos();
     if (!tok) { t_skip("could not duplicate the process token"); return; }
-    BOOLEAN m = FALSE;
+    BOOLEAN m = FALSE; NTSTATUS s0;
     EXPECT_EQ(UN(RtlCheckTokenMembershipEx)(tok, SID_EVERYONE, 0, &m), 0); EXPECT_EQ(m, TRUE);
     /* unknown flag bits: the output is cleared to FALSE */
     m = TRUE;
-    UN(RtlCheckTokenMembershipEx)(tok, SID_EVERYONE, 4, &m); EXPECT_EQ(m, FALSE);
+    s0 = UN(RtlCheckTokenMembershipEx)(tok, SID_EVERYONE, 4, &m); EXPECT_EQ(s0, ST_INVPARAM); EXPECT_EQ(m, FALSE);
     m = TRUE;
-    UN(RtlCheckTokenMembershipEx)(tok, SID_EVERYONE, 0x80000000, &m); EXPECT_EQ(m, FALSE);
+    s0 = UN(RtlCheckTokenMembershipEx)(tok, SID_EVERYONE, 0x80000000, &m); EXPECT_EQ(s0, ST_INVPARAM); EXPECT_EQ(m, FALSE);
     /* flag 1 (RTL_CHECK_TOKEN_MEMBERSHIP_FLAG_*) is accepted */
     m = FALSE;
     NTSTATUS s = UN(RtlCheckTokenMembershipEx)(tok, SID_EVERYONE, 1, &m);
