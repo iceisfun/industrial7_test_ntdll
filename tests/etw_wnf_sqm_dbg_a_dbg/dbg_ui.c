@@ -66,32 +66,41 @@ static LONG CALLBACK dp_veh(PEXCEPTION_POINTERS ep)
 TEST(dbg_print_family)
 {
     NEED(DbgPrint); NEED(DbgPrintEx); NEED(DbgPrintReturnControlC);
+    if (IsDebuggerPresent()) { t_skip("debugger attached to the test process"); return; }
     PVOID vh = AddVectoredExceptionHandler(1, dp_veh);
     ULONG r;
     g_dp_n = 0;
     r = UN(DbgPrint)("ntdllt dbgprint %d %s\n", 42, "abc");
     EXPECT_EQ(r, 0);   /* DbgPrint: no debugger, nothing raised */
+    EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrint)("ntdllt dbgprint plain\n");
     EXPECT_EQ(r, 0);   /* DbgPrint plain: no debugger, nothing raised */
+    EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrintEx)(101, 0, "ntdllt dbgprintex err %d\n", 7);
     EXPECT_EQ(r, 0);   /* DbgPrintEx(101,0): no debugger, nothing raised */
+    EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrintEx)(101, 3, "ntdllt dbgprintex lvl3\n");
     EXPECT_EQ(r, 0);   /* DbgPrintEx(101,3): no debugger, nothing raised */
+    EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrintEx)(101, 31, "ntdllt dbgprintex lvl31\n");
     EXPECT_EQ(r, 0);   /* DbgPrintEx(101,31): no debugger, nothing raised */
+    EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrintEx)(101, 0x80000000, "ntdllt dbgprintex mask\n");
     EXPECT_EQ(r, 0);   /* DbgPrintEx(101,mask): no debugger, nothing raised */
+    EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrintEx)(0xffff, 0, "ntdllt dbgprintex badcomp\n");
     EXPECT_EQ(r, 0);   /* DbgPrintEx(0xffff,0): no debugger, nothing raised */
+    EXPECT_EQ(g_dp_n, 0);
     g_dp_n = 0;
     r = UN(DbgPrintReturnControlC)("ntdllt dbgprint rcc %d\n", 1);
     EXPECT_EQ(r, 0);   /* DbgPrintReturnControlC: no debugger, nothing raised */
+    EXPECT_EQ(g_dp_n, 0);
     RemoveVectoredExceptionHandler(vh);
 }
 
@@ -293,6 +302,7 @@ TEST(dbg_ui_convert_state_change)
     sc.NewState = 5; sc.Client.p = 0x1234; sc.Client.t = 0x5678; *(NTS *)&sc.Info[0] = 0x4321;
     st = UN(DbgUiConvertStateChangeStructure)(&sc, &de);
     t_note("non-Ex rc=0x%lx code=%lu", st, de.dwDebugEventCode);
+    EXPECT_EQ(st, 0);
     EXPECT_EQ(de.dwDebugEventCode, EXIT_PROCESS_DEBUG_EVENT);
     EXPECT_EQ(de.u.ExitProcess.dwExitCode, 0x4321);
     /* states that carry no debug event */

@@ -229,8 +229,8 @@ TEST(etw_set_information)
     EXPECT_EQ(UN(EtwEventSetInformation)(h, 3, NULL, 1), 87);
     EXPECT_EQ(UN(EtwEventSetInformation)(h, 3, buf, 0), 87);
     EXPECT_EQ(UN(EtwEventSetInformation)(h, 3, buf, 2), 87);
-    ULONG r = UN(EtwEventSetInformation)(h, 0, NULL, 0); t_note("class0 len0 = %lu", r);
-    r = UN(EtwEventSetInformation)(h, 3, buf, 1); t_note("class3 len1 = %lu", r);
+    EXPECT_EQ(UN(EtwEventSetInformation)(h, 0, NULL, 0), 0);
+    EXPECT_EQ(UN(EtwEventSetInformation)(h, 3, buf, 1), 0);
     EXPECT_EQ(UN(EtwEventUnregister)(h), 0);
 }
 
@@ -335,17 +335,20 @@ TEST(etw_enumerate_reg_guids)
     ULONG base_need = 0;
     r = UN(EtwEnumerateProcessRegGuids)(NULL, 0, &base_need);
     CHECK(r == 0 || r == 122);
+    ULONG base_got = 0;
+    { GUID *bg = (GUID *)calloc(base_need / 16 + 8, 16);
+      EXPECT_EQ(UN(EtwEnumerateProcessRegGuids)(bg, base_need, &base_got), 0); free(bg); }
     EXPECT_EQ(UN(EtwEventRegister)(&G1, cb, NULL, &h1), 0);
     EXPECT_EQ(UN(EtwEventRegister)(&G2, cb, NULL, &h2), 0);
     EXPECT_EQ(UN(EtwEventRegister)(&G2, cb, NULL, &h3), 0);   /* duplicate GUID counted once */
     ULONG n2 = 0;
     /* with no room the count is the number of registrations (duplicates included) times 16 */
     EXPECT_EQ(UN(EtwEnumerateProcessRegGuids)(NULL, 0, &n2) & 0xff, 122);
-    CHECK(n2 >= 48 && (n2 % 16) == 0);
+    EXPECT_EQ(n2, base_need + 48);     /* three new registrations, duplicate included */
     GUID *g = (GUID *)calloc(n2 / 16 + 8, 16);
     ULONG got = 0;
     EXPECT_EQ(UN(EtwEnumerateProcessRegGuids)(g, n2, &got), 0);
-    CHECK(got >= 32 && got <= n2 && (got % 16) == 0);
+    EXPECT_EQ(got, base_got + 32);     /* two new unique GUIDs */
     int f1 = 0, f2 = 0, dup = 0;
     for (ULONG i = 0; i < got / 16; i++) {
         if (!memcmp(&g[i], &G1, 16)) f1++;
