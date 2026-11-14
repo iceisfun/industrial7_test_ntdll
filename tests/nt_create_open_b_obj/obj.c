@@ -151,17 +151,13 @@ TEST(nt_create_open_b_directory_open)
 
 TEST(nt_create_open_b_private_namespace)
 {
-    HANDLE bnoh = NULL, ns = NULL, ns2 = NULL, o = NULL; UNICODE_STRING u, bn; OBJECT_ATTRIBUTES oa; WCHAR bno[96], leaf[64], tn[40]; PVOID bd = NULL; NTSTATUS s;
+    HANDLE ns = NULL, ns2 = NULL, o = NULL; UNICODE_STRING u, bn; OBJECT_ATTRIBUTES oa; WCHAR bno[96], leaf[64], tn[40]; PVOID bd = NULL; NTSTATUS s;
     BYTE sid[12] = {1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0};   /* S-1-1-0 (Everyone) */
-    NEED(ZwCreatePrivateNamespace); REQUIRE(UN(ZwOpenPrivateNamespace)); REQUIRE(UN(NtDeletePrivateNamespace)); REQUIRE(UN(ZwOpenDirectoryObject));
+    NEED(ZwCreatePrivateNamespace); REQUIRE(UN(ZwOpenPrivateNamespace)); REQUIRE(UN(NtDeletePrivateNamespace));
     REQUIRE(UN(RtlCreateBoundaryDescriptor)); REQUIRE(UN(RtlAddSIDToBoundaryDescriptor)); REQUIRE(UN(RtlDeleteBoundaryDescriptor));
     COB_ALIAS("CreatePrivateNamespace"); COB_ALIAS("OpenPrivateNamespace");
-    cob_bno(bno, 96); cob_us(&u, bno); cob_oa(&oa, &u, 0, NULL);
-    EXPECT_EQ(UN(ZwOpenDirectoryObject)(&bnoh, DIRECTORY_ALL_ACCESS, &oa), S_OK_);
-    if (!bnoh) return;
-    wsprintfW(leaf, L"cobns_%lu", (unsigned long)GetCurrentProcessId());
     cob_us(&bn, L"cobbd"); bd = UN(RtlCreateBoundaryDescriptor)(&bn, 0); CHECK(bd != NULL);
-    if (!bd) { cob_close(bnoh); return; }
+    if (!bd) return;
     EXPECT_EQ(UN(RtlAddSIDToBoundaryDescriptor)(&bd, sid), S_OK_);
     cob_oa(&oa, NULL, 0, NULL);
     s = UN(ZwCreatePrivateNamespace)(&ns, DIRECTORY_ALL_ACCESS, &oa, bd);
@@ -178,12 +174,11 @@ TEST(nt_create_open_b_private_namespace)
     }
     { PVOID bd2 = NULL; UNICODE_STRING b2; cob_us(&b2, L"cobbd2"); bd2 = UN(RtlCreateBoundaryDescriptor)(&b2, 0);
       if (bd2) { UN(RtlAddSIDToBoundaryDescriptor)(&bd2, sid);
-        cob_oa(&oa, NULL, 0, NULL); o = (HANDLE)0x1234; s = UN(ZwOpenPrivateNamespace)(&o, DIRECTORY_QUERY, &oa, bd2); CHECK(s < 0); t_note("open missing private namespace: 0x%08lx", (unsigned long)s);
+        cob_oa(&oa, NULL, 0, NULL); o = (HANDLE)0x1234; s = UN(ZwOpenPrivateNamespace)(&o, DIRECTORY_QUERY, &oa, bd2); EXPECT_EQ(s, S_PATHNF);
         UN(RtlDeleteBoundaryDescriptor)(bd2); }
       EXPECT_EQ(UN(ZwCreatePrivateNamespace)(&ns2, DIRECTORY_ALL_ACCESS, &oa, NULL), S_AV);
       EXPECT_EQ(UN(ZwCreatePrivateNamespace)(NULL, DIRECTORY_ALL_ACCESS, &oa, bd), S_AV); }
     UN(RtlDeleteBoundaryDescriptor)(bd);
-    cob_close(bnoh);
 }
 
 #define S_INVPARAM4 ((NTSTATUS)0xC00000F2)

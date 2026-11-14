@@ -22,7 +22,7 @@ ZwOpenPrivateNamespace, ZwCreateSection, ZwCreateSectionEx, ZwOpenSection, ZwCre
 | ZwOpenSymbolicLinkObject with OBJ_OPENLINK (0x100) | STATUS_INVALID_PARAMETER | observed |
 | Open a directory as a symlink | STATUS_OBJECT_TYPE_MISMATCH | observed |
 | ZwOpenDirectoryObject | type name `Directory`; relative open through RootDirectory; `\` and `\Device` open with DIRECTORY_QUERY | observed |
-| Private namespace | OA must be unnamed (a named OA gives C0000033 OBJECT_NAME_INVALID); a boundary descriptor made with RtlCreateBoundaryDescriptor + RtlAddSIDToBoundaryDescriptor(Everyone) is accepted; second create with the same descriptor C0000035; NULL descriptor C0000005; NtDeletePrivateNamespace 0 | observed |
+| Private namespace | OA must be unnamed (a named OA gives C0000033 OBJECT_NAME_INVALID); a boundary descriptor made with RtlCreateBoundaryDescriptor + RtlAddSIDToBoundaryDescriptor(Everyone) is accepted; second create with the same descriptor C0000035; NULL descriptor C0000005; open with an unknown boundary descriptor C000003A; NtDeletePrivateNamespace 0 | observed |
 | Section create: size 0 or NULL size without a file | STATUS_INVALID_PARAMETER_4 C00000F2; AllocationAttributes 0 or COMMIT\|RESERVE C00000F4 (PARAM_6); protection 3 gives STATUS_INVALID_PAGE_PROTECTION C0000045 | observed |
 | Section query | NtQuerySection class 0 returns 24 bytes: Size = requested size, Attributes include SEC_COMMIT | observed |
 | Two views (creator handle, opened handle) of one section see the same bytes | observed |
