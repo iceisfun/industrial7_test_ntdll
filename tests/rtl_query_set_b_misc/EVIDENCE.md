@@ -13,7 +13,7 @@ RtlSetDynamicTimeZoneInformation, RtlSetFeatureConfigurations, RtlSetSystemBootS
 | Area | Evidence |
 | --- | --- |
 | Proxied process id, sub-process tag, placeholder modes | Decompiled: each stores into a TEB/PEB slot and returns the previous value; placeholder modes accept 0..3 and return 0xff (no change) otherwise. Sub-process tag slot verified against TEB+0x1720. Values restored at the end. |
-| RtlSetThreadWorkOnBehalfTicket | Decompiled: NULL -> STATUS_INVALID_PARAMETER; ticket equal to the cached one (0) -> success without a system call. A made-up non-zero ticket is rejected by the kernel (observed: c000000b); only "failure" is asserted. |
+| RtlSetThreadWorkOnBehalfTicket | Decompiled: NULL -> STATUS_INVALID_PARAMETER; ticket equal to the cached one (0) -> success without a system call. A made-up non-zero ticket is rejected by the kernel (observed: c000000b); pinned to c000000b as observed. |
 | RtlSetCurrentTransaction | Decompiled: -1 -> FALSE and unchanged; anything else stored in the TEB and TRUE. Verified with RtlGetCurrentTransaction. |
 | RtlSetUmsThreadInformation | Decompiled: class 1 with length 8 stores the value at +0x4e8 of the UMS thread record; wrong length STATUS_INFO_LENGTH_MISMATCH, other class STATUS_NOT_SUPPORTED. Tested on a private zeroed buffer (no real UMS thread needed). |
 | RtlSetExtendedFeaturesMask | Decompiled: stored mask = (enabled-features & mask) & ~3. Tested on a CONTEXT_EX from InitializeContext with CONTEXT_XSTATE; expectation derived from GetEnabledXStateFeatures. Skipped when no XSTATE context is available. |

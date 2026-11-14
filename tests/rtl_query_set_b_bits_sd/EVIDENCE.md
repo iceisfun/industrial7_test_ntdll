@@ -1,6 +1,6 @@
 # rtl_query_set_b_bits_sd
 
-Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788), standard user and elevated administrator runs. Decompilation (Corpus Explorer, /api/function/ntdll/<Name>/decomp) was consulted for argument validation order; every value below was then confirmed by running on the Windows 10 guest.
+Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788), elevated administrator runs verified; the standard-user run could not be obtained (guest logon failure) when reviewed. Decompilation (Corpus Explorer, /api/function/ntdll/<Name>/decomp) was consulted for argument validation order; every value below was then confirmed by running on the Windows 10 guest.
 
 ## Exports covered (behavioral)
 RtlSetBit, RtlSetBitEx, RtlSetBitsEx, RtlSetAttributesSecurityDescriptor, RtlSetSecurityDescriptorRMControl,
@@ -18,4 +18,4 @@ RtlSetInformationAcl, RtlSetSecurityObject, RtlSetSecurityObjectEx.
 | RtlSetSecurityObject(Ex) | Documented behaviour (modifies the self-relative descriptor the pointer refers to and replaces it with a freshly allocated one). Asserted: DACL_SECURITY_INFORMATION replaces only the DACL (owner untouched, result self-relative), SecurityInformation 0 leaves the object unchanged, NULL token accepted. Ex form with AutoInheritFlags 0 behaves identically. Observed on Windows 10. |
 
 ## Skips / notes
-- The impersonation-token duplicate in the SetSecurityObject tests is best effort; the semantic checks run either way.
+- The impersonation token passed to the SetSecurityObject tests is a real duplicate of the process token (SecurityImpersonation QoS); its creation is asserted.

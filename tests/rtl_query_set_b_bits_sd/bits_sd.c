@@ -240,11 +240,13 @@ static void setobj_body(int ex) {
     REQUIRE(UN(NtOpenProcessToken)); REQUIRE(UN(NtDuplicateToken)); REQUIRE(UN(NtClose));
     HANDLE ptok = NULL, itok = NULL;
     if (UN(NtOpenProcessToken)(GetCurrentProcess(), TOKEN_DUPLICATE | TOKEN_QUERY, &ptok) < 0) { t_skip("cannot open process token"); return; }
+    SECURITY_QUALITY_OF_SERVICE qos = { sizeof qos, SecurityImpersonation, SECURITY_STATIC_TRACKING, FALSE };
     OBJECT_ATTRIBUTES oa = { sizeof oa };
+    oa.SecurityQualityOfService = &qos;
     NTSTATUS st = UN(NtDuplicateToken)(ptok, TOKEN_QUERY | TOKEN_IMPERSONATE | TOKEN_DUPLICATE, &oa, FALSE, 2 /* TokenImpersonation */, &itok);
     UN(NtClose)(ptok);
-    /* impersonation-level SecurityImpersonation needs a SECURITY_QUALITY_OF_SERVICE; fall back to the process token */
-    (void)st;
+    EXPECT_EQ(st, 0);                    /* a real impersonation token is passed to the setter */
+    if (st < 0) itok = NULL;
 
     PSECURITY_DESCRIPTOR obj = make_obj_sd((PSID)SID_ADMINS, (PSID)SID_EVERYONE, 0x1);
     if (!obj) { t_skip("could not build object descriptor"); if (itok) UN(NtClose)(itok); return; }

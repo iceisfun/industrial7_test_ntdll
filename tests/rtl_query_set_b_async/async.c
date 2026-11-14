@@ -162,6 +162,11 @@ TEST(rtl_set_timer) {
     s = UN(RtlSetTimer)(q, &tm, timer_cb, (PVOID)1, 60000, 0, 0);
     EXPECT_EQ(s, 0);
     if (s >= 0) { EXPECT_EQ(UN(RtlDeleteTimer)(q, tm, INVALID_HANDLE_VALUE), 0); EXPECT_EQ(g_fired, 0); }
+    /* a NULL callback is not validated at creation (observed); the far-future timer is deleted before it can fire */
+    { HANDLE t2 = (HANDLE)0xdead;
+      EXPECT_EQ(UN(RtlSetTimer)(q, &t2, NULL, NULL, 60000, 0, 0), 0);
+      CHECK(t2 != (HANDLE)0xdead && t2 != NULL);
+      EXPECT_EQ(UN(RtlDeleteTimer)(q, t2, INVALID_HANDLE_VALUE), 0); }
     EXPECT_EQ(UN(RtlDeleteTimerQueueEx)(q, INVALID_HANDLE_VALUE), 0);
     CloseHandle(g_ev);
 }

@@ -87,7 +87,7 @@ TEST(rtl_set_thread_work_on_behalf_ticket) {
     ULONGLONG bogus[2] = {0x123456789abcdefull, 0};
     NTSTATUS s = UN(RtlSetThreadWorkOnBehalfTicket)(bogus);
     t_note("bogus ticket status 0x%lx", (unsigned long)s);
-    CHECK(s < 0);                                                         /* kernel rejects a ticket it did not issue */
+    EXPECT_EQ(s, S(0xC000000B));                                          /* kernel rejects a ticket it did not issue (observed) */
     EXPECT_EQ(UN(RtlSetThreadWorkOnBehalfTicket)(t), 0);
 }
 
