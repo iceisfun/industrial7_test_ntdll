@@ -145,6 +145,12 @@ TEST(license_value)
     } else t_note("license value not present: %08lx", (unsigned long)st);
 }
 
+static int is_bios(void)
+{
+    FIRMWARE_TYPE ft = 0;
+    return GetFirmwareType(&ft) && ft == FirmwareTypeBios;
+}
+
 TEST(system_environment_value)
 {
     UNICODE_STRING n; WCHAR v[64]; USHORT ret = 0; NTSTATUS st; BOOLEAN old = 0; static WCHAR nm[] = L"QibNoSuchVariable";
@@ -163,11 +169,13 @@ TEST(system_environment_value)
     st = UN(NtQuerySystemEnvironmentValue)(&n, v, sizeof v, &ret);
     t_note("env value (priv enabled): %08lx", (unsigned long)st);
     /* BIOS firmware: STATUS_NOT_IMPLEMENTED; UEFI: STATUS_VARIABLE_NOT_FOUND for a variable that does not exist */
-    CHECK(st == S(0xC0000001) || st == S(0xC0000002) || st == S(0xC0000100));   /* firmware dependent */
+    if (is_bios()) EXPECT_EQ(st, S(0xC0000001));          /* observed on legacy BIOS firmware: STATUS_UNSUCCESSFUL */
+    else CHECK(st == S(0xC0000001) || st == S(0xC0000002) || st == S(0xC0000100));   /* UEFI: variable-not-found or similar */
     dl = sizeof data;
     st = UN(NtQuerySystemEnvironmentValueEx)(&n, &g, data, &dl, &attr);
     t_note("env value Ex (priv enabled): %08lx", (unsigned long)st);
-    CHECK(st == S(0xC0000001) || st == S(0xC0000002) || st == S(0xC0000100));
+    if (is_bios()) EXPECT_EQ(st, S(0xC0000002));          /* observed on legacy BIOS firmware: STATUS_NOT_IMPLEMENTED */
+    else CHECK(st == S(0xC0000001) || st == S(0xC0000002) || st == S(0xC0000100));
     UN(RtlAdjustPrivilege)(22, old, FALSE, &old);
 }
 
@@ -179,12 +187,12 @@ TEST(driver_entry_order)
     count = 64; memset(ids, 0xcc, sizeof ids);
     st = UN(NtQueryDriverEntryOrder)(ids, &count);
     t_note("driver entry order without privilege: %08lx count=%lu", (unsigned long)st, count);
-    CHECK(st == S(0xC0000002) || st == ST_PRIV || st == 0 || st == S(0xC0000023));
+    if (is_bios()) EXPECT_EQ(st, S(0xC0000002)); else CHECK(st == ST_PRIV || st == 0 || st == S(0xC0000023));
     if (UN(RtlAdjustPrivilege)(10 /* SeLoadDriverPrivilege */, TRUE, FALSE, &old) != 0) { t_skip("SeLoadDriverPrivilege not held (STATUS_PRIVILEGE_NOT_HELD)"); return; }
     count = 64; memset(ids, 0xcc, sizeof ids);
     st = UN(NtQueryDriverEntryOrder)(ids, &count);
     t_note("driver entry order with SeLoadDriverPrivilege: %08lx count=%lu", (unsigned long)st, count);
-    CHECK(st == S(0xC0000002) || st == 0 || st == S(0xC0000023));
+    if (is_bios()) EXPECT_EQ(st, S(0xC0000002)); else CHECK(st == 0 || st == S(0xC0000023));
     if (st == 0) CHECK(count <= 64);
     UN(RtlAdjustPrivilege)(10, old, FALSE, &old);
 }

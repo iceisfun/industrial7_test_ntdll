@@ -286,7 +286,7 @@ TEST(volume_info)
     /* FileFsVolumeInformation (1): needs 18 fixed bytes; label follows */
     memset(buf, 0xcc, sizeof buf);
     EXPECT_EQ(UN(NtQueryVolumeInformationFile)(h, &io, buf, sizeof buf, 1), 0);
-    { ULONG labelLen = *(ULONG *)(buf + 12); CHECK(labelLen <= 64); EXPECT_EQ(io.Information, 18 + labelLen); CHECK((*(ULONG *)(buf + 8)) != 0 || 1); }
+    { ULONG labelLen = *(ULONG *)(buf + 12); CHECK(labelLen <= 64); EXPECT_EQ(io.Information, 18 + labelLen); }
     EXPECT_EQ(UN(NtQueryVolumeInformationFile)(h, &io, buf, 17, 1), ST_LEN_MISMATCH);
     /* FileFsAttributeInformation (5): fixed 12 bytes + name */
     memset(buf, 0xcc, sizeof buf);
