@@ -146,7 +146,7 @@ TEST(delete_file)
         wsprintfA(f, "%s\\x", d); HANDLE fh = CreateFileA(f, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
         OBJECT_ATTRIBUTES doa; UNICODE_STRING dus; init_oa(&doa, &dus, dw);
         NTSTATUS dst = UN(ZwDeleteFile)(&doa);                 /* delete-on-close of a non-empty directory fails silently */
-        CHECK(dst == 0 || dst == S(0xC0000101));
+        EXPECT_EQ(dst, 0);
         CHECK(GetFileAttributesA(d) != INVALID_FILE_ATTRIBUTES);
         if (fh != INVALID_HANDLE_VALUE) CloseHandle(fh);
         DeleteFileA(f);
@@ -339,7 +339,7 @@ TEST(registry_enum_delete)
     EXPECT_EQ(*(ULONG *)(buf + 12), 4);
     /* node information (class 1): adds ClassOffset/ClassLength */
     rl = 0; EXPECT_EQ(UN(ZwEnumerateKey)(k, 0, 1, buf, sizeof buf, &rl), 0); CHECK(rl >= 24 + 4);
-    /* full information (class 2) is not valid for enumeration */
+    /* KeyFullInformation (class 2) is accepted for enumeration */
     rl = 0; NTSTATUS st = UN(ZwEnumerateKey)(k, 0, 2, buf, sizeof buf, &rl);
     EXPECT_EQ(st, 0);                                              /* observed: accepted */
     st = UN(ZwEnumerateKey)(k, 0, 99, buf, sizeof buf, &rl); EXPECT_EQ(st, ST_INVALID_PARAMETER);
@@ -556,10 +556,10 @@ TEST(audit_alarm)
     EXPECT_EQ(UN(ZwCloseObjectAuditAlarm)(NULL, NULL, FALSE), 0);
 }
 
-#define FAILS(call) do { NTSTATUS st_ = (call); CHECKF(((ULONG)st_ >> 30) == 3, "%s -> 0x%08lx", #call, (unsigned long)st_); } while (0)
+#define FAILS(call) do { NTSTATUS st_ = (call); CHECKF(st_ == S(0xC0000002), "%s -> 0x%08lx", #call, (unsigned long)st_); } while (0)
 /* Without SeSystemEnvironmentPrivilege (never enabled here) the boot/driver entry and firmware variable
- * services fail with an error status: STATUS_NOT_IMPLEMENTED on machines without such firmware services, or
- * STATUS_PRIVILEGE_NOT_HELD. The call arguments are invalid or inert so nothing could be changed anyway. */
+ * services fail with STATUS_NOT_IMPLEMENTED
+ * (observed on the Windows 10 guest, ahead of any privilege check). The call arguments are invalid or inert so nothing could be changed anyway. */
 TEST(boot_driver_entries)
 {
     ULONG id = 0xCC; BYTE b[64]; ULONG len = sizeof b;

@@ -204,6 +204,8 @@ TEST(adjust_groups)
         g2 = query(d, 2, NULL);
         if (g2) { for (DWORD i = 0; i < g2->GroupCount; i++) if (EqualSid(g2->Groups[i].Sid, opt->Sid)) CHECK(g2->Groups[i].Attributes & SE_GROUP_ENABLED); free(g2); }
     } else t_note("no optional enabled group in token");
+    EXPECT_EQ(UN(ZwAdjustGroupsToken)(d, TRUE, NULL, 0, NULL, NULL), 0);              /* reset to defaults, always valid */
+    EXPECT_EQ(UN(ZwAdjustGroupsToken)(d, TRUE, NULL, 0, NULL, NULL), 0);
     /* group not in the token: S-1-5-99-12345 */
     BYTE sidbuf[SECURITY_MAX_SID_SIZE]; SID *sid = (SID *)sidbuf;
     memset(sidbuf, 0, sizeof sidbuf);
@@ -242,7 +244,7 @@ TEST(filter_token)
         EXPECT_EQ(UN(ZwCompareTokens)(t, n, &eq), 0);
         EXPECT_EQ(eq, 1);
         eq = 0xCC; st = UN(ZwCompareTokens)(t, m, &eq);
-        EXPECT_EQ(st, 0);
+        EXPECT_EQ(st, 0); EXPECT_EQ(eq, 0);          /* privilege set differs */
     }
     /* deny-only conversion of the Everyone group */
     BYTE sb[16] = {1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0};            /* S-1-1-0 */
