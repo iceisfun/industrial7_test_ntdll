@@ -36,3 +36,7 @@ Observed-only quirks that are asserted because they were stable across runs: NUL
 
 Not covered by behaviour: see the coordinator's justified list (NtAlpcImpersonateClientContainerOfPort succeeds
 or fails depending on container state, so only its NULL-pointer paths and unknown-message path are asserted).
+
+Review addition: NtAlpcImpersonateClientContainerOfPort on a server-side request that carries no security attribute
+returns 0xC0000022 (same refusal as NtAlpcImpersonateClientOfPort); observed on Windows 10 22H2. The positive path
+is still not asserted because it depends on container state.

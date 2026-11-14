@@ -232,6 +232,7 @@ TEST(alpc_port_connect_request_reply) {
     EXPECT_EQ(r->imp_lport, S(0xC0000022));
     EXPECT_EQ(r->imp_comm, S(0xC0000022));
     EXPECT_EQ(r->imp_bogus, S(0xC0000702));
+    EXPECT_EQ(r->imp_container_bogus, S(0xC0000022));   /* no security attribute from the sender: same refusal as ImpersonateClientOfPort */
 
     /* ---- request carrying a security attribute: impersonation succeeds ---- */
     {
