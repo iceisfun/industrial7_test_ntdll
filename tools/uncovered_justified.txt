@@ -1,0 +1,216 @@
+# name<TAB>reason: export deliberately has no behavioral test (not callable from user mode without a service connection, unsafe even in a disposable VM, ordinal-only, or compiler intrinsic)
+EtwDeliverDataBlock	Needs a live ETW notification/data-block exchange with a kernel trace session or the ETW service; cannot be driven meaningfully without a session.
+EtwRegisterSecurityProvider	NtTraceControl registration of the security ETW provider requires SeTcb and changes system-wide tracing state.
+EtwSendNotification	Issues NtTraceControl notification requests against the ETW service/session; needs a service connection and could alter tracing state.
+EvtIntReportAuthzEventAndSourceAsync	internal event-log reporting that needs the EventLog service connection
+EvtIntReportEventAndSourceAsync	internal event-log reporting that needs the EventLog service connection
+ExpInterlockedPopEntrySListEnd	label inside the SList pop sequence used by the exception dispatcher, not a callable function
+ExpInterlockedPopEntrySListFault	label inside the SList pop sequence used by the exception dispatcher, not a callable function
+ExpInterlockedPopEntrySListResume	label inside the SList pop sequence used by the exception dispatcher, not a callable function
+KiRaiseUserExceptionDispatcher	kernel-to-user trampoline entered only by the kernel; calling it directly raises an exception on a bogus frame
+KiUserApcDispatcher	kernel-to-user trampoline entered only with a kernel-built frame
+KiUserCallbackDispatcher	kernel-to-user trampoline entered only with a kernel-built win32k callback frame
+KiUserExceptionDispatcher	kernel-to-user trampoline entered only with a kernel-built exception frame
+LdrAppxHandleIntegrityFailure	terminates the process via RtlReportException/NtTerminateProcess unless called with one specific code; destructive, needs an AppX package identity
+LdrCallEnclave	needs a real VBS/SGX enclave; for a non-enclave address it performs a direct indirect call, unsafe to drive
+LdrCreateEnclave	requires enclave support (VBS/SGX) and the hypervisor; only failure paths would run and they allocate/free process address space
+LdrDeleteEnclave	passes the argument to NtFreeVirtualMemory when not an enclave: freeing arbitrary memory is unsafe; real enclaves need VBS/SGX
+LdrFastFailInLoaderCallout	fast-fails the process (crash); destructive tests are out of this round
+LdrInitShimEngineDynamic	loads and permanently pins a shim engine module in the process; no way to undo
+LdrInitializeEnclave	needs an enclave created by LdrCreateEnclave (VBS/SGX hardware)
+LdrInitializeThunk	process/thread start-up APC thunk invoked by the kernel; calling it re-initializes the loader
+LdrLoadEnclaveModule	needs an initialized enclave (VBS/SGX hardware)
+LdrProcessInitializationComplete	one-shot process start-up transition (increments loader init state, signals init event); not meaningfully repeatable
+LdrSetAppCompatDllRedirectionCallback	installs a process-global hook with no getter; a stub export (decompiles to a bare return) so no observable behaviour
+LdrSetDllManifestProber	replaces process-global sxs prober function pointers with no read-back; installing test pointers would break later loads
+LdrShutdownProcess	runs process-detach for every DLL and tears the loader down; destructive
+LdrShutdownThread	runs thread-detach callouts and releases the thread's loader state; destructive for the calling thread
+LdrStandardizeSystemPath	3-byte stub shared by many exports (no body, signature unknown); no observable behaviour
+NtCallEnclave	needs an initialised SGX/VBS enclave; not callable meaningfully from an ordinary process
+NtDirectGraphicsCall	private interface to the kernel graphics driver (dxgkrnl); no public contract or safe invocation
+NtDisableLastKnownGood	changes boot configuration state of the machine; excluded as a system-state change
+NtEnableLastKnownGood	changes boot configuration state of the machine; excluded as a system-state change
+NtFlushInstallUILanguage	changes machine UI language state; excluded as a system-state change
+NtFreezeRegistry	freezes the whole registry system-wide; destructive and needs SeBackupPrivilege/service context
+NtFreezeTransactions	freezes all transactions machine-wide via KTM; system-state change
+NtGetCompleteWnfStateSubscription	needs a live WNF subscription from the WNF service and undocumented structures
+NtInitializeEnclave	requires an SGX/VBS enclave created through CreateEnclave; hardware dependent
+NtInitializeNlsFiles	internal NLS bootstrap with undocumented in/out structures; only valid at process startup
+NtInitializeRegistry	boot-time only; callable only by smss and can corrupt registry state
+NtInitiatePowerAction	would suspend/hibernate/shut down the guest
+NtLoadEnclaveData	requires an enclave created through CreateEnclave; hardware dependent
+NtManageHotPatch	hot-patch management needs kernel/secure-kernel patch state and privilege
+NtManagePartition	memory/cache partition management; privileged system-state change
+NtMapCMFModule	Code Integrity module mapping used by the loader with undocumented structures
+NtModifyBootEntry	modifies the machine boot configuration (destructive)
+NtModifyDriverEntry	modifies the machine driver boot list (destructive)
+NtNotifyChangeSession	session notification needs a session/CSR connection; kernel-only consumers
+NtPssCaptureVaSpaceBulk	process snapshot (PSS) internal service with undocumented layout, used only by PssCaptureSnapshot
+NtRaiseHardError	shows a system error dialog or terminates the system depending on the response option; not safe unattended
+NtReadRequestData	needs a received LPC request with data from a connected client
+NtSetSystemPowerState	Can suspend, hibernate or power off the machine if the privilege check passes; only the Nt/Zw alias is asserted.
+NtShutdownSystem	powers off or reboots the guest and needs SeShutdownPrivilege; unsafe even in the disposable VM for a round that must keep the guest alive
+RtlAllocateWnfSerializationGroup	process-global counter allocator with unclear return type in decomp; no checkable contract
+RtlApplicationVerifierStop	verifier break; with the verifier absent it is a no-op and with it present it breaks into the debugger, no observable behavior to assert
+RtlAssert	prints the assertion text and executes a breakpoint (destructive); no return path
+RtlCallEnclaveReturn	only valid inside an SGX/VBS enclave
+RtlCleanUpTEBLangLists	thread-teardown helper freeing TEB language lists; calling it on a live thread would corrupt its state
+RtlCompleteProcessCloning	must be called in the fork child with the loader locks of RtlCloneUserProcess held; only exercised implicitly by the clone path, no separately observable result
+RtlConnectToSm	needs the session manager (SMSS) LPC connection and its privileges
+RtlConvertToAutoInheritSecurityObject	needs parent/current descriptor and generic mapping fixtures
+RtlCopyExtendedContext	needs XState-aware extended CONTEXT setup, CPU-feature dependent
+RtlCreateSystemVolumeInformationFolder	Rewrites ownership/ACLs of the real System Volume Information folder on a system volume; a system-state change beyond a throwaway object
+RtlCreateTagHeap	Return value is uninitialised unless heap tagging (FLG_HEAP_ENABLE_TAGGING) was enabled at process creation, which cannot be arranged in-process; no stable assertion exists
+RtlDetectHeapLeaks	only acts under heap-leak-detection debug flags and then prints to the debugger and sets up a leak heap; no stable observable result
+RtlDosApplyFileIsolationRedirection_Ustr	depends on side-by-side redirection state, complex flags
+RtlDumpResource	prints the resource state to the debugger via DbgPrint only; no return value or state change to assert
+RtlEnclaveCallDispatch	enclave call dispatcher using a raw register ABI (NtCallEnclave); needs a loaded VBS enclave, not callable meaningfully from C
+RtlEnclaveCallDispatchReturn	alias entry inside RtlEnclaveCallDispatch (return path from an enclave call); needs an enclave
+RtlFinalReleaseOutOfProcessMemoryStream	empty routine sharing the 3-byte ret body (stub on Windows 10); no observable behavior
+RtlFindActivationContextSectionGuid	requires crafted activation-context section data and manifests
+RtlFindActivationContextSectionString	requires crafted activation-context section data and manifests
+RtlFreeNonVolatileToken	NVM token API, requires persistent-memory hardware; arg semantics unknown
+RtlFreeUserFiberShadowStack	CET shadow-stack management, hardware/OS-feature dependent
+RtlHeapTrkInitialize	initializes global heap-tracking from a tracer section mapping (debug/tracing infrastructure) and changes process-wide heap state that cannot be undone
+RtlInitCodePageTable	mutates process-global NLS state; unsafe
+RtlInitNlsTables	mutates process-global NLS state; unsafe
+RtlInitializeAtomPackage	process-global atom package init; unsafe to re-run
+RtlInitializeNtUserPfn	installs the process-global win32u user-function table; calling it from a test process replaces state owned by the graphics/user layer and can break the process
+RtlLogStackBackTrace	Only meaningful with the stack-trace database enabled (application verifier / page heap); a bare call has no observable contract
+RtlNotifyFeatureUsage	Feature-configuration notification; result depends on system feature-config buffers and telemetry, no stable observable contract
+RtlPrepareForProcessCloning	Process-reflection internals; prepares the process for NtCreateProcessEx cloning and alters loader/heap state of the test process
+RtlProcessFlsData	Internal FLS teardown helper invoked at thread/process exit; calling it corrupts the running process's FLS state
+RtlProtectHeap	Changes memory protection of a heap and moves it between process heap lists; unsafe to exercise without risking process-wide heap corruption
+RtlPublishWnfStateData	Needs WNF state names and publish security that depend on system services and privileges; no portable observable contract
+RtlRaiseCustomSystemEventTrigger	Talks to a system service (RPC) to trigger service-control events; requires service connection
+RtlRaiseExceptionForReturnAddressHijack	Unbalanced-stack stub (sub rsp,0xd0; add rsp,0xc8; ret) driven by the kernel return-address hijack detection; raising 0x80000033 from user code faulted (access violation) inside ntdll on Windows 10, so it cannot be called meaningfully
+RtlReadThreadProfilingData	Needs a hardware thread-profiling handle from EnableThreadProfiling, not available in the VM
+RtlRegisterThreadWithCsrss	needs a live CSRSS connection (CSR client state); not safely observable from a test process
+RtlRemoteCall	Redirects another thread's context to call a routine; unsafe (kills the target if anything is wrong) and no stable observable contract
+RtlReportException	Initiates crash reporting (WER / LPC to the error-reporting service); would terminate or spawn WER
+RtlReportExceptionEx	Same as RtlReportException: crash reporting path via the WER service
+RtlReportSilentProcessExit	Talks to WER/service to report silent process exit; requires registry-configured monitoring and a service connection
+RtlReportSqmEscalation	Stub body that does nothing observable (telemetry escalation)
+RtlResetNtUserPfn	Clears the user-mode window-procedure table that user32 installed; would break window processing for the process
+RtlResetRtlTranslations	Resets the process-wide NLS code page tables; destructive to the running process's string conversions
+RtlRestoreBootStatusDefaults	Rewrites the system boot status data file; system-state change outside the throwaway-object rule
+RtlRestoreSystemBootStatusDefaults	Rewrites the system boot status data file; system-state change outside the throwaway-object rule
+RtlSendMsgToSm	Sends a message over the session-manager LPC port; requires a connection that is unavailable to user processes
+RtlSetImageMitigationPolicy	writes per-image Image File Execution Options mitigation values in HKLM; persistent system-state change
+RtlSetPortableOperatingSystem	writes a machine-wide HKLM registry value; changes system state beyond a throwaway object
+RtlSetProcessDebugInformation	needs a verifier/stack-trace-database debug buffer and may spawn a remote thread; no safely observable contract
+RtlSetSystemBootStatus	issues NtPowerInformation to change the persistent boot status data; no safe validation-only path (unlike the Ex form)
+RtlSetUnhandledExceptionFilter	write-only encoded global with no query API; effect only observable on a fatal unhandled-exception path (destructive)
+RtlSubscribeForFeatureUsageNotification	feature-usage reporting needs the feature-configuration service; results not observable from user mode
+RtlSubscribeWnfStateChangeNotification	WNF subscriptions need the WNF kernel state/service; delivery timing not controllable in a throwaway guest
+RtlTestAndPublishWnfStateData	publishes WNF state, system-state side effect and kernel-only permissions
+RtlUmsThreadYield	user-mode scheduling needs a UMS scheduler thread; not meaningful or safe to call standalone
+RtlUnhandledExceptionFilter	terminates or reports process via WER when invoked with a fatal exception; destructive for the test process
+RtlUnhandledExceptionFilter2	same as RtlUnhandledExceptionFilter, fatal path
+RtlUnsubscribeFromFeatureUsageNotifications	counterpart of the feature-usage subscription, same service dependency
+RtlUnsubscribeWnfNotificationWaitForCompletion	WNF subscription teardown, requires live WNF subscription
+RtlUnsubscribeWnfNotificationWithCompletionCallback	WNF subscription teardown, requires live WNF subscription
+RtlUnsubscribeWnfStateChangeNotification	WNF subscription teardown, requires live WNF subscription
+RtlUnwind	compiler/ABI-level stack unwinder that transfers control to a target frame; cannot be called meaningfully without hand-built exception frames
+RtlUpdateClonedCriticalSection	only meaningful on a process-clone (fork/reflect) child with cloned critical sections
+RtlUpdateClonedSRWLock	only meaningful on a process-clone child with cloned SRW locks
+RtlUserFiberStart	fiber entry thunk, only valid as the initial return address of a fiber stack
+RtlUserThreadStart	thread start thunk, only valid as the entry of a new thread
+RtlWaitForWnfMetaNotification	needs live WNF meta state and a blocking wait; return value is uninitialized on the bad-argument path, so no stable assertion
+RtlWerpReportException	launches Windows Error Reporting for the process; needs WER service and is destructive
+RtlWow64GetCurrentCpuArea	Dereferences the WoW64 CPU area held in the TEB; a native x64 thread has none, so the call would fault. It needs a 32-bit process, which this x64-only build cannot produce.
+RtlWow64LogMessageInEventLogger	Loads the event log API and writes an entry to the system event log. That is a system-state change beyond a throwaway object, with no return value to check.
+RtlWriteNonVolatileMemory	requires a persistent-memory (NVDIMM) region obtained from a DAX-mapped file; not available on the guest
+RtlZombifyActivationContext	internal activation-context lifetime hook, requires a context with a particular reference state; no stable observable contract
+RtlpCleanupRegistryKeys	internal MUI registry-info teardown that takes an opaque per-process structure created by loader init
+RtlpConvertAbsoluteToRelativeSecurityAttribute	operates on undocumented CLAIM_SECURITY_ATTRIBUTES_INFORMATION internal layout, not enough contract to assert
+RtlpConvertRelativeToAbsoluteSecurityAttribute	operates on undocumented security attribute internal layout
+RtlpCreateProcessRegistryInfo	allocates the loader-owned MUI registry info structure; internal opaque layout
+RtlpExecuteUmsThread	UMS internal context switch, never returns to caller
+RtlpFreezeTimeBias	alters the process time-bias state for the rest of its life; system-state change
+RtlpGetLCIDFromLangInfoNode	operates on opaque MUI lang-info nodes built by internal registry loaders
+RtlpGetNameFromLangInfoNode	operates on opaque MUI lang-info nodes built by internal registry loaders
+RtlpGetUserOrMachineUILanguage4NLS	needs the opaque process language registry info and policy state; layout not publicly documented
+RtlpInitializeLangRegistryInfo	initialises opaque MUI registry info, internal layout
+RtlpIsQualifiedLanguage	takes opaque lang-info and MUI registry structures
+RtlpLoadMachineUIByPolicy	MUI policy loader on opaque registry info structure
+RtlpLoadUserUIByPolicy	MUI policy loader on opaque registry info structure
+RtlpMergeSecurityAttributeInformation	operates on undocumented security attribute internal layout
+RtlpMuiFreeLangRegistryInfo	frees opaque MUI structure created by internal loader
+RtlpMuiRegCreateRegistryInfo	creates the opaque MUI registry info, internal layout
+RtlpMuiRegFreeRegistryInfo	frees opaque MUI registry info, internal layout
+RtlpMuiRegLoadRegistryInfo	loads opaque MUI registry info from policy registry keys, internal layout
+RtlpNotOwnerCriticalSection	raises a non-continuable exception (status 0xC0000264) and may terminate the process
+RtlpQueryDefaultUILanguage	undocumented 4-argument internal needing a process registry-info context and MUI cache; no safe stable contract
+RtlpQueryProcessDebugInformationFromWow64	WOW64-only path needing a 32-bit caller context structure
+RtlpQueryProcessDebugInformationRemote	remote-thread entry that ends with RtlExitUserThread and takes a debug buffer from another process; not callable in-process
+RtlpSetPreferredUILanguages	commits user/system UI language settings to the registry and MUI cache; mutates persistent system state
+RtlpSetUserPreferredUILanguages	same function as RtlpSetPreferredUILanguages; mutates persistent user language settings
+RtlpUmsExecuteYieldThreadEnd	UMS thread-end continuation that does not return; needs a UMS scheduler
+RtlpUmsThreadYield	custom-ABI UMS context-switch stub that saves registers and switches stacks; needs a UMS scheduler thread
+RtlpVerifyAndCommitUILanguageSettings	commits install UI language and may adjust privileges and system state
+SbExecuteProcedure	Switchback runtime needing compiler-generated switchback tables/PEB cache; internal
+SbSelectProcedure	Switchback runtime needing compiler-generated switchback tables/PEB cache; internal
+ShipAssertMsgA	same record/counter body as ShipAssert; exact signature (message args) undocumented, covered indirectly only
+ShipAssertMsgW	same record/counter body as ShipAssert; exact signature undocumented, covered indirectly only
+TpCallbackDetectedUnrecoverableError	terminates the process (fatal fail-fast path)
+TpCallbackSendAlpcMessageOnCompletion	needs a full ALPC client/server round trip inside a TP_ALPC callback with a live connection
+TpCallbackSendPendingAlpcMessage	needs a full ALPC client/server round trip inside a TP_ALPC callback with a live connection
+TpDbgDumpHeapUsage	debug-only; enumerates heap tags that are not enabled in a normal process, no observable output
+TpDbgSetLogRoutine	debug-only log hook, no decompilation/doc evidence of observable behavior and nothing invokes it in a retail process
+WerReportExceptionWorker	thread-entry worker that reports an exception then frees memory, resumes and terminates threads using caller-supplied context; unsafe to call directly
+WerReportSQMEvent	only fills a local array via lazy WER escalation init, no observable output; ShipAssert exercises it indirectly
+ZwApphelpCacheControl	Application-compatibility cache service; mutates the system shim cache and needs elevated service interaction.
+ZwCallEnclave	Requires a created and initialized enclave (VBS/SGX), not available on the guest.
+ZwCallbackReturn	Only meaningful inside a win32k kernel-to-user callback; calling it elsewhere corrupts the thread.
+ZwContinue	Transfers control to a supplied CONTEXT; cannot be called meaningfully without a hand-built resume point and would be destructive on a bad context.
+ZwContinueEx	Same as ZwContinue (context-restoring transfer of control).
+ZwCreatePagingFile	creates or resizes a system paging file (privileged, persistent system-state change beyond a throwaway object); destructive, excluded from this round
+ZwDirectGraphicsCall	Undocumented graphics-kernel call needing a GPU driver and session connection.
+ZwDisplayString	Writes to the boot display and is only usable during boot/kernel context; no observable behaviour and a system-state side effect.
+ZwDrawText	Boot-screen text output counterpart of ZwDisplayString; same reasons.
+ZwFlushInstallUILanguage	changes the system UI-language install state
+ZwFlushProcessWriteBuffers	called but returns nothing and has no observable effect, so no behavioral assertion is possible
+ZwFreeUserPhysicalPages	AWE physical pages need SeLockMemoryPrivilege, which neither test account holds
+ZwFreezeRegistry	freezes the whole registry system-wide, destructive
+ZwFreezeTransactions	freezes all kernel transactions system-wide, destructive
+ZwGetDevicePowerState	needs a handle to a power-managed device object; none is safely available
+ZwGetNotificationResourceManager	needs a full KTM transaction manager, resource manager and enlistment setup
+ZwInitializeEnclave	needs SGX or VBS enclave hardware and an enclave image
+ZwInitializeNlsFiles	process-initialization service that maps the NLS tables and has side effects
+ZwInitializeRegistry	boot-time kernel-only service
+ZwInitiatePowerAction	would suspend, hibernate or shut down the guest
+ZwLoadDriver	loads a kernel driver, a system-state change
+ZwLoadEnclaveData	needs SGX or VBS enclave hardware and an enclave image
+ZwLoadKey	needs SeRestorePrivilege and a hive file, and changes the registry namespace
+ZwLoadKey2	needs SeRestorePrivilege and a hive file, and changes the registry namespace
+ZwLoadKey3	needs SeRestorePrivilege and a hive file, and changes the registry namespace
+ZwLoadKeyEx	needs SeRestorePrivilege and a hive file, and changes the registry namespace
+ZwLockProductActivationKeys	touches the system licensing and activation state
+ZwLockRegistryKey	kernel-only registry lock service
+ZwManageHotPatch	hot-patch management is kernel-privileged and system-wide
+ZwManagePartition	memory partition management needs privilege and changes system state
+ZwMapCMFModule	internal code-modification-framework service with no documented user contract
+ZwMapUserPhysicalPages	AWE physical pages need SeLockMemoryPrivilege
+ZwMapUserPhysicalPagesScatter	AWE physical pages need SeLockMemoryPrivilege
+ZwModifyBootEntry	edits the boot configuration, destructive
+ZwModifyDriverEntry	edits the boot driver list, destructive
+ZwNotifyChangeSession	needs a session-manager connection and privilege
+ZwPlugPlayControl	PnP manager control with system-wide effects, privileged
+ZwPrePrepareComplete	KTM enlistment protocol, needs a transaction manager, resource manager and enlistment
+ZwPrePrepareEnlistment	KTM enlistment protocol, needs a transaction manager, resource manager and enlistment
+ZwPrepareComplete	KTM enlistment protocol, needs a transaction manager, resource manager and enlistment
+ZwPrepareEnlistment	KTM enlistment protocol, needs a transaction manager, resource manager and enlistment
+ZwPrivilegeObjectAuditAlarm	writes security audit records and needs SeAuditPrivilege
+ZwPrivilegedServiceAuditAlarm	writes security audit records and needs SeAuditPrivilege
+ZwPropagationComplete	KTM enlistment protocol, needs a transaction manager, resource manager and enlistment
+ZwPropagationFailed	KTM enlistment protocol, needs a transaction manager, resource manager and enlistment
+ZwRaiseHardError	shows UI or terminates the process or system, needs a CSR/session connection
+ZwSetBootEntryOrder	Zw alias of NtSetBootEntryOrder (same RVA); alias address equality is asserted in nt_set_info_a_system, behaviour tested through the Nt name.
+ZwSetBootOptions	Zw alias of NtSetBootOptions (same RVA); alias address equality is asserted in nt_set_info_a_system, behaviour tested through the Nt name.
+ZwSetSystemPowerState	would suspend, hibernate or shut down the guest; unsafe even in a disposable VM and cannot be made harmless by argument choice
+ZwWaitForWorkViaWorkerFactory	alias of NtWaitForWorkViaWorkerFactory (alias checked), same reason
+__C_specific_handler	SEH personality routine invoked only by the exception dispatcher with compiler-emitted scope tables; cannot be called meaningfully by hand
+__misaligned_access	compiler intrinsic stub, not meaningfully callable
+_fltused	data symbol (constant marker), not a function
+_local_unwind	legacy SEH helper needing a compiler-built frame and unwind chain; no stable direct-call contract

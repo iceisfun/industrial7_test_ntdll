@@ -1,19 +1,22 @@
 # Validation on Windows 10
 
-VERIFIED: the full corpus was run on genuine Windows 10 22H2 x64 (build 19045, ntdll 10.0.19041.2788), once as a standard user and once elevated, after the two fixes below.
+VERIFIED: the full corpus (164 areas) was run on genuine Windows 10 22H2 x64 (build 19045, ntdll 10.0.19041.2788) in a local QEMU/KVM guest (throwaway overlay of a pinned base image), once as a real standard user (medium integrity) and once elevated, at corpus commit `54217a7` (test sources; later commits touch tooling and documentation only).
 
-| Mode | tests | failed | skipped | checks passed | checks failed |
-|---|---|---|---|---|---|
-| standard user | 2188 | 0 | 2 | 88573 | 0 |
-| administrator | 2188 | 0 | 1 | 88587 | 0 |
+| Mode | areas | tests | failed | skipped | checks passed | checks failed |
+|---|---|---|---|---|---|---|
+| standard user | 164 | 3718 | 0 | 23 | 116273 | 0 |
+| administrator | 164 | 3718 | 0 | 6 | 116571 | 0 |
 
-Skips: `harness_checks_exception_probe` (runs only in an isolated child; both modes) and `nt_thread_critical_flag_clear` (standard user only; needs SeDebugPrivilege).
+Per-area SUMMARY lines for both modes are in [COVERAGE.md](COVERAGE.md); the raw per-area logs of this run are local under `results/win10/{adm,std}/` (ignored by Git).
 
-Repeated runs gave identical per-test results (no flaky tests observed).
+Skips are privilege or environment gated and each prints a concrete reason (for example `SeBackupPrivilege absent from the token (standard user)`).
 
-Before the fixes, one test failed in each mode or both:
+Review and correction history for this pass:
 
-- `nt_sync_delay_zero_returns`: a zero-length `NtDelayExecution` returned `STATUS_NO_YIELD_PERFORMED` (0x40000024), a success-class status. The test now accepts 0 or 0x40000024.
-- `nt_thread_critical_flag_clear`: failed as a standard user with `STATUS_PRIVILEGE_NOT_HELD` (0xC0000061). It now skips on exactly that status; the full check still runs when elevated, where it passed.
+- Every new area was written by one pass and then re-checked by an independent reviewer pass that re-ran it on the guest. Reviewers removed always-true checks, tightened over-wide accepted-status sets and added missing error paths (see each area's `EVIDENCE.md`).
+- Standard-user mode was first mis-run (the launcher tried to create a user itself and failed), so no standard-user result existed for the new areas until the full run above. That run found real standard-user differences, fixed to match Windows 10: `NtSetDebugFilterState` returns STATUS_ACCESS_DENIED (not STATUS_PRIVILEGE_NOT_HELD) for a non-elevated token; `PssNtQuerySnapshot` class 9 returns success for a non-elevated token and STATUS_NOT_FOUND elevated; named sections and symbolic links cannot be created in the global `\BaseNamedObjects` by a standard user (the session directory is used instead); `dbg_print_family` no longer depends on test order.
+- `nt_vm` timed out once as standard user while another guest was running at the same time (host load); alone and in the final run it passes.
 
-Limits: only build 19045 was available as a baseline; other Windows 10 builds and locales are UNVERIFIED. One run per mode was done after the fixes.
+Limits: only build 19045 was available as a baseline, other Windows 10 builds and locales are UNVERIFIED; each mode was run in full once after the last fixes (individual areas were run repeatedly during development, no flakiness was recorded). Wine was not used as an authority.
+
+Earlier record (before this expansion, 28 areas): 2188 tests, standard 0 failed / 2 skipped, administrator 0 failed / 1 skipped.
