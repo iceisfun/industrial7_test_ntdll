@@ -1,0 +1,15 @@
+# nt_set_info_b_file: file, EA, quota, volume and object-security setters
+
+Oracle: Windows 10 22H2 x64. Files are created in the per-process scratch directory (NTFS on the guest); where the
+volume lacks a feature (hard links, extended attributes) the test skips on the exact status.
+
+| Export | Expectation | Source |
+|---|---|---|
+| NtSetInformationFile | FilePositionInformation(14): sets position, `IoStatus.Status`=0, `Information`=0; negative position STATUS_INVALID_PARAMETER; FileEndOfFile(20)/FileAllocation(19): size and allocation observable through FileStandardInformation, allocation does not move EOF, negative values STATUS_INVALID_PARAMETER, read-only handle STATUS_ACCESS_DENIED; FileBasicInformation(4): LastWriteTime and attribute set round-trip, READONLY file makes a delete disposition fail STATUS_CANNOT_DELETE; FileDispositionInformation(13): sets and revokes DeletePending, needs DELETE access, deleted on last close; FileRenameInformation(10): rename, collision STATUS_OBJECT_NAME_COLLISION (0xC0000035) unless ReplaceIfExists, file size preserved, bad name length STATUS_INVALID_PARAMETER; FileLinkInformation(11): link count 2; FileModeInformation(16): WRITE_THROUGH settable, unsupported bits STATUS_INVALID_PARAMETER; class 0 and 200 STATUS_INVALID_INFO_CLASS; wrong length STATUS_INFO_LENGTH_MISMATCH; NULL handle STATUS_INVALID_HANDLE; process pseudo handle STATUS_OBJECT_TYPE_MISMATCH | MS docs (NtSetInformationFile, FILE_*_INFORMATION) + observed |
+| NtSetEaFile | set/replace/delete (zero value length) an EA; reads back with NtQueryEaFile; illegal name character STATUS_INVALID_EA_NAME (0x80000013); truncated or empty list STATUS_EA_LIST_INCONSISTENT (0x80000014); read-only handle ACCESS_DENIED; no EAs left: query gives STATUS_NO_EAS_ON_FILE (0xC0000052) | observed |
+| NtSetQuotaInformationFile | only invalid-argument paths: NULL / bad handle INVALID_HANDLE, ordinary file handle STATUS_ACCESS_DENIED, zero length STATUS_INVALID_PARAMETER. A successful call needs a volume handle with administrator rights and would change quota entries, so it is not attempted | observed |
+| NtSetVolumeInformationFile | error paths only (a label change would modify the system volume): class 0 and 99 INVALID_INFO_CLASS, too-short label buffer INFO_LENGTH_MISMATCH, label on an ordinary file handle ACCESS_DENIED | observed |
+| NtSetSecurityObject | an object created without a name has no security descriptor: STATUS_NO_SECURITY_ON_OBJECT (0xC00000D7); on a named event a DACL set is read back with NtQuerySecurityObject (one ACE, exact mask and SID); both absolute and self-relative SDs are captured; SecurityInformation 0 or unknown bits is a no-op success; OWNER selected with no owner in the SD STATUS_INVALID_SECURITY_DESCR (0xC0000079); revision 0 or 7 STATUS_UNKNOWN_REVISION (0xC0000058); SYNCHRONIZE-only handle ACCESS_DENIED; NULL handle INVALID_HANDLE | observed |
+
+Skips: hard-link test on volumes without link support (STATUS_NOT_SUPPORTED 0xC00000BB or STATUS_NOT_IMPLEMENTED);
+EA test when the volume reports STATUS_EAS_NOT_SUPPORTED.
