@@ -377,3 +377,43 @@ TEST(nt_cancel_io_bad_handles)
         CloseHandle(ev);
     }
 }
+
+/* Completion delivery on an I/O completion port (CancelIoEx does not wait for completion; the cancelled
+ * request still completes and a packet is queued for it). Two pending reads with distinct contexts: cancel
+ * A only; A's failed-I/O packet must arrive before B is completed normally by a write. */
+TEST(nt_cancel_io_file_ex_iocp_packet_for_cancelled_request_only)
+{
+    HANDLE srv, cli, port; IO_STATUS_BLOCK ioa, iob, c; BYTE ba[8], bb[8]; NTSTATUS sa, sb; NEED_ASYNC();
+    DWORD n = 0, wrote = 0; ULONG_PTR key = 0; OVERLAPPED *po = NULL; BOOL ok;
+    OVERLAPPED ctxa, ctxb;                 /* only their addresses are used, as the per-request contexts */
+    CHECK(make_async_pipe(&srv, &cli));
+    if (!srv || !cli) return;
+    port = CreateIoCompletionPort(srv, NULL, 0x77, 0);
+    CHECK(port != NULL);
+    if (!port) { CloseHandle(cli); CloseHandle(srv); return; }
+    memset(&ioa, 0xcc, sizeof ioa); memset(&iob, 0xcc, sizeof iob);
+    sa = UN(NtReadFile)(srv, NULL, NULL, &ctxa, &ioa, ba, sizeof ba, NULL, NULL);
+    sb = UN(NtReadFile)(srv, NULL, NULL, &ctxb, &iob, bb, sizeof bb, NULL, NULL);
+    EXPECT_EQ(sa, ST_PENDING); EXPECT_EQ(sb, ST_PENDING);
+    memset(&c, 0xcc, sizeof c);
+    NTSTATUS cs = UN(NtCancelIoFileEx)(srv, &ioa, &c);
+    EXPECT_EQ(cs, ST_SUCCESS);
+    t_note("native cancel return=%08lx IoStatusBlock.Status=%08lx", (unsigned long)cs, (unsigned long)c.Status);
+    /* A's packet: a failed I/O packet (FALSE with a non-NULL OVERLAPPED), the context of A, error 995. */
+    SET_ERR(0); po = NULL;
+    ok = GetQueuedCompletionStatus(port, &n, &key, &po, WAIT_MS);
+    EXPECT_ERR(ERROR_OPERATION_ABORTED);
+    CHECK(!ok); CHECK(po == &ctxa); EXPECT_EQ(key, 0x77); EXPECT_EQ(n, 0);
+    t_note("cancelled packet: ok=%d overlapped=%s bytes=%lu iosb.Status=%08lx", ok, po == &ctxa ? "A" : (po == &ctxb ? "B" : "other"), (unsigned long)n, (unsigned long)ioa.Status);
+    /* No packet for B yet (peer idle). */
+    po = NULL; SET_ERR(0);
+    ok = GetQueuedCompletionStatus(port, &n, &key, &po, 100);
+    CHECK(!ok); CHECK(po == NULL); EXPECT_ERR(WAIT_TIMEOUT);
+    /* Complete B normally: a successful packet for B with 1 byte. */
+    CHECK(WriteFile(cli, "x", 1, &wrote, NULL));
+    po = NULL; SET_ERR(0);
+    ok = GetQueuedCompletionStatus(port, &n, &key, &po, WAIT_MS);
+    CHECK(ok); CHECK(po == &ctxb); EXPECT_EQ(n, 1);
+    EXPECT_EQ(iob.Status, ST_SUCCESS); EXPECT_EQ(iob.Information, 1);
+    CloseHandle(port); CloseHandle(cli); CloseHandle(srv);
+}
