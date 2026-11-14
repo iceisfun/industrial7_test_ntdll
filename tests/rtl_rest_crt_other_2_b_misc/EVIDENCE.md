@@ -1,0 +1,28 @@
+# rtl_rest_crt_other_2_b_misc
+
+Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788); run on the guest in elevated and standard-user mode.
+"decomp" = decompilation of the Windows 10 ntdll in the reference corpus (evidence); the guest run is the authority.
+
+| Export | Expectation | Source |
+|---|---|---|
+| RtlSidEqualLevel (0xe7060), RtlSidIsHigherLevel (0xe70f0) | both SIDs must be mandatory-label SIDs (authority 0x000000000010, i.e. S-1-16-x); result compares sub-authority 0 (equal / first > second); anything else STATUS_INVALID_PARAMETER and the output is not written | decomp, observed |
+| RtlSidDominatesForTrust (0x67180) | SIDs must be valid process trust labels (S-1-19-type-level, revision 1, two sub-authorities, type != 0 or level == 0); output cleared first; dominates when second.type <= first.type and second.level <= first.level; NULL second dominated; NULL first dominates only type 0 | decomp (+ RtlIsValidProcessTrustLabelSid), observed |
+| RtlSidHashInitialize (0x7c000) / RtlSidHashLookup (0x77b70) | 0x110-byte hash block: SidCount, SidAttr, 2x16 bitmaps over the first 64 SIDs; NULL hash STATUS_INVALID_PARAMETER; NULL array or zero count yields an all-zero hash (SidCount 0); lookup returns the SID_AND_ATTRIBUTES entry whose SID compares equal (by content), NULL when absent/NULL arguments; entries beyond 64 are found by a linear fallback | decomp, observed |
+| RtlSubtreePredecessor (0x658d0) / RtlSubtreeSuccessor (0xf77a0) | right-most node of the left subtree / left-most node of the right subtree, NULL when that child is absent; Parent not used | decomp, observed |
+| RtlSplay | node rotated to the root, its Parent set to itself | observed (also in rtl_tables) |
+| RtlTestBitEx (0x9c800) | RTL_BITMAP_EX {SizeOfBitMap, Buffer}: bit i = byte(i>>3) >> (i&7) & 1 with 64-bit positions | decomp, observed |
+| RtlTestProtectedAccess (0x8bee0) | source/target are PS_PROTECTION bytes (type in bits 0-2, signer in bits 4-7); target type 0 always TRUE; source type below target type FALSE; otherwise signer dominance table (Authenticode < CodeGen < Antimalware ... WinTcb) | decomp, observed (table verified on the cases in the test) |
+| RtlUdiv128 (0x102f60) | 128/64 divide, returns the low 64 bits of the quotient, remainder through optional pointer | decomp (shift-subtract loop), observed |
+| RtlStatMemoryStream, RtlWriteMemoryStream (0xd5a70) | shared stub for the IStream methods, returns E_NOTIMPL (0x80004001) regardless of arguments | decomp, observed |
+| RtlStronglyEnumerateEntryHashTable (0x67920), RtlWeaklyEnumerateEntryHashTable (0xf5c70) | enumerate every entry exactly once (skipping the enumerator itself) then NULL, with an initialised enumerator from RtlInit{Strong,Weak}EnumerationHashTable; empty table returns NULL | decomp, observed |
+| RtlWakeAddressAll / Single and the NoFence variants | a waiter in RtlWaitOnAddress is not released by a value change alone; Single releases exactly one of two waiters, All releases both; released waiters return STATUS_SUCCESS; waking an unwatched address is harmless | decomp (wrappers of RtlpWakeByAddress), observed |
+| RtlpApplyLengthFunction (0x7e0b0) | (flags=0, size 0x10 or 0x38, string, callback(0, string, &len)): stores 2*len in Length; size 0x38 also writes a terminating NUL at Buffer[len]; len >= 0x8000 STATUS_NAME_TOO_LONG (0xC0000106); callback failure propagated; invalid flags/size/NULLs STATUS_INVALID_PARAMETER without calling the callback | decomp, observed |
+| RtlpEnsureBufferSize (0x6dd00) | RTL_BUFFER growth: flags must be 0 or 1 (1 = do not copy); grows within StaticSize in place, otherwise heap allocation (process heap, copy unless flag 1, old heap block freed); NULL buffer / bad flags STATUS_INVALID_PARAMETER | decomp, observed |
+| RtlUTF8StringToUnicodeString (0x593e0) | allocate mode sizes Length+2 and NUL-terminates; fixed buffer needs Length+2 bytes else STATUS_BUFFER_OVERFLOW with Length set to the required size minus terminator; invalid sequences are replaced by U+FFFD (observed: lone continuation byte and truncated 3-byte sequence yield one U+FFFD each); an overlong form (C0 AF) gives two U+FFFD (observed, not asserted) | decomp, observed |
+| RtlVerifyVersionInfo (0x7a0e0) | mask 0 STATUS_INVALID_PARAMETER; mismatch STATUS_REVISION_MISMATCH (0xC0000059); strict comparison of an equal field falls through to the remaining fields and succeeds when none are requested (observed Windows quirk); suite mask accepts only VER_AND/VER_OR (other conditions STATUS_INVALID_PARAMETER) | decomp, observed. Values derived from RtlGetVersion so the test holds on any build |
+| RtlSwitchedVVI (0x3cc80) | same comparison logic, but the reference version comes from SwitchedRtlGetVersion: for a process without a compatibility manifest this is the shimmed version (observed 6.2.9200, identical to GetVersionExW), not the true 10.0.19041; the test therefore derives its baseline from GetVersionExW | decomp, observed |
+| RtlWalkFrameChain (0x51670) (skip-count result only bounds-checked: observed 7 frames with and without one skipped, so no relationship is asserted) | (PVOID *callers, count, flags): flags & 0xffff00ff must be 0 (bits 8-15 = frames to skip); count -1 or 0 returns 0; returns the number of frames stored; nothing written past it | decomp, observed |
+| RtlUpdateTimer (0x81ae0) | NULL queue STATUS_INVALID_PARAMETER_1 (0xC00000EF), NULL timer STATUS_INVALID_PARAMETER_2 (0xC00000F0); re-arms the timer with a new due time/period in ms; applies to a still-pending or periodic timer (updating an already-fired one-shot has no effect, observed, not asserted) | decomp, observed |
+
+## Skips
+- Suite-mask checks adapt to the guest's suite bits (no bit missing or none set skips only those sub-checks).
