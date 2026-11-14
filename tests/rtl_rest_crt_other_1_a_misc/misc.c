@@ -117,7 +117,7 @@ TEST(canonicalize_domain_name) {
     canon(L"[::1]", 0, L"::1", __LINE__);
     /* an empty name is rejected */
     { UNICODE_STRING i, o; memset(&o, 0, sizeof o); us(&i, L"");
-      NTSTATUS s = UN(RtlCanonicalizeDomainName)(&o, &i, FALSE); EXPECT_NE(s, 0); EXPECT_EQ(s < 0, 1); }
+      NTSTATUS s = UN(RtlCanonicalizeDomainName)(&o, &i, FALSE); t_note("empty domain name: 0x%lx", (unsigned long)s); EXPECT_EQ(s, S(0xC0000716)); }
 }
 TEST(culture_name_to_lcid) {
     REQUIRE(UN(RtlCultureNameToLCID));
@@ -261,7 +261,6 @@ TEST(capture_context2) {
     /* a requested XSTATE flag without support is stripped; flag bits other than the xstate bit are rebuilt */
     memset(&c, 0, sizeof c); c.ContextFlags = 0x100001; f(&c);
     EXPECT_EQ((c.ContextFlags & 0x10000F), 0x10000F);
-    EXPECT_EQ(c.Rcx != 0 || c.Rcx == 0, 1);
 }
 
 /* -------------------------------------------------------- memory streams */

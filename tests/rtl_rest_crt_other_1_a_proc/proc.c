@@ -90,15 +90,15 @@ TEST(cancel_timer) {
     EXPECT_EQ(UN(RtlCreateTimer)(q, &t1, tcb, NULL, 20, 0, 0), 0);
     EXPECT_EQ(WaitForSingleObject(tev, 10000), WAIT_OBJECT_0);
     EXPECT_EQ(tcount, 1);
-    NTSTATUS s = UN(RtlCancelTimer)(q, t1); CHECKF(s >= 0, "cancel after fire status 0x%lx", (unsigned long)s);
+    NTSTATUS s = UN(RtlCancelTimer)(q, t1); t_note("cancel after fire: 0x%lx", (unsigned long)s); EXPECT_EQ(s, 0);
     /* a timer cancelled before it is due never fires */
     EXPECT_EQ(UN(RtlCreateTimer)(q, &t2, tcb, NULL, 600000, 0, 0), 0);
-    s = UN(RtlCancelTimer)(q, t2); CHECKF(s >= 0, "cancel pending status 0x%lx", (unsigned long)s);
+    s = UN(RtlCancelTimer)(q, t2); t_note("cancel pending: 0x%lx", (unsigned long)s); EXPECT_EQ(s, 0);
     /* a periodic timer stops ticking once cancelled */
     HANDLE t3 = NULL; tcount = 0;
     EXPECT_EQ(UN(RtlCreateTimer)(q, &t3, tcb, NULL, 10, 10, 0), 0);
     EXPECT_EQ(WaitForSingleObject(tev, 10000), WAIT_OBJECT_0);
-    s = UN(RtlCancelTimer)(q, t3); CHECKF(s >= 0, "cancel periodic status 0x%lx", (unsigned long)s);
+    s = UN(RtlCancelTimer)(q, t3); t_note("cancel periodic: 0x%lx", (unsigned long)s); /* STATUS_PENDING while a callback is mid-flight */ CHECKF(s == 0 || s == S(0x103), "cancel periodic status 0x%lx", (unsigned long)s);
     Sleep(100); LONG c0 = tcount; Sleep(150); EXPECT_EQ(tcount, c0);
     EXPECT_EQ(UN(RtlDeleteTimerQueueEx)(q, INVALID_HANDLE_VALUE), 0);
     CloseHandle(tev); tev = NULL;
@@ -251,7 +251,7 @@ TEST(import_table_hash) {
     /* not an image file */
     HANDLE c = open_sys(L"drivers\\etc\\hosts");
     if (c != INVALID_HANDLE_VALUE) { NTSTATUS s = UN(RtlComputeImportTableHash)(c, h1, 1); EXPECT_EQ(s < 0, 1); t_note("non-image file: 0x%lx", (unsigned long)s); CloseHandle(c); }
-    NTSTATUS s = UN(RtlComputeImportTableHash)((HANDLE)(ULONG_PTR)0xFFFC, h1, 1); EXPECT_EQ(s < 0, 1); t_note("bad handle: 0x%lx", (unsigned long)s);
+    NTSTATUS s = UN(RtlComputeImportTableHash)((HANDLE)(ULONG_PTR)0xFFFC, h1, 1); EXPECT_EQ(s, S(0xC0000008)); t_note("bad handle: 0x%lx", (unsigned long)s);
     CloseHandle(a); CloseHandle(b);
 }
 
