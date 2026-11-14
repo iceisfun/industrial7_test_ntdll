@@ -1,0 +1,22 @@
+# RtlQuery* over caller supplied data: Windows 10 contracts
+
+Oracle: Windows 10 22H2 (ntdll 10.0.19041.2788); decompilation: http://docker1.dev.moonlightcompanies.com:8765/api/function/ntdll/<Name>/decomp.
+All assertions passed on the guest as administrator and as a standard user. "observed" means the value was
+established by running on Windows 10 and the decompilation is consistent with it.
+
+| Export (RVA) | Source | Checked |
+| --- | --- | --- |
+| RtlQueryEnvironmentVariable (0x157e0) | decomp + observed | custom block and the process block: case-insensitive match by given length, empty value, names starting with '=', STATUS_VARIABLE_NOT_FOUND (0xC0000100) with length 0, STATUS_BUFFER_TOO_SMALL (0xC0000023) with chars+1 and first char cleared, exact fit needs room for the NUL, NULL buffer length query |
+| RtlQueryAtomInAtomTable (0x4c270) | decomp + observed | string atom: ref count, pin count, name and length in bytes, add increments, pin; counts-only query; short buffers (0 or 1 bytes -> 0xC0000023 with the needed byte count; 3 chars -> success with the name truncated and NUL terminated, observed); integer atoms render as "#N" with ref 1 pin 1; unknown atom 0xC0000008; atom 0 and an invalid table 0xC000000D |
+| RtlQueryRegistryValues (0xee7d0) / RtlQueryRegistryValuesEx (0x85020) | decomp (shared worker) + observed | on a throwaway HKCU key: callback delivery for REG_SZ (length includes NUL), REG_DWORD, REG_BINARY, REG_EXPAND_SZ (expanded and typed REG_SZ unless NOEXPAND), REG_MULTI_SZ (one call per string; NOEXPAND gives a single REG_MULTI_SZ call, length 32 observed), enumeration with a NULL name, default values, REQUIRED -> 0xC0000034, SUBKEY/TOPKEY/NOVALUE, DELETE, callback status propagation, empty table, RTL_REGISTRY_HANDLE and RTL_REGISTRY_USER forms; unknown relative-to 0xC000000D, missing key 0xC0000034, bad handle 0xC0000008; a non-DIRECT entry without a routine is skipped (status 0, observed). DIRECT string into a UNICODE_STRING (non-Ex entry only). DIRECT numeric values and DIRECT use through the Ex entry are intentionally not exercised: on the reference system they terminated the process (stack cookie failure) with the layouts tried, so no stable contract was established |
+| RtlQueryRegistryValueWithFallback (0xee680) | decomp | primary hit, fallback use after STATUS_OBJECT_NAME_NOT_FOUND, either handle optional, both NULL 0xC000000D, miss in both 0xC0000034, optional type, small buffer -> STATUS_BUFFER_OVERFLOW (0x80000005) with the full length and type, length near 0xFFFFFFFF -> 0xC0000095, bad handle 0xC0000008 |
+| RtlQuerySecurityObject (0xd70c0) | decomp + observed | self-relative SD built from SDDL: owner/group/DACL/SACL selections produce a self-relative descriptor (flag 0x8000, revision 1) with the right offsets and lengths (0x14 header, DACL rounded to 4), information 0 -> bare header, small or NULL buffer -> 0xC0000023 with length needed, exact fit; absolute SD with NULL DACL keeps DACL_PRESENT and zero offset |
+| RtlQueryUmsThreadInformation (0xf7500) | decomp | operates on a caller supplied context block: classes 1 and 4 (8 bytes), 5 and 6 (1 byte) read the documented offsets; wrong sizes -> 0xC0000004 with return length 0; other classes -> 0xC00000BB |
+| RtlQueryProtectedPolicy (0x819d0) | decomp + observed | unknown GUID -> 0xC0000225, output untouched |
+| RtlQueryResourcePolicy (0x44740) | decomp | NULL buffer, non-zero flags, wrong size -> 0xC000000D; unknown type -> 0xC0000003; values for types 0..3 are machine specific (logged only) |
+| RtlQueryImageMitigationPolicy (0xe1af0) | decomp + observed | machine-wide query with a name -> 0xC000000D; wrong buffer size -> 0xC000000D; image without a policy key fails (0xC0000034 observed); machine-wide policy 10 returns three QWORD states each <= 7 |
+| RtlQueryHeapInformation (0x73fa0) | decomp + observed | class 0 on a fresh heap = 0, short buffer -> 0xC0000023 with length 4, process heap 0 or 2 (LFH), class 0x80000001 returns an 8-byte pointer (short buffer reports 8), unsupported classes 1 and 3 -> 0xC000000D |
+| RtlQueryTagHeap (0xf29e0) | decomp | returns NULL unless FLG_HEAP_ENABLE_TAGGING is set in the PEB (test skipped if it is) |
+| RtlQueryModuleInformation (0xe3de0) | decomp + observed | system module list: 8-byte and 0x110-byte element forms, size query, first module is ntoskrnl.exe in the upper address half, misaligned buffer -> 0xC00000F1, bad element size -> 0xC00000F0 |
+
+Skips: SDDL / registry set-up unavailable on a restricted system (concrete reason printed).
