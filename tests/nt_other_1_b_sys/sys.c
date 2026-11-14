@@ -151,7 +151,7 @@ TEST(is_process_in_job)
     CHECK(job != NULL); if (!job) return;
     PROCESS_INFORMATION pi;
     memset(&pi, 0, sizeof pi);
-    HANDLE ph = t_spawn_child("sleeper", "", CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, NULL, FALSE, NULL, &pi);
+    HANDLE ph = t_spawn_child("sleeper", "", CREATE_SUSPENDED, NULL, NULL, NULL, FALSE, NULL, &pi);
     if (!ph && !pi.hProcess) { CloseHandle(job); t_skip("cannot spawn child"); return; }
     HANDLE child = pi.hProcess;
     EXPECT_EQ(UN(NtIsProcessInJob)(child, job), XS(0x123)); /* STATUS_PROCESS_NOT_IN_JOB */
