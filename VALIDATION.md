@@ -17,3 +17,9 @@ Before the fixes, one test failed in each mode or both:
 - `nt_thread_critical_flag_clear`: failed as a standard user with `STATUS_PRIVILEGE_NOT_HELD` (0xC0000061). It now skips on exactly that status; the full check still runs when elevated, where it passed.
 
 Limits: only build 19045 was available as a baseline; other Windows 10 builds and locales are UNVERIFIED. One run per mode was done after the fixes.
+
+## nt_cancel_io (added after the run above)
+
+VERIFIED (reported by the oracle lane, bb #1228): the `nt_cancel_io` area was run on Windows 10 22H2 (local oracle VM), standard user x2 and administrator x2, at commit a6fc062 (15 tests: 15 passed, 94 checks, 0 failed, 0 skipped) and at commit 0cc9da9 (16 tests: 16 passed, 113 checks, 0 failed, 0 skipped). The four outputs per commit were byte-identical. No expectation was changed. Recorded notes: native `NtCancelIoFileEx` return 0x00000000 with `IoStatusBlock.Status` 0x00000000; the cancelled request's completion-port packet arrives as a failed-I/O packet for that request only (`iosb.Status` 0xC0000120, 0 bytes).
+
+NOT part of this record: the full corpus was not re-run, and the area has not been run on other Windows 10 builds or locales (UNVERIFIED).
