@@ -12,6 +12,9 @@
 #define ST_PARTIAL    ((NTSTATUS)0x8000000D)
 #define NT_CUR_PROC   ((HANDLE)(LONG_PTR)-1)
 
+UDECL(NTSTATUS, NtClose, (HANDLE));
+UDECL(NTSTATUS, NtOpenProcessToken, (HANDLE, ACCESS_MASK, PHANDLE));
+UDECL(NTSTATUS, NtQueryInformationToken, (HANDLE, ULONG, PVOID, ULONG, PULONG));
 UDECL(NTSTATUS, PssNtCaptureSnapshot, (PVOID *, HANDLE, ULONG, ULONG));
 UDECL(NTSTATUS, PssNtQuerySnapshot, (PVOID, int, PVOID, ULONG));
 UDECL(NTSTATUS, PssNtWalkSnapshot, (PVOID, int, PVOID, PVOID, ULONG));
@@ -64,6 +67,14 @@ static int walk_all(PVOID s, int cls, ULONG entsz, BYTE *first_two /* 2*entsz or
     return n;
 }
 
+static BOOL token_elevated(void)
+{
+    HANDLE t = NULL; ULONG el = 0, rl = 0; BOOL r = FALSE;
+    if (UN(NtOpenProcessToken)(GetCurrentProcess(), TOKEN_QUERY, &t) != 0) return FALSE;
+    if (UN(NtQueryInformationToken)(t, 20 /*TokenElevation*/, &el, sizeof el, &rl) == 0) r = el != 0;
+    UN(NtClose)(t);
+    return r;
+}
 static int q(PVOID s, int cls, PVOID out, ULONG sz) { return UN(PssNtQuerySnapshot)(s, cls, out, sz); }
 
 TEST(capture_errors)
@@ -123,7 +134,10 @@ TEST(process_information)
     EXPECT_EQ(q(s, C_HANDLES, big, 4), ST_NOT_FOUND);
     EXPECT_EQ(q(s, C_THREADS, big, 8), ST_NOT_FOUND);
     EXPECT_EQ(q(s, C_TRACE, big, 0x10), ST_NOT_FOUND);
-    EXPECT_EQ(q(s, 9, big, 0x28), ST_NOT_FOUND);
+    /* class 9 data is present only when the descriptor carries internal flag 8, which Windows sets by itself for a
+       non-elevated (filtered) token and not for an elevated one; the decompilation returns NOT_FOUND without it */
+    if (token_elevated()) EXPECT_EQ(q(s, 9, big, 0x28), ST_NOT_FOUND);
+    else                  EXPECT_EQ(q(s, 9, big, 0x28), 0);
     for (int c = C_VACLONE; c <= C_TRACE; c++) {
         ULONG szs[] = { 0, 8, 4, 4, 4, 8, 0x10 };
         CHECKF(q(s, c, big, szs[c] + 1) == ST_LEN_MISM, "class %d oversize", c);

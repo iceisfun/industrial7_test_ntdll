@@ -49,6 +49,14 @@ static BOOL priv_off(ULONG luid)
     UN(NtClose)(t);
     return off;
 }
+static BOOL token_elevated(void)
+{
+    HANDLE t = NULL; ULONG el = 0, rl = 0; BOOL r = FALSE;
+    if (UN(NtOpenProcessToken)(GetCurrentProcess(), TOKEN_QUERY, &t) != 0) return FALSE;
+    if (UN(NtQueryInformationToken)(t, 20 /*TokenElevation*/, &el, sizeof el, &rl) == 0) r = el != 0;
+    UN(NtClose)(t);
+    return r;
+}
 #define SE_TCB 7
 #define SE_SYSTEMTIME 12
 #define SE_PROFILE_SINGLE 13
@@ -152,7 +160,9 @@ TEST(set_debug_filter_state)
     REQUIRE(UN(NtSetDebugFilterState)); REQUIRE(UN(NtQueryDebugFilterState));
     CHECK(t_proc("NtSetDebugFilterState") == t_proc("ZwSetDebugFilterState"));
     if (priv_off(SE_DEBUG)) {
-        EXPECT_EQ(UN(NtSetDebugFilterState)(0, 3, FALSE), ST_PRIV);
+        /* elevated: the privilege check runs and reports STATUS_PRIVILEGE_NOT_HELD; filtered/non-elevated
+           (standard user): STATUS_ACCESS_DENIED, observed on Windows 10 22H2 */
+        EXPECT_EQ(UN(NtSetDebugFilterState)(0, 3, FALSE), token_elevated() ? ST_PRIV : S(0xC0000022));
         return;
     }
     /* privilege enabled: re-assert the current state so nothing observable changes */

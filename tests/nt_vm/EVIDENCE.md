@@ -130,3 +130,5 @@ length test (same Wine 0xc0000002), and invalid-protection OldProtection sentine
 (Wine 1 instead of untouched 0xa5a5a5a5). Every retained assertion has the Windows
 branch evidence above. No native run was performed; valid allocation/page-fault
 semantics and internal section construction remain non-exhaustive as stated above.
+
+Standard-user run: a 300 s timeout seen in a full-corpus run executing concurrently with an admin guest was host contention, not a hang; nt_vm alone as std completes twice with 74 tests / 712 checks passing.
