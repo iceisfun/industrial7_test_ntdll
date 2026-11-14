@@ -145,7 +145,7 @@ TEST(set_driver_entry_order_privilege)
     NTSTATUS a = UN(NtSetDriverEntryOrder)(ids, 2), b = UN(NtSetDriverEntryOrder)(NULL, 0);
     t_note("NtSetDriverEntryOrder: %08lx %08lx", (unsigned long)a, (unsigned long)b);
     CHECK(a == ST_NOT_IMPL || a == ST_PRIV);                  /* NOT_IMPLEMENTED without firmware boot-entry support */
-    CHECK(b == ST_NOT_IMPL || b == ST_PRIV || b == ST_INV_PARAM);
+    CHECK(b == ST_NOT_IMPL || b == ST_PRIV);
 }
 TEST(set_debug_filter_state)
 {

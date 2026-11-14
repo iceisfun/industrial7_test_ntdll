@@ -107,7 +107,6 @@ TEST(set_info_file_eof_alloc)
     EXPECT_EQ(UN(NtSetInformationFile)(h, &io, &v, sizeof v, FEndOfFile), ST_INV_PARAM);
     CloseHandle(h);
     /* write access is required */
-    h = CreateFileA(NULL, 0, 0, NULL, 0, 0, NULL);
     char p[MAX_PATH]; mkpath(p, sizeof p, "eof.tmp");
     h = CreateFileA(p, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     if (h != INVALID_HANDLE_VALUE) {
