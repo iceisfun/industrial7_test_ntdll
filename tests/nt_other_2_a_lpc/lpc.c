@@ -126,7 +126,9 @@ static DWORD WINAPI server_main(LPVOID p)
     s->st_complete = UN(NtCompleteConnectPort)(s->conn);
     int round = 0;
     for (;;) {
-        st = UN(NtReplyWaitReceivePortEx)(s->port, &ctx, have_reply ? &out : NULL, &in, &to);
+        /* the first loop iteration uses the timed variant, later ones the plain one (the client closes the port at the end) */
+        if (round == 0) st = UN(NtReplyWaitReceivePortEx)(s->port, &ctx, have_reply ? &out : NULL, &in, &to);
+        else st = UN(NtReplyWaitReceivePort)(s->port, &ctx, have_reply ? &out : NULL, &in);
         have_reply = 0;
         if (st) break;
         if (in.h.Type == LPC_REQUEST) {

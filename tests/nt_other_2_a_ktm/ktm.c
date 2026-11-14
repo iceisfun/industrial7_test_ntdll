@@ -70,7 +70,7 @@ TEST(ktm_rename_manager_errors)
     GUID g = { 1, 2, 3, { 4, 5, 6, 7, 8, 9, 10, 11 } };
     NTSTATUS st = UN(NtRenameTransactionManager)(&nm, &g);
     t_note("NtRenameTransactionManager(missing log) -> 0x%lx", (unsigned long)st);
-    CHECK(st < 0);
+    EXPECT_ST(st, S(0xC000003A));   /* STATUS_OBJECT_PATH_NOT_FOUND: log directory does not exist */
     CHECK(t_proc("NtRenameTransactionManager") == t_proc("ZwRenameTransactionManager"));
 }
 
@@ -115,6 +115,8 @@ TEST(ktm_logged_manager_chain)
     GUID uow = { 0x5a5a5a5a, 0x1234, 0x5678, { 9, 9, 9, 9, 1, 2, 3, 4 } };
     st = UN(NtCreateTransaction)(&tx, 0x1F003F, NULL, &uow, tm, 0, 0, 0, NULL, NULL);
     t_note("NtCreateTransaction(tm, uow) -> 0x%lx", (unsigned long)st);
+    /* observed: binding a transaction to this manager is refused (0xC000000D); the enlistment calls below only run
+     * when that works, otherwise the invalid-handle test is their coverage */
     if (tx && rm) {
         st = UN(NtCreateEnlistment)(&en, 0x1F003F, rm, tx, NULL, 0, 0x3FFFFFFF, NULL);
         t_note("NtCreateEnlistment -> 0x%lx", (unsigned long)st);

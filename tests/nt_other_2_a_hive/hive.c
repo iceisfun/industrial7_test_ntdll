@@ -270,7 +270,7 @@ TEST(replace_key_rejects_non_hive)
     if (enable_priv(SE_RESTORE) == 0) {
         st = UN(NtReplaceKey)(&oa, k, &ba);
         t_note("NtReplaceKey(non-hive key, missing file) -> 0x%lx", (unsigned long)st);
-        CHECK(st < 0);
+        EXPECT_ST(st, ST_NAME_NOT_FOUND);   /* the replacement file is looked up first */
         EXPECT_ST(UN(NtReplaceKey)(&oa, BOGUS, &ba), ST_INV_HANDLE);
     }
     UN(RtlFreeUnicodeString)(&nt);

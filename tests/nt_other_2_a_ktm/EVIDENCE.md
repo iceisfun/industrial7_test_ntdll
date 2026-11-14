@@ -11,7 +11,7 @@ KTM semantics (volatile manager, CLFS-logged manager in the scratch directory).
 | Standalone transaction | NtRollbackTransaction 0, repeated rollback 0 |
 | Registry transaction | flags != 0 `STATUS_INVALID_PARAMETER`; rollback 0; second rollback 0xC0190015 |
 | NtThawTransactions / NtThawRegistry | privilege disabled `STATUS_PRIVILEGE_NOT_HELD`; with SeBackup+SeRestore and nothing frozen: 0xC0190045 (`STATUS_TRANSACTIONS_NOT_FROZEN`) and 0xC0000189 |
-| NtRenameTransactionManager | log in a missing directory fails (observed 0xC000003A); only failure asserted |
+| NtRenameTransactionManager | log in a missing directory fails (observed 0xC000003A); `STATUS_OBJECT_PATH_NOT_FOUND` (0xC000003A) asserted |
 
 Enlistment-level success paths (NtRollbackEnlistment, NtRollbackComplete, NtSinglePhaseReject with a real
 enlistment) are not reached: creating a transaction under a manager returned `STATUS_INVALID_PARAMETER` with
