@@ -20,6 +20,7 @@ UDECL(NTSTATUS, NtQueryWnfStateNameInformation, (PVOID, ULONG, PVOID, PVOID, ULO
 UDECL(NTSTATUS, NtCreateWnfStateName, (PVOID, ULONG, ULONG, BOOLEAN, PVOID, ULONG, PVOID));
 UDECL(NTSTATUS, NtUpdateWnfStateData, (PVOID, PVOID, ULONG, PVOID, PVOID, ULONG, ULONG));
 UDECL(NTSTATUS, NtDeleteWnfStateName, (PVOID));
+UDECL(NTSTATUS, NtQuerySecurityPolicy, (PUNICODE_STRING, PUNICODE_STRING, PUNICODE_STRING, PULONG, PVOID, PULONG));
 UDECL(NTSTATUS, NtQueryInformationPort, (HANDLE, ULONG, PVOID, ULONG, PULONG));
 UDECL(NTSTATUS, NtQueryPortInformationProcess, (void));
 UDECL(NTSTATUS, RtlAdjustPrivilege, (ULONG, BOOLEAN, BOOLEAN, PBOOLEAN));
@@ -47,7 +48,7 @@ TEST(alias_pairs)
 {
     static const char *n[] = { "NtQuerySystemTime", "NtQueryPerformanceCounter", "NtQueryTimerResolution", "NtQueryIntervalProfile",
         "NtQueryInstallUILanguage", "NtQueryLicenseValue", "NtQuerySystemEnvironmentValue", "NtQuerySystemEnvironmentValueEx",
-        "NtQueryDriverEntryOrder", "NtQueryWnfStateData", "NtQueryWnfStateNameInformation", "NtQueryInformationPort", "NtQueryPortInformationProcess" };
+        "NtQueryDriverEntryOrder", "NtQuerySecurityPolicy", "NtQueryWnfStateData", "NtQueryWnfStateNameInformation", "NtQueryInformationPort", "NtQueryPortInformationProcess" };
     for (unsigned i = 0; i < sizeof n / sizeof *n; i++) alias(n[i]);
 }
 
@@ -269,4 +270,18 @@ TEST(port_queries)
     EXPECT_EQ(UN(NtQueryInformationPort)((HANDLE)(ULONG_PTR)0x7ffc, 0, buf, sizeof buf, &ret), ST_INV_HANDLE);
     { ULONG c; for (c = 1; c <= 4; c++) EXPECT_EQ(UN(NtQueryInformationPort)(NULL, c, buf, sizeof buf, &ret), S(0xC0000003)); }
     EXPECT_EQ(UN(NtQueryInformationPort)(CUR_PROC, 0, buf, sizeof buf, &ret), ST_TYPE_MISM);
+}
+
+TEST(security_policy)
+{
+    UNICODE_STRING owner, sub, val; static WCHAR o[] = L"QibNoSuchOwner", k[] = L"SubKey", v[] = L"Value"; ULONG type = 0xdead, size = 64; BYTE buf[64]; NTSTATUS st;
+    REQUIRE(UN(NtQuerySecurityPolicy));
+    owner.Buffer = o; owner.Length = sizeof o - 2; owner.MaximumLength = sizeof o;
+    sub.Buffer = k; sub.Length = sizeof k - 2; sub.MaximumLength = sizeof k;
+    val.Buffer = v; val.Length = sizeof v - 2; val.MaximumLength = sizeof v;
+    st = UN(NtQuerySecurityPolicy)(&owner, &sub, &val, &type, buf, &size);
+    EXPECT_EQ(st, S(0xC0000225));          /* STATUS_NOT_FOUND */
+    EXPECT_EQ(type, 0xdead);
+    st = UN(NtQuerySecurityPolicy)(&owner, &sub, &val, &type, NULL, &size);
+    EXPECT_EQ(st, S(0xC0000225));
 }
