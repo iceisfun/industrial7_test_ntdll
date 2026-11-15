@@ -54,7 +54,7 @@ UDECL(BOOLEAN, RtlTryAcquireSRWLockShared, (PRTL_SRWLOCK));
 UDECL(BOOLEAN, RtlTryAcquireSRWLockExclusive, (PRTL_SRWLOCK));
 UDECL(NTSTATUS, RtlCopyMemoryStreamTo, (PVOID, PVOID, ULONGLONG, PULONGLONG, PULONGLONG));
 UDECL(NTSTATUS, RtlCopyOutOfProcessMemoryStreamTo, (PVOID, PVOID, ULONGLONG, PULONGLONG, PULONGLONG));
-UDECL(NTSTATUS, RtlFreeNonVolatileToken, (ULONG));
+UDECL(NTSTATUS, RtlFreeNonVolatileToken, (PVOID));
 UDECL(VOID, RtlInitializeResource, (PVOID));
 UDECL(VOID, RtlDeleteResource, (PVOID));
 UDECL(BOOLEAN, RtlAcquireResourceExclusive, (PVOID, BOOLEAN));

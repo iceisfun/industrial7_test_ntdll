@@ -410,6 +410,78 @@ UDECL(NTSTATUS, RtlFillNonVolatileMemory, (PVOID, PVOID, SIZE_T, UCHAR, ULONG));
 UDECL(NTSTATUS, RtlFlushNonVolatileMemory, (PVOID, PVOID, SIZE_T, ULONG));
 UDECL(NTSTATUS, RtlFlushNonVolatileMemoryRanges, (PVOID, PVOID, SIZE_T, ULONG));
 UDECL(NTSTATUS, RtlDrainNonVolatileFlush, (PVOID));
+UDECL(NTSTATUS, RtlWriteNonVolatileMemory, (PVOID, PVOID, const VOID *, SIZE_T, ULONG));
+UDECL(NTSTATUS, RtlGetNonVolatileToken, (PVOID, SIZE_T, PVOID *));
+TEST(non_volatile_get_token_failure) {
+    static const SIZE_T lengths[] = { 0, 1, 4096, ~(SIZE_T)0 };
+    UCHAR *p;
+    size_t i;
+    REQUIRE(UN(RtlGetNonVolatileToken));
+    p = VirtualAlloc(NULL, 4096, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (!p) { t_skip("no scratch memory"); return; }
+    for (i = 0; i < sizeof lengths / sizeof lengths[0]; i++) {
+        PVOID token = (PVOID)(ULONG_PTR)0xdeadbeef;
+        EXPECT_EQ(UN(RtlGetNonVolatileToken)(p, lengths[i], &token), ST_INVPARAM);
+        EXPECT_EQ(token, (PVOID)(ULONG_PTR)0xdeadbeef);
+        /* Failed queries must not access even an invalid output pointer. */
+        EXPECT_EQ(UN(RtlGetNonVolatileToken)(p, lengths[i], NULL), ST_INVPARAM);
+    }
+    VirtualFree(p, 0, MEM_RELEASE);
+}
+
+TEST(non_volatile_write_fill_boundaries) {
+    static const SIZE_T lengths[] = { 0, 1, 7, 8, 9, 63, 64, 65, 255 };
+    static const ULONG flags[] = { 0, 1, 2, 3, 0x100, 0x101, 0x102, 0x103, 0x80000000 };
+    static const ULONG_PTR tokens[] = { 1, 3, 5, 7, 0x100000001ULL, 0x100000003ULL };
+    UCHAR src[320], dst[320], want[320], saved[320];
+    size_t t, f, l, off, k;
+    REQUIRE(UN(RtlWriteNonVolatileMemory)); REQUIRE(UN(RtlFillNonVolatileMemory));
+    REQUIRE(UN(RtlDrainNonVolatileFlush));
+    for (k = 0; k < sizeof src; k++) src[k] = (UCHAR)(k * 37 + 11);
+    memcpy(saved, src, sizeof src);
+    for (t = 0; t < sizeof tokens / sizeof tokens[0]; t++)
+    for (f = 0; f < sizeof flags / sizeof flags[0]; f++)
+    for (l = 0; l < sizeof lengths / sizeof lengths[0]; l++)
+    for (off = 0; off < 2; off++) {
+        SIZE_T n = lengths[l], start = 16 + off;
+        PVOID token = (PVOID)tokens[t];
+        EXPECT_EQ(UN(RtlDrainNonVolatileFlush)(token), 0);
+        memset(dst, 0xee, sizeof dst); memset(want, 0xee, sizeof want);
+        memcpy(want + start, src + 3, n);
+        EXPECT_EQ(UN(RtlWriteNonVolatileMemory)(token, dst + start, src + 3, n, flags[f]), 0);
+        CHECKF(!memcmp(dst, want, sizeof dst), "write token %p flags %lx length %zu offset %zu", token, flags[f], n, off);
+        CHECK(!memcmp(src, saved, sizeof src));
+        memset(dst, 0xee, sizeof dst); memset(want, 0xee, sizeof want);
+        memset(want + start, 0xa7, n);
+        EXPECT_EQ(UN(RtlFillNonVolatileMemory)(token, dst + start, n, 0xa7, flags[f]), 0);
+        CHECKF(!memcmp(dst, want, sizeof dst), "fill token %p flags %lx length %zu offset %zu", token, flags[f], n, off);
+    }
+}
+
+CHILD(non_volatile_no_access) {
+    ULONG_PTR t;
+    /* The parent requires these exports before launching this child. */
+    for (t = 0; t <= 4; t += 2) {
+        PVOID token = (PVOID)t;
+        if (UN(RtlWriteNonVolatileMemory)(token, NULL, NULL, 4096, 1) != ST_INVPARAM ||
+            UN(RtlFillNonVolatileMemory)(token, NULL, 4096, 0xff, 1) != ST_INVPARAM ||
+            UN(RtlFlushNonVolatileMemory)(token, NULL, 4096, 0) != ST_INVPARAM ||
+            UN(RtlFlushNonVolatileMemoryRanges)(token, NULL, 1, 0) != ST_INVPARAM ||
+            UN(RtlDrainNonVolatileFlush)(token) != ST_INVPARAM) return 1;
+    }
+    /* Bit 1 clear bypasses all range and address accesses, even at nonzero size. */
+    if (UN(RtlFlushNonVolatileMemory)((PVOID)5, NULL, 4096, 0) != 0 ||
+        UN(RtlFlushNonVolatileMemoryRanges)((PVOID)5, NULL, 1, 0) != 0 ||
+        UN(RtlFlushNonVolatileMemoryRanges)((PVOID)3, NULL, 0, 0) != 0) return 2;
+    return 0;
+}
+
+TEST(non_volatile_reject_before_access) {
+    REQUIRE(UN(RtlWriteNonVolatileMemory)); REQUIRE(UN(RtlFillNonVolatileMemory));
+    REQUIRE(UN(RtlFlushNonVolatileMemory)); REQUIRE(UN(RtlFlushNonVolatileMemoryRanges));
+    REQUIRE(UN(RtlDrainNonVolatileFlush));
+    EXPECT_EQ(t_run_child("non_volatile_no_access", NULL, 10000), 0);
+}
 TEST(rtl_rest_b_fill_memory_non_temporal) {
     REQUIRE(UN(RtlFillMemoryNonTemporal));
     static const SIZE_T lens[] = { 0, 1, 2, 3, 7, 8, 9, 15, 16, 17, 31, 32, 33, 63, 64, 78, 79, 80, 81, 127, 128, 129, 255, 256, 1000, 4096 + 13 };
